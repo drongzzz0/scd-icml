@@ -1,137 +1,137 @@
 # scd-new
 
-Final curated workspace for the `scd-new` Semantic Cache Distillation validation project.
+`scd-new` 语义缓存蒸馏（Semantic Cache Distillation, SCD）验证项目的最终整理工作区。
 
-## TL;DR
+## 一眼看懂
 
-- Canonical code: `Experiment/core_code/runtime_repo/`
-- Canonical method family:
+- 主代码目录：`Experiment/core_code/runtime_repo/`
+- 当前认可的主方法族：
   - `baseline`
-  - repaired `reuse-only`
-  - strict `patch-only`
-  - strict `hybrid` only when separately validated
-- Current strongest accepted story: the strict Mistral-family line
-- Not fully closed: the original Qwen3.5 similar-pair claim line
+  - 修复后的 `reuse-only`
+  - 严格版 `patch-only`
+  - 仅在单独完成严格验证后才计入主线的严格版 `hybrid`
+- 当前最强、最稳定的主结论：严格口径下的 Mistral 系列结果
+- 仍未闭环的问题：最初的 Qwen3.5 相似模型对主假设
 
-This repository is a consolidated research workspace, not a minimal paper-only artifact. It keeps the final code line plus a large amount of analysis history for auditability.
+这个仓库不是一个极简的论文附录仓，而是一个已经收口过的研究工作区：里面保留了定稿代码线，也保留了大量为审计和追溯服务的分析历史。
 
-## Current Status
+## 当前状态
 
-What is final:
+已经定稿的部分：
 
-- strict runtime semantics
-- strict TTFT accounting
-- the canonical Mistral result line
-- the maintained code snapshot under `Experiment/core_code/runtime_repo/`
+- 严格版运行时语义
+- 严格版 TTFT 计时口径
+- Mistral 主结果线
+- `Experiment/core_code/runtime_repo/` 下的维护中代码快照
 
-What is not final:
+还没有真正定稿的部分：
 
-- a completed positive reproduction of the original Qwen3.5 headline claim
+- Qwen3.5 相似模型对是否正向复现原始 headline claim
 
-Reason:
+原因：
 
-- the intended Qwen3.5 close-pair line is still blocked by hybrid-cache incompatibility with the current SCD runtime assumptions
+- 目标中的 Qwen3.5 close-pair 仍然受到 hybrid cache 架构与当前 SCD 运行时假设不兼容的阻塞
 
-See:
+可参考：
 
 - `Experiment/analysis/qwen35_hybrid_cache_blocker.md`
 - `.pipeline/docs/research_brief.json`
 
-## Canonical Result Line
+## Canonical 结果线
 
-The project-wide route lock is:
+项目级的 route lock 文档是：
 
 - `Experiment/analysis/transfer_route_lock_20260405.md`
 
-The reverse-pair strict lock is:
+反向模型对的严格锁定文档是：
 
 - `Experiment/analysis/mistral7_to_mistrallite_final_route_lock_20260409.md`
 
-Anything fallback-heavy, recompute-heavy, grouped/shared-z, or otherwise deprecated by those lock notes should be treated as archived history, not as the default final method line.
+凡是被这两份 lock 文档判定为 fallback-heavy、recompute-heavy、grouped/shared-z，或者已经明确弃用的旧路线，都应当视为历史归档材料，而不是当前默认主线。
 
-## Main Accepted Results
+## 当前接受的主要结果
 
 ### MistralLite -> Mistral-7B
 
-Full-dev strict no-fallback comparison on `CMRC2018 dev = 3219`:
+`CMRC2018 dev = 3219` 上的 full-dev 严格无 fallback 对比：
 
-| method | F1 | EM | TTFT ms |
+| 方法 | F1 | EM | TTFT ms |
 | --- | ---: | ---: | ---: |
 | `baseline` | 0.6911 | 0.4427 | 133.39 |
 | `reuse-only` | 0.0109 | 0.0000 | 38.49 |
 | `patch-only` | 0.7898 | 0.5769 | 67.37 |
 
-Reading:
+解读：
 
-- `reuse-only` is fast but effectively broken
-- `patch-only` is the only healthy default transfer route
-- on this direction, `patch-only` improves both quality and TTFT versus `baseline`
+- `reuse-only` 很快，但质量基本不可用
+- `patch-only` 是当前唯一健康的默认跨模型迁移路线
+- 在这个方向上，`patch-only` 同时提升了质量和 TTFT
 
-Canonical note:
+规范参考：
 
 - `Experiment/analysis/mistrallite_to_mistral7_fulldev_locked_routes_20260405.md`
 
-### MistralLite -> Mistral-7B Strict Hybrid
+### MistralLite -> Mistral-7B 严格版 Hybrid
 
-Accepted strict-stop multi-layer point:
+当前接受的 strict-stop 多层混合路线点：
 
-| method | F1 | EM | TTFT ms |
+| 方法 | F1 | EM | TTFT ms |
 | --- | ---: | ---: | ---: |
 | `patch-only` | 0.6285 | 0.285 | 53.93 |
 | `hybrid` | 0.6072 | 0.250 | 46.18 |
 
-Reading:
+解读：
 
-- this is a valid quality-constrained latency trade-off
-- it is faster than `patch-only`
-- it is not a Pareto win over `patch-only`
+- 这是一个有效的“质量受约束下的延迟换取”结果点
+- 它比 `patch-only` 更快
+- 但它不是一个比 `patch-only` 全面更优的 Pareto 解
 
-Canonical note:
+规范参考：
 
 - `Experiment/analysis/mistrallite_to_mistral7_multilayer_strictstop_step15_20260407.md`
 
 ### Mistral-7B -> MistralLite
 
-Accepted reverse-pair strict reference:
+当前接受的反向模型对严格参考结果：
 
-| method | F1 | EM | TTFT ms |
+| 方法 | F1 | EM | TTFT ms |
 | --- | ---: | ---: | ---: |
 | `baseline` | 0.7829 | 0.6000 | 122.50 |
 | `reuse-only` | 0.0212 | 0.0000 | 33.60 |
 | `patch-only` | 0.7528 | 0.5000 | 75.94 |
 
-Reading:
+解读：
 
-- `reuse-only` remains unusable
-- `patch-only` preserves most baseline quality and materially reduces TTFT
-- this reverse direction should be cited only through the locked strict artifact
+- `reuse-only` 依然不可用
+- `patch-only` 保住了大部分 baseline 质量，同时明显降低了 TTFT
+- 这个反向方向的结果应当只通过锁定后的 strict artifact 来引用
 
-Canonical note:
+规范参考：
 
 - `Experiment/analysis/mistral7_to_mistrallite_final_route_lock_20260409.md`
 
-## Qwen Line
+## Qwen 这条线
 
-The Qwen line is not the finished positive result of this repository.
+Qwen 线不是这个仓库当前已经完成的正向成功故事。
 
-Current state:
+当前状态：
 
-- `Experiment/analysis/claim_gap_summary.csv` contains a smoke `fail`
-- the runnable Qwen3-1.7B near-pair line does not recover the original claim under the strict no-fallback reading
-- the intended Qwen3.5 close-pair line remains blocked by cache-architecture mismatch
+- `Experiment/analysis/claim_gap_summary.csv` 中目前可见的是一个 smoke 级别的 `fail`
+- 可运行的 Qwen3-1.7B near-pair 线路，在严格无 fallback 口径下没有恢复原始 claim
+- 真正目标中的 Qwen3.5 close-pair 线路仍然被 cache 架构不匹配卡住
 
-Use the Qwen material as:
+因此，Qwen 相关材料更适合被当成：
 
-- failure analysis
-- protocol development
-- claim-gap framing
-- motivation for the stricter Mistral story
+- 失败分析
+- 协议和评测口径演化过程
+- claim-gap 定义与度量框架
+- 为什么最终收口到更严格 Mistral 结果线的动机
 
-Do not present the Qwen line as a completed positive reproduction.
+不要把 Qwen 线表述成一个已经完成的正向复现。
 
-## Code Entry Points
+## 代码入口
 
-Start here for the maintained final code line:
+如果你要从当前维护中的最终代码线开始看，优先看这里：
 
 - `Experiment/core_code/runtime_repo/`
 - `Experiment/core_code/runtime_repo/README.md`
@@ -139,27 +139,27 @@ Start here for the maintained final code line:
 - `Experiment/core_code/runtime_repo/configs/`
 - `Experiment/core_code/runtime_repo/scripts/`
 
-Supporting scaffold:
+辅助脚手架在这里：
 
 - `Experiment/core_code/README.md`
 - `Experiment/core_code/scd_validation/`
 - `Experiment/core_code/configs/`
 - `docs/final-version-map.md`
 
-## What Is Archived
+## 哪些内容属于归档
 
-These should not be treated as canonical unless you are explicitly doing debugging or historical audit:
+除非你是在做调试或历史审计，否则以下内容不应当被视为 canonical：
 
 - `Experiment/core_code/legacy/`
 - `Experiment/core_code/runtime_repo/legacy/`
-- grouped/shared-z reuse results
-- fallback-dependent routes
+- grouped/shared-z reuse 结果
+- 依赖 fallback 的路线
 - `reuse_patch_recompute`
-- older patch families superseded by `xnorm_nativekv_shared_residual_mlp_v1`
+- 已被 `xnorm_nativekv_shared_residual_mlp_v1` 替代的旧 patch family
 
-## Reading Order
+## 推荐阅读顺序
 
-If you are returning to the project after time away:
+如果你隔了一段时间后重新回到这个项目，建议按这个顺序看：
 
 1. `docs/final-version-map.md`
 2. `Experiment/analysis/transfer_route_lock_20260405.md`
@@ -168,7 +168,7 @@ If you are returning to the project after time away:
 5. `Experiment/analysis/mistral7_to_mistrallite_final_route_lock_20260409.md`
 6. `Experiment/core_code/runtime_repo/README.md`
 
-## Notes
+## 说明
 
-- Many research notes still carry historical absolute paths from the original local workspace; treat them as provenance rather than current-path documentation.
-- During the April 17, 2026 audit, A800 did not contain a newer canonical runtime snapshot than the local `runtime_repo`, and `/nas/mql` was unavailable, so this repository should be treated as the primary final source.
+- 很多研究笔记里仍然保留了旧工作区的绝对路径；这些路径更适合被理解为历史来源信息，而不是当前有效路径说明。
+- 在 2026-04-17 的核对中，A800 上没有发现比本地 `runtime_repo` 更新的 canonical 代码快照，并且 `/nas/mql` 当时不可用，因此这个仓库应当被视为当前主源。

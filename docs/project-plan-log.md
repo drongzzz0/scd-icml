@@ -19,3 +19,8 @@
 - Scope: Rework the new root README into a shorter GitHub-first landing page.
 - Goal: Let a reader understand the repository within about 30 seconds by leading with `TL;DR`, final status, canonical result tables, code entry points, and archived-scope boundaries.
 - Design choice: Keep the accepted result tables and final/unfinished boundary explicit, while removing most narrative phrasing that made the README read like an internal note instead of a repository homepage.
+
+## 2026-04-17 GitHub README Chinese Localization
+- Scope: Convert the root-level GitHub landing README from English to Simplified Chinese.
+- Goal: Make the repository homepage align with the project's current primary communication language while preserving the same final/unfinished boundary and canonical result story.
+- Design choice: Keep the existing README structure and result hierarchy stable, and translate the page into concise Chinese rather than redesigning the information architecture again.
