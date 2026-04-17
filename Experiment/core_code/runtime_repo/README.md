@@ -14,17 +14,9 @@ This directory is the canonical runtime/package snapshot for the final
 - Top-level `run_ser_*.sh`
   - Stable wrappers still useful for reproducible route runs.
 
-## What Was Archived
-
-The following are no longer part of the canonical runtime surface and were
-moved under `legacy/`:
-
-- temporary patch prototypes (`legacy/prototypes/`)
-- backup snapshots of `strict_runtime.py` and `eval_cmrc_strict.py`
-  (`legacy/backups/`)
-- generated packaging metadata (`legacy/build_metadata/scd_repro.egg-info/`)
-
-These files are preserved only for audit/debug history.
+Previously archived runtime backups, temporary prototypes, and build metadata
+have been removed so this package surface now reflects only the current kept
+version.
 
 ## Current Canonical Interpretation
 
@@ -52,7 +44,6 @@ train-patch --pairs artifacts/pairs/run_demo --profile artifacts/route/profile_d
 
 ## Read This Before Uploading
 
-- `legacy/` is historical and optional for a public-facing clean repo.
 - `configs/` still includes some older experiment branches for reproducibility.
-- If you want a minimal GitHub repo, trim to `src/`, the subset of `configs/`
-  you still use, selected `scripts/`, and this README.
+- If you want an even more minimal GitHub repo, trim to `src/`, the subset of
+  `configs/` you still use, selected `scripts/`, and this README.

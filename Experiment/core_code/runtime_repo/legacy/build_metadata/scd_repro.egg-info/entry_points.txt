@@ -1,9 +1,0 @@
-[console_scripts]
-build-route = scd_repro.cli.build_route:main
-capture-pair = scd_repro.cli.capture_pair:main
-eval = scd_repro.cli.eval_cmd:main
-infer = scd_repro.cli.infer:main
-profile-layers = scd_repro.cli.profile_layers:main
-report = scd_repro.cli.report_cmd:main
-train-patch = scd_repro.cli.train_patch:main
-train-reuse = scd_repro.cli.train_reuse:main

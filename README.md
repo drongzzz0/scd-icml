@@ -13,7 +13,7 @@
 - 当前最强、最稳定的主结论：严格口径下的 Mistral 系列结果
 - 仍未闭环的问题：最初的 Qwen3.5 相似模型对主假设
 
-这个仓库不是一个极简的论文附录仓，而是一个已经收口过的研究工作区：里面保留了定稿代码线，也保留了大量为审计和追溯服务的分析历史。
+这个仓库现在只保留最新定稿版本所需的主线代码与研究材料，之前显式归档的 `legacy/` 旧内容已经移除。
 
 ## 当前状态
 
@@ -47,7 +47,7 @@
 
 - `Experiment/analysis/mistral7_to_mistrallite_final_route_lock_20260409.md`
 
-凡是被这两份 lock 文档判定为 fallback-heavy、recompute-heavy、grouped/shared-z，或者已经明确弃用的旧路线，都应当视为历史归档材料，而不是当前默认主线。
+凡是被这两份 lock 文档判定为 fallback-heavy、recompute-heavy、grouped/shared-z，或者已经明确弃用的旧路线，都应当视为历史材料，而不是当前默认主线。
 
 ## 当前接受的主要结果
 
@@ -145,17 +145,6 @@ Qwen 线不是这个仓库当前已经完成的正向成功故事。
 - `Experiment/core_code/scd_validation/`
 - `Experiment/core_code/configs/`
 - `docs/final-version-map.md`
-
-## 哪些内容属于归档
-
-除非你是在做调试或历史审计，否则以下内容不应当被视为 canonical：
-
-- `Experiment/core_code/legacy/`
-- `Experiment/core_code/runtime_repo/legacy/`
-- grouped/shared-z reuse 结果
-- 依赖 fallback 的路线
-- `reuse_patch_recompute`
-- 已被 `xnorm_nativekv_shared_residual_mlp_v1` 替代的旧 patch family
 
 ## 推荐阅读顺序
 

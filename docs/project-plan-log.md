@@ -24,3 +24,8 @@
 - Scope: Convert the root-level GitHub landing README from English to Simplified Chinese.
 - Goal: Make the repository homepage align with the project's current primary communication language while preserving the same final/unfinished boundary and canonical result story.
 - Design choice: Keep the existing README structure and result hierarchy stable, and translate the page into concise Chinese rather than redesigning the information architecture again.
+
+## 2026-04-17 Legacy Removal Update
+- Scope: Remove the explicitly archived old content from the repository and keep only the current maintained canonical version.
+- Goal: Delete `Experiment/core_code/legacy/` and `Experiment/core_code/runtime_repo/legacy/` so the repository surface contains only active code and current research materials.
+- Design choice: Limit deletion strictly to directories that were already labeled as archived/legacy, and update all affected README and version-map documents to reflect that the cleanup is now complete rather than still optional.
