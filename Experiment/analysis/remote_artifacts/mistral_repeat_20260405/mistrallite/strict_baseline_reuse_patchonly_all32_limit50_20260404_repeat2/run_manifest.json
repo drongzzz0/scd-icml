@@ -1,0 +1,14 @@
+{
+  "timestamp_utc": "2026-04-04T16:06:37.398871+00:00",
+  "command": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/src/scd_repro/cli/eval_cmrc_strict.py --models-config configs/models_ser_mistrallite_self_20260404.json --eval-config configs/eval_baseline_reuse_patchonly_50_20260404.json --data-root /disk_n/c101-3-1/projects/scd_main/legacy/no4/data --route configs/route_reuse_patchonly_all32_20260404.json --reuse-ckpt runs/mistrallite_self_cmrc_locked_20260404/ckpt_reuse_layerwise_seed42 --patch-ckpt runs/mistrallite_self_cmrc_locked_20260404/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4 --out runs/mistrallite_self_cmrc_locked_20260404/strict_baseline_reuse_patchonly_all32_limit50_20260404_repeat2 --limit 50 --max-length 1024 --max-new-tokens 32 --producer-device cuda:2 --consumer-device cuda:3 --dtype bfloat16 --seed 42 --log runs/mistrallite_self_cmrc_locked_20260404/strict_baseline_reuse_patchonly_all32_limit50_20260404_repeat2.log",
+  "seed": 42,
+  "config_paths": {
+    "models": "configs/models_ser_mistrallite_self_20260404.json",
+    "eval": "configs/eval_baseline_reuse_patchonly_50_20260404.json",
+    "route": "configs/route_reuse_patchonly_all32_20260404.json",
+    "reuse": "runs/mistrallite_self_cmrc_locked_20260404/ckpt_reuse_layerwise_seed42",
+    "patch": "runs/mistrallite_self_cmrc_locked_20260404/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4"
+  },
+  "git_commit": "f1a3a1a135e42a01f1af63dce6503aa10cb3178b",
+  "hostname": "unknown"
+}

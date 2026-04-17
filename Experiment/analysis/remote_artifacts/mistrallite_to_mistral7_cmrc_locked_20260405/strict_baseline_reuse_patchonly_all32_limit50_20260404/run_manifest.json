@@ -1,0 +1,13 @@
+{
+  "timestamp_utc": null,
+  "command": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/src/scd_repro/cli/merge_eval_cmrc_strict.py --input-dir /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_baseline_reuse_patchonly_all32_limit50_20260404__baseline_reuse_only --input-dir /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_baseline_reuse_patchonly_all32_limit50_20260404__patch_only_isolated --out /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_baseline_reuse_patchonly_all32_limit50_20260404",
+  "seed": null,
+  "config_paths": {
+    "inputs": [
+      "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_baseline_reuse_patchonly_all32_limit50_20260404__baseline_reuse_only",
+      "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_baseline_reuse_patchonly_all32_limit50_20260404__patch_only_isolated"
+    ]
+  },
+  "git_commit": "unknown",
+  "hostname": "unknown"
+}

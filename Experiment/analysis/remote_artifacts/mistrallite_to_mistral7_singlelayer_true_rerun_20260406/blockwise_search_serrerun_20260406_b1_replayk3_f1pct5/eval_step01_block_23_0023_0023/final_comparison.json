@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "route_path": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_blockwise_serrerun_20260406/blockwise_search_serrerun_20260406_b1_replayk3_f1pct5/route_step01_block_23_0023_0023.json",
+    "patch_ckpt_path": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_blockwise_serrerun_20260406/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4",
+    "reuse_ckpt_path": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_blockwise_serrerun_20260406/ckpt_reuse_layerwise_seed42",
+    "eval_config_path": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_blockwise_serrerun_20260406/blockwise_search_serrerun_20260406_b1_replayk3_f1pct5/generated_eval_reuse_patch_only.json",
+    "models_config_path": "configs/models_ser_mistrallite_to_mistral7_20260405.json",
+    "producer_model": "/disk_n/c101-3-1/models/MistralLite",
+    "consumer_model": "/disk_n/c101-3-1/models/Mistral-7B-v0.1",
+    "producer_device": "cuda:2",
+    "consumer_device": "cuda:3",
+    "bandwidth_gbps": 200.0,
+    "max_new_tokens": 32,
+    "max_length": 1024,
+    "route_counts": {
+      "reuse_layers": 1,
+      "patch_layers": 31,
+      "fallback_layers": 0,
+      "selected_recompute_layers": 0
+    },
+    "fit_mode": "xnorm_nativekv_shared_residual_mlp_v1",
+    "semantic_source": null,
+    "methods": [
+      "reuse_patch"
+    ],
+    "strict_mode": true,
+    "align_full_consumer_first_decode": true,
+    "qid_allowlist": []
+  },
+  "modes": {
+    "reuse_patch": {
+      "method": "reuse_patch",
+      "method_label": "Reuse + Patch",
+      "num_samples": 200,
+      "f1": 0.6599329460462314,
+      "em": 0.305,
+      "avg_logp": -0.4764574570078822,
+      "avg_nll": 0.4764574570078822,
+      "payload_mb": 149.63115234375,
+      "ttft_ms": 56.413343865424395,
+      "producer_prefill_ms": 0.0,
+      "consumer_prefill_ms": 0.0,
+      "encode_ms": 0.9642624016851187,
+      "transfer_ms": 13.027522368356586,
+      "staging_copy_ms": 13.027522368356586,
+      "rebuild_ms": 0.5224241968244314,
+      "rebuild_prep_ms": 0.05989810451865196,
+      "rebuild_decode_core_ms": 0.06444860249757767,
+      "rebuild_rerope_ms": 0.35755468532443047,
+      "rebuild_materialize_ms": 0.040522804483771324,
+      "patch_infer_ms": 18.8820827472955,
+      "patch_shard_load_ms": 1.5045539010316133,
+      "patch_shard_gpu_copy_ms": 0.5746710114181042,
+      "patch_identity_check_ms": 0.0,
+      "patch_residual_forward_ms": 0.0,
+      "patch_kproj_vproj_ms": 6.050227051600814,
+      "patch_knorm_ms": 0.0,
+      "patch_rotary_ms": 5.122750625014305,
+      "recompute_ms": 0.0,
+      "decode_first_ms": 23.01705215126276,
+      "decode_rest_ms": 338.8204970676452,
+      "decode_total_ms": 361.83754921890795,
+      "total_ms": 395.2338409330696,
+      "bytes_transferred": 156899635.2,
+      "raw_cache_bytes": 79695052.8,
+      "compression_ratio": 0.5079365079365079,
+      "teacher_token_count": 3818,
+      "delta_ttft_vs_full": null,
+      "delta_logp_vs_full": null,
+      "delta_nll_vs_full": null,
+      "delta_ttft_vs_reuse_only": null,
+      "delta_logp_vs_reuse_only": null,
+      "delta_nll_vs_reuse_only": null
+    }
+  },
+  "delta_vs_full_consumer": {
+    "reuse_patch": {}
+  },
+  "delta_vs_reuse_only": {
+    "reuse_patch": {}
+  }
+}

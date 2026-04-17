@@ -1,0 +1,111 @@
+{
+  "project": "scd-similar-pair-validation-smoke",
+  "pair_policy": {
+    "require_same_family": true,
+    "require_same_base_model": true,
+    "require_shared_tokenizer": true,
+    "require_architecture_match": true
+  },
+  "bucket_policy": {
+    "close_top_k": 1,
+    "far_bottom_k": 1
+  },
+  "models": [
+    {
+      "model_id": "producer_smoke_close",
+      "family": "Qwen3.5",
+      "base_model": "Qwen3.5-7B",
+      "tokenizer_id": "Qwen/Qwen3.5-7B",
+      "repo_id": "",
+      "model_path": "",
+      "finetune_domain": "close_math",
+      "architecture": {
+        "num_layers": 28,
+        "hidden_size": 3584,
+        "num_attention_heads": 28,
+        "num_key_value_heads": 4,
+        "rope_type": "qwen_rope"
+      }
+    },
+    {
+      "model_id": "consumer_smoke_close",
+      "family": "Qwen3.5",
+      "base_model": "Qwen3.5-7B",
+      "tokenizer_id": "Qwen/Qwen3.5-7B",
+      "repo_id": "",
+      "model_path": "",
+      "finetune_domain": "close_reasoning",
+      "architecture": {
+        "num_layers": 28,
+        "hidden_size": 3584,
+        "num_attention_heads": 28,
+        "num_key_value_heads": 4,
+        "rope_type": "qwen_rope"
+      }
+    },
+    {
+      "model_id": "producer_smoke_medium",
+      "family": "Qwen3.5",
+      "base_model": "Qwen3.5-7B",
+      "tokenizer_id": "Qwen/Qwen3.5-7B",
+      "repo_id": "",
+      "model_path": "",
+      "finetune_domain": "medium_math",
+      "architecture": {
+        "num_layers": 28,
+        "hidden_size": 3584,
+        "num_attention_heads": 28,
+        "num_key_value_heads": 4,
+        "rope_type": "qwen_rope"
+      }
+    },
+    {
+      "model_id": "consumer_smoke_medium",
+      "family": "Qwen3.5",
+      "base_model": "Qwen3.5-7B",
+      "tokenizer_id": "Qwen/Qwen3.5-7B",
+      "repo_id": "",
+      "model_path": "",
+      "finetune_domain": "medium_code",
+      "architecture": {
+        "num_layers": 28,
+        "hidden_size": 3584,
+        "num_attention_heads": 28,
+        "num_key_value_heads": 4,
+        "rope_type": "qwen_rope"
+      }
+    },
+    {
+      "model_id": "producer_smoke_far",
+      "family": "Qwen3.5",
+      "base_model": "Qwen3.5-7B",
+      "tokenizer_id": "Qwen/Qwen3.5-7B",
+      "repo_id": "",
+      "model_path": "",
+      "finetune_domain": "far_chat",
+      "architecture": {
+        "num_layers": 28,
+        "hidden_size": 3584,
+        "num_attention_heads": 28,
+        "num_key_value_heads": 4,
+        "rope_type": "qwen_rope"
+      }
+    },
+    {
+      "model_id": "consumer_smoke_far",
+      "family": "Qwen3.5",
+      "base_model": "Qwen3.5-7B",
+      "tokenizer_id": "Qwen/Qwen3.5-7B",
+      "repo_id": "",
+      "model_path": "",
+      "finetune_domain": "far_law",
+      "architecture": {
+        "num_layers": 28,
+        "hidden_size": 3584,
+        "num_attention_heads": 28,
+        "num_key_value_heads": 4,
+        "rope_type": "qwen_rope"
+      }
+    }
+  ]
+}

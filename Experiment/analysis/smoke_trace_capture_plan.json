@@ -1,0 +1,56 @@
+{
+  "pair_id": "producer_smoke_close__to__consumer_smoke_close",
+  "producer_model": "producer_smoke_close",
+  "consumer_model": "consumer_smoke_close",
+  "task": "cmrc2018",
+  "split": "validation",
+  "context_len": 2048,
+  "decode_len": 128,
+  "prompt_manifest_path": "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/configs/smoke_prompt_manifest.jsonl",
+  "operations": [
+    {
+      "role": "producer",
+      "model_id": "producer_smoke_close",
+      "model_path": "",
+      "repo_id": "",
+      "layers": [
+        3,
+        7,
+        11,
+        15
+      ],
+      "trace_tensors": [
+        "x_norm",
+        "k_content_deroped",
+        "v",
+        "logits"
+      ],
+      "prompt_count": 4,
+      "output_dir": "/Users/weimingming/dr-claw/scd-new/Experiment/datasets/traces/producer_smoke_close__to__consumer_smoke_close/producer"
+    },
+    {
+      "role": "consumer",
+      "model_id": "consumer_smoke_close",
+      "model_path": "",
+      "repo_id": "",
+      "layers": [
+        3,
+        7,
+        11,
+        15
+      ],
+      "trace_tensors": [
+        "x_norm",
+        "k_content_deroped",
+        "v",
+        "logits"
+      ],
+      "prompt_count": 4,
+      "output_dir": "/Users/weimingming/dr-claw/scd-new/Experiment/datasets/traces/producer_smoke_close__to__consumer_smoke_close/consumer"
+    }
+  ],
+  "notes": [
+    "This is a trace-capture plan only. It does not imply traces were actually collected.",
+    "For the original SCD baseline, suffix recomputation remains excluded at this stage."
+  ]
+}

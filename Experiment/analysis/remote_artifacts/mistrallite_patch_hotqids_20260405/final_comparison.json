@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "route_path": "configs/route_reuse_patchonly_all32_20260404.json",
+    "patch_ckpt_path": "runs/mistrallite_self_cmrc_locked_20260404/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4",
+    "reuse_ckpt_path": "runs/mistrallite_self_cmrc_locked_20260404/ckpt_reuse_layerwise_seed42",
+    "eval_config_path": "configs/eval_patchonly_hotqids_20260405.json",
+    "models_config_path": "configs/models_ser_mistrallite_self_20260404.json",
+    "producer_model": "/disk_n/c101-3-1/models/MistralLite",
+    "consumer_model": "/disk_n/c101-3-1/models/MistralLite",
+    "producer_device": "cuda:2",
+    "consumer_device": "cuda:3",
+    "bandwidth_gbps": 200.0,
+    "max_new_tokens": 32,
+    "max_length": 1024,
+    "route_counts": {
+      "reuse_layers": 32,
+      "patch_layers": 32,
+      "fallback_layers": 0,
+      "selected_recompute_layers": 0
+    },
+    "fit_mode": "xnorm_nativekv_shared_residual_mlp_v1",
+    "semantic_source": null,
+    "methods": [
+      "patch_only"
+    ],
+    "strict_mode": true,
+    "align_full_consumer_first_decode": true,
+    "qid_allowlist": [
+      "DEV_0_QUERY_0",
+      "DEV_2_QUERY_2",
+      "DEV_7_QUERY_2",
+      "DEV_7_QUERY_1",
+      "DEV_11_QUERY_2",
+      "DEV_1_QUERY_3",
+      "DEV_13_QUERY_1"
+    ]
+  },
+  "modes": {
+    "patch_only": {
+      "method": "patch_only",
+      "method_label": "Patch-only",
+      "num_samples": 7,
+      "f1": 0.6666666666666667,
+      "em": 0.5714285714285714,
+      "avg_logp": -1.509573625355232,
+      "avg_nll": 1.509573625355232,
+      "payload_mb": 188.64285714285714,
+      "ttft_ms": 88.72071547167641,
+      "producer_prefill_ms": 0.0,
+      "consumer_prefill_ms": 0.0,
+      "encode_ms": 0.0,
+      "transfer_ms": 0.0,
+      "staging_copy_ms": 0.0,
+      "rebuild_ms": 0.0,
+      "rebuild_prep_ms": 0.0,
+      "rebuild_decode_core_ms": 0.0,
+      "rebuild_rerope_ms": 0.0,
+      "rebuild_materialize_ms": 0.0,
+      "patch_infer_ms": 61.08460548732962,
+      "patch_shard_load_ms": 40.319678506680894,
+      "patch_shard_gpu_copy_ms": 8.2925661866154,
+      "patch_identity_check_ms": 0.0,
+      "patch_residual_forward_ms": 0.0,
+      "patch_kproj_vproj_ms": 7.358593334044729,
+      "patch_knorm_ms": 0.0,
+      "patch_rotary_ms": 5.113767459988594,
+      "recompute_ms": 0.0,
+      "decode_first_ms": 27.6361099843468,
+      "decode_rest_ms": 178.3358579767602,
+      "decode_total_ms": 205.97196796110697,
+      "total_ms": 267.0565734484366,
+      "bytes_transferred": 197806372.57142857,
+      "raw_cache_bytes": 98903186.28571428,
+      "compression_ratio": 0.5,
+      "teacher_token_count": 82,
+      "delta_ttft_vs_full": null,
+      "delta_logp_vs_full": null,
+      "delta_nll_vs_full": null,
+      "delta_ttft_vs_reuse_only": null,
+      "delta_logp_vs_reuse_only": null,
+      "delta_nll_vs_reuse_only": null
+    }
+  },
+  "delta_vs_full_consumer": {
+    "patch_only": {}
+  },
+  "delta_vs_reuse_only": {
+    "patch_only": {}
+  }
+}

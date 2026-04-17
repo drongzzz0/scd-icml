@@ -1,0 +1,40 @@
+{
+  "name": "ser_qwen17_reuse_only_layer_0",
+  "num_layers": 28,
+  "reuse_layers": [
+    0
+  ],
+  "patch_layers": [],
+  "selected_patch_layers": [],
+  "fallback_layers": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27
+  ],
+  "selected_recompute_layers": [],
+  "recompute_segment_length_by_layer": {}
+}

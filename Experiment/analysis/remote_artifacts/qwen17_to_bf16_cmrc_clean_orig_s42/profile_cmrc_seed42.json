@@ -1,0 +1,315 @@
+{
+  "num_layers": 28,
+  "patch_metric": "patch_kv_error",
+  "patch_fit_mode": "direct_kv_v1",
+  "layers": [
+    {
+      "layer": 0,
+      "reuse_error": 41.912301953099885,
+      "patch_error": 11.697229245598585,
+      "patch_xnorm_error": 2.6953236690766498e-06,
+      "patch_k_error": 23.394450668598683,
+      "patch_v_error": 7.822598487096967e-06,
+      "patch_kv_error": 11.697229245598585,
+      "expected_gain": 30.2150727075013
+    },
+    {
+      "layer": 1,
+      "reuse_error": 3.887986571579971,
+      "patch_error": 1.1313674706656685,
+      "patch_xnorm_error": 1.6871867099701256e-06,
+      "patch_k_error": 2.2627253010234725,
+      "patch_v_error": 9.640307864316572e-06,
+      "patch_kv_error": 1.1313674706656685,
+      "expected_gain": 2.7566191009143024
+    },
+    {
+      "layer": 2,
+      "reuse_error": 1.60138485078362,
+      "patch_error": 1.3621737677108134,
+      "patch_xnorm_error": 6.534527101152163e-06,
+      "patch_k_error": 2.724331611806033,
+      "patch_v_error": 1.592361559418786e-05,
+      "patch_kv_error": 1.3621737677108134,
+      "expected_gain": 0.23921108307280647
+    },
+    {
+      "layer": 3,
+      "reuse_error": 1.6614997181463014,
+      "patch_error": 0.41045353743812074,
+      "patch_xnorm_error": 1.4342056775566307e-07,
+      "patch_k_error": 0.8208771780158154,
+      "patch_v_error": 2.9896860426061512e-05,
+      "patch_kv_error": 0.41045353743812074,
+      "expected_gain": 1.2510461807081805
+    },
+    {
+      "layer": 4,
+      "reuse_error": 2.531409490486368,
+      "patch_error": 1.748076712342922,
+      "patch_xnorm_error": -3.7551235577078587e-07,
+      "patch_k_error": 3.496085989600863,
+      "patch_v_error": 6.743508498104022e-05,
+      "patch_kv_error": 1.748076712342922,
+      "expected_gain": 0.783332778143446
+    },
+    {
+      "layer": 5,
+      "reuse_error": 6.441343721187028,
+      "patch_error": 0.794688962030231,
+      "patch_xnorm_error": -3.978128246646838e-06,
+      "patch_k_error": 1.5893339752348783,
+      "patch_v_error": 4.3948825583695917e-05,
+      "patch_kv_error": 0.794688962030231,
+      "expected_gain": 5.646654759156797
+    },
+    {
+      "layer": 6,
+      "reuse_error": 1.2440369298585272,
+      "patch_error": 0.808640051153023,
+      "patch_xnorm_error": 9.51968887487782e-06,
+      "patch_k_error": 1.6172614341143554,
+      "patch_v_error": 1.866819169038614e-05,
+      "patch_kv_error": 0.808640051153023,
+      "expected_gain": 0.43539687870550425
+    },
+    {
+      "layer": 7,
+      "reuse_error": 1.5991742776593156,
+      "patch_error": 0.5460303777858403,
+      "patch_xnorm_error": 6.194311128329874e-06,
+      "patch_k_error": 1.0920293877886205,
+      "patch_v_error": 3.136778306002338e-05,
+      "patch_kv_error": 0.5460303777858403,
+      "expected_gain": 1.0531438998734752
+    },
+    {
+      "layer": 8,
+      "reuse_error": 1.1017124645707006,
+      "patch_error": 0.32816823133254,
+      "patch_xnorm_error": 9.303307978090849e-06,
+      "patch_k_error": 0.6562363709500976,
+      "patch_v_error": 0.00010009171498237421,
+      "patch_kv_error": 0.32816823133254,
+      "expected_gain": 0.7735442332381606
+    },
+    {
+      "layer": 9,
+      "reuse_error": 1.9760774643669181,
+      "patch_error": 0.7729290728317274,
+      "patch_xnorm_error": 5.448751618474691e-05,
+      "patch_k_error": 1.5454477613887063,
+      "patch_v_error": 0.000410384274748508,
+      "patch_kv_error": 0.7729290728317274,
+      "expected_gain": 1.2031483915351906
+    },
+    {
+      "layer": 10,
+      "reuse_error": 5.287998301642066,
+      "patch_error": 0.7171257869257859,
+      "patch_xnorm_error": 9.291096114108022e-06,
+      "patch_k_error": 1.4338413737905753,
+      "patch_v_error": 0.00041020006099643126,
+      "patch_kv_error": 0.7171257869257859,
+      "expected_gain": 4.57087251471628
+    },
+    {
+      "layer": 11,
+      "reuse_error": 0.9680175297476065,
+      "patch_error": 0.4311069822811459,
+      "patch_xnorm_error": -3.676657857065723e-05,
+      "patch_k_error": 0.8616367288040413,
+      "patch_v_error": 0.0005772357582505761,
+      "patch_kv_error": 0.4311069822811459,
+      "expected_gain": 0.5369105474664606
+    },
+    {
+      "layer": 12,
+      "reuse_error": 2.609734986365239,
+      "patch_error": 0.3069205885938941,
+      "patch_xnorm_error": 6.051984826206356e-05,
+      "patch_k_error": 0.6083439197071577,
+      "patch_v_error": 0.005497257480630486,
+      "patch_kv_error": 0.3069205885938941,
+      "expected_gain": 2.302814397771345
+    },
+    {
+      "layer": 13,
+      "reuse_error": 1.3188476452118527,
+      "patch_error": 0.22982716418989252,
+      "patch_xnorm_error": 0.0011625966681483727,
+      "patch_k_error": 0.4355113978220925,
+      "patch_v_error": 0.02414293055769253,
+      "patch_kv_error": 0.22982716418989252,
+      "expected_gain": 1.0890204810219601
+    },
+    {
+      "layer": 14,
+      "reuse_error": 1.7039553002712635,
+      "patch_error": 0.29045328557500816,
+      "patch_xnorm_error": 0.0009774318778257274,
+      "patch_k_error": 0.5639252294005452,
+      "patch_v_error": 0.016981341749471093,
+      "patch_kv_error": 0.29045328557500816,
+      "expected_gain": 1.4135020146962554
+    },
+    {
+      "layer": 15,
+      "reuse_error": 1.4613588489921934,
+      "patch_error": 1.2779395152142625,
+      "patch_xnorm_error": 0.0014842629323601442,
+      "patch_k_error": 2.5537946136402523,
+      "patch_v_error": 0.0020844167882728003,
+      "patch_kv_error": 1.2779395152142625,
+      "expected_gain": 0.18341933377793085
+    },
+    {
+      "layer": 16,
+      "reuse_error": 3.283866055340429,
+      "patch_error": 0.2903441747836243,
+      "patch_xnorm_error": 0.0012924362049882817,
+      "patch_k_error": 0.5777838400525901,
+      "patch_v_error": 0.0029045095146585332,
+      "patch_kv_error": 0.2903441747836243,
+      "expected_gain": 2.9935218805568047
+    },
+    {
+      "layer": 17,
+      "reuse_error": 6.012729477330315,
+      "patch_error": 0.3404059628118478,
+      "patch_xnorm_error": 0.0007614755331826891,
+      "patch_k_error": 0.6729864088250497,
+      "patch_v_error": 0.007825516798645928,
+      "patch_kv_error": 0.3404059628118478,
+      "expected_gain": 5.672323514518467
+    },
+    {
+      "layer": 18,
+      "reuse_error": 6.047111064868043,
+      "patch_error": 0.24015482280040867,
+      "patch_xnorm_error": 0.002436776257238477,
+      "patch_k_error": 0.4713115454747146,
+      "patch_v_error": 0.00899810012610272,
+      "patch_kv_error": 0.24015482280040867,
+      "expected_gain": 5.806956242067634
+    },
+    {
+      "layer": 19,
+      "reuse_error": 4.673624623775275,
+      "patch_error": 0.26272188610995023,
+      "patch_xnorm_error": 0.006936696850434314,
+      "patch_k_error": 0.5112024352588469,
+      "patch_v_error": 0.014241336961053593,
+      "patch_kv_error": 0.26272188610995023,
+      "expected_gain": 4.410902737665325
+    },
+    {
+      "layer": 20,
+      "reuse_error": 24.50461071626684,
+      "patch_error": 0.2488862080612837,
+      "patch_xnorm_error": 0.01482371422068216,
+      "patch_k_error": 0.47475237682035626,
+      "patch_v_error": 0.023020039302211123,
+      "patch_kv_error": 0.2488862080612837,
+      "expected_gain": 24.255724508205557
+    },
+    {
+      "layer": 21,
+      "reuse_error": 36.066491137492406,
+      "patch_error": 0.1985180762232609,
+      "patch_xnorm_error": 0.011332571600067785,
+      "patch_k_error": 0.35921911997738315,
+      "patch_v_error": 0.037817032469138666,
+      "patch_kv_error": 0.1985180762232609,
+      "expected_gain": 35.86797306126915
+    },
+    {
+      "layer": 22,
+      "reuse_error": 34.86849850725967,
+      "patch_error": 0.29522221281873184,
+      "patch_xnorm_error": 0.059486256206460746,
+      "patch_k_error": 0.47133408714185043,
+      "patch_v_error": 0.11911033849561325,
+      "patch_kv_error": 0.29522221281873184,
+      "expected_gain": 34.573276294440944
+    },
+    {
+      "layer": 23,
+      "reuse_error": 32.33509791314315,
+      "patch_error": 0.4215796844969925,
+      "patch_xnorm_error": 0.1852258389133062,
+      "patch_k_error": 0.6562825067580625,
+      "patch_v_error": 0.1868768622359225,
+      "patch_kv_error": 0.4215796844969925,
+      "expected_gain": 31.913518228646158
+    },
+    {
+      "layer": 24,
+      "reuse_error": 94.79962257585248,
+      "patch_error": 0.3550834619216553,
+      "patch_xnorm_error": 0.10388686452560598,
+      "patch_k_error": 0.5966427134335115,
+      "patch_v_error": 0.11352421040979906,
+      "patch_kv_error": 0.3550834619216553,
+      "expected_gain": 94.44453911393083
+    },
+    {
+      "layer": 25,
+      "reuse_error": 94.28639448803759,
+      "patch_error": 0.31754001565136675,
+      "patch_xnorm_error": 0.11646344990411246,
+      "patch_k_error": 0.46634336286243655,
+      "patch_v_error": 0.16873666844029697,
+      "patch_kv_error": 0.31754001565136675,
+      "expected_gain": 93.96885447238623
+    },
+    {
+      "layer": 26,
+      "reuse_error": 89.56133125021799,
+      "patch_error": 0.28981331692561135,
+      "patch_xnorm_error": 0.06107391947329151,
+      "patch_k_error": 0.3601265837190642,
+      "patch_v_error": 0.21950005013215854,
+      "patch_kv_error": 0.28981331692561135,
+      "expected_gain": 89.27151793329237
+    },
+    {
+      "layer": 27,
+      "reuse_error": 91.97650212421216,
+      "patch_error": 0.637472693688099,
+      "patch_xnorm_error": -0.10387996915332222,
+      "patch_k_error": 1.064720988811519,
+      "patch_v_error": 0.2102243985646791,
+      "patch_kv_error": 0.637472693688099,
+      "expected_gain": 91.33902943052406
+    }
+  ],
+  "patch_gain_curve": [
+    94.44453911393083,
+    188.41339358631706,
+    279.75242301684113,
+    369.0239409501335,
+    404.89191401140266,
+    439.46519030584363,
+    471.3787085344898,
+    501.5937812419911,
+    525.8495057501966,
+    531.6564619922642,
+    537.3287855067827,
+    542.9754402659395,
+    547.5463127806557,
+    551.957215518321,
+    554.9507373988779,
+    557.7073564997922
+  ],
+  "recommended_patch_layers": [
+    24,
+    25,
+    27,
+    26,
+    21,
+    22,
+    23,
+    0
+  ]
+}

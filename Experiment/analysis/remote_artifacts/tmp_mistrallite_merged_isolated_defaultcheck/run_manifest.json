@@ -1,0 +1,13 @@
+{
+  "timestamp_utc": null,
+  "command": "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/ser_mirror/src/scd_repro/cli/merge_eval_cmrc_strict.py --input-dir Experiment/analysis/remote_artifacts/tmp_base_reuse_only_input --input-dir Experiment/analysis/remote_artifacts/mistrallite_patchonly_full50_breakdown_20260405 --out Experiment/analysis/remote_artifacts/tmp_mistrallite_merged_isolated_defaultcheck",
+  "seed": null,
+  "config_paths": {
+    "inputs": [
+      "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/tmp_base_reuse_only_input",
+      "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_patchonly_full50_breakdown_20260405"
+    ]
+  },
+  "git_commit": "unknown",
+  "hostname": "unknown"
+}

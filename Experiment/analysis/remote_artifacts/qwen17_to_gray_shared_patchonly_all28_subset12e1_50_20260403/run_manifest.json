@@ -1,0 +1,14 @@
+{
+  "timestamp_utc": "2026-04-03T06:20:15.322088+00:00",
+  "command": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/src/scd_repro/cli/eval_cmrc_strict.py --models-config configs/models_ser_qwen17_gray.yaml --eval-config runs/qwen17_to_gray_cmrc/eval_baseline_reuse_patchonly_all28_50_20260403.json --data-root .tmp_data_root_qwen17_self_cmrc --route runs/qwen17_to_gray_cmrc/route_reuse_patchonly_all28_20260403.json --reuse-ckpt runs/qwen17_to_gray_cmrc/ckpt_reuse_layerwise_seed42 --patch-ckpt runs/qwen17_to_gray_cmrc/ckpt_patch_xnorm_nativekv_shared_residual_mlp_alllayers_subset12_e1_h2048_r512_b2_20260403_sharded_w4 --out runs/qwen17_to_gray_cmrc/strict_baseline_reuse_patchonly_all28_shared_subset12e1_50_20260403 --limit 50 --producer-device cuda:0 --consumer-device cuda:1 --dtype bfloat16 --seed 42 --log runs/qwen17_to_gray_cmrc/strict_baseline_reuse_patchonly_all28_shared_subset12e1_50_20260403.log",
+  "seed": 42,
+  "config_paths": {
+    "models": "configs/models_ser_qwen17_gray.yaml",
+    "eval": "runs/qwen17_to_gray_cmrc/eval_baseline_reuse_patchonly_all28_50_20260403.json",
+    "route": "runs/qwen17_to_gray_cmrc/route_reuse_patchonly_all28_20260403.json",
+    "reuse": "runs/qwen17_to_gray_cmrc/ckpt_reuse_layerwise_seed42",
+    "patch": "runs/qwen17_to_gray_cmrc/ckpt_patch_xnorm_nativekv_shared_residual_mlp_alllayers_subset12_e1_h2048_r512_b2_20260403_sharded_w4"
+  },
+  "git_commit": "f1a3a1a135e42a01f1af63dce6503aa10cb3178b",
+  "hostname": "unknown"
+}

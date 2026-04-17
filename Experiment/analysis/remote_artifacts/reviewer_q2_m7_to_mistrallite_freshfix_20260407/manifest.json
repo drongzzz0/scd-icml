@@ -1,0 +1,1441 @@
+{
+  "model_a": "Mistral-7B-v0.1",
+  "model_b": "MistralLite",
+  "dtype": "float32",
+  "layout": "B,KVH,T,HD",
+  "num_layers": 32,
+  "num_key_value_heads": 8,
+  "num_attention_heads": 32,
+  "head_dim": 128,
+  "hidden_dim": 4096,
+  "batch_size": 200,
+  "prefix_tokens": 256,
+  "vocab_size": 32000,
+  "seed": 42,
+  "eval_samples": 200,
+  "rope": {
+    "model_a": {
+      "rope_theta": 10000.0,
+      "head_dim": 128,
+      "rotary_dim": 128,
+      "scaling_type": "none",
+      "scaling_factor": 1.0,
+      "max_position_embeddings": 32768,
+      "original_max_position_embeddings": 32768
+    },
+    "model_b": {
+      "rope_theta": 1000000.0,
+      "head_dim": 128,
+      "rotary_dim": 128,
+      "scaling_type": "none",
+      "scaling_factor": 1.0,
+      "max_position_embeddings": 32768,
+      "original_max_position_embeddings": 32768
+    }
+  },
+  "format": "chunked_pt_v1",
+  "artifact_dtype": "bfloat16",
+  "num_chunks": 200,
+  "chunks": [
+    {
+      "path": "chunks/chunk_00000.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00001.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00002.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00003.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00004.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00005.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00006.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00007.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00008.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00009.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00010.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00011.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00012.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00013.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00014.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00015.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00016.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00017.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00018.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00019.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00020.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00021.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00022.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00023.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00024.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00025.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00026.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00027.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00028.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00029.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00030.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00031.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00032.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00033.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00034.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00035.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00036.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00037.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00038.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00039.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00040.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00041.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00042.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00043.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00044.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00045.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00046.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00047.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00048.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00049.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00050.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00051.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00052.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00053.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00054.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00055.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00056.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00057.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00058.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00059.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00060.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00061.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00062.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00063.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00064.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00065.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00066.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00067.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00068.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00069.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00070.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00071.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00072.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00073.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00074.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00075.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00076.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00077.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00078.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00079.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00080.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00081.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00082.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00083.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00084.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00085.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00086.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00087.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00088.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00089.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00090.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00091.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00092.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00093.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00094.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00095.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00096.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00097.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00098.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00099.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00100.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00101.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00102.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00103.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00104.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00105.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00106.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00107.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00108.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00109.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00110.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00111.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00112.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00113.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00114.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00115.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00116.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00117.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00118.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00119.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00120.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00121.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00122.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00123.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00124.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00125.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00126.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00127.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00128.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00129.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00130.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00131.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00132.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00133.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00134.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00135.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00136.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00137.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00138.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00139.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00140.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00141.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00142.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00143.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00144.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00145.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00146.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00147.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00148.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00149.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00150.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00151.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00152.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00153.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00154.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00155.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00156.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00157.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00158.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00159.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00160.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00161.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00162.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00163.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00164.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00165.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00166.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00167.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00168.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00169.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00170.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00171.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00172.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00173.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00174.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00175.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00176.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00177.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00178.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00179.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00180.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00181.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00182.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00183.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00184.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00185.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00186.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00187.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00188.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00189.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00190.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00191.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00192.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00193.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00194.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00195.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00196.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00197.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00198.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    },
+    {
+      "path": "chunks/chunk_00199.pt",
+      "batch_size": 1,
+      "prefix_tokens": 256,
+      "eval_samples": 1,
+      "num_layers": 32
+    }
+  ]
+}

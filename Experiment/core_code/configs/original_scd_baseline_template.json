@@ -1,0 +1,58 @@
+{
+  "mode": "configured",
+  "pair_id": "fill_me_pair_a",
+  "pair_bucket": "close",
+  "producer_model": "project-local-producer-checkpoint-path",
+  "consumer_model": "project-local-consumer-checkpoint-path",
+  "method": "scd_original",
+  "task": "cmrc2018",
+  "split": "validation",
+  "claim_anchor": "table1_qwen32b_primary",
+  "seed": 1,
+  "context_len": 2048,
+  "decode_len": 128,
+  "bandwidth_gbps": 200,
+  "patch_budget_k": 4,
+  "rank_k": 64,
+  "rank_v": 64,
+  "rank_h": 64,
+  "patch_selection": {
+    "candidate_pool_top_m": 8,
+    "budget_candidates": [
+      2,
+      4,
+      8
+    ],
+    "layer_cost": 1.0,
+    "restore_one_gain": {
+      "0": 0.0
+    },
+    "greedy_marginal_gain": {}
+  },
+  "prompt_rows": [
+    {
+      "prompt_id": "replace_me_0001",
+      "prefix_id": "replace_me_prefix_0001",
+      "payload_bytes": 0.0,
+      "producer_prefill_ms": 0.0,
+      "producer_encode_ms": 0.0,
+      "transfer_ms": 0.0,
+      "consumer_rebuild_ms": 0.0,
+      "consumer_patch_ms": 0.0,
+      "consumer_recompute_ms": 0.0,
+      "first_token_decode_ms": 0.0,
+      "ttft_ms": 0.0,
+      "end_to_end_ms": 0.0,
+      "task_metric_name": "f1",
+      "task_metric_value": 0.0,
+      "token_kl": 0.0,
+      "token_tv": 0.0,
+      "ppl": 0.0,
+      "native_consumer_ttft_ms": 0.0,
+      "native_consumer_task_metric_value": 0.0,
+      "native_consumer_ppl": 0.0,
+      "raw_kv_payload_bytes": 0.0
+    }
+  ],
+  "notes": "Replace every smoke value with real prompt-level measurements before reporting any claim."
+}

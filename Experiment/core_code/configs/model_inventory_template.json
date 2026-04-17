@@ -1,0 +1,31 @@
+{
+  "project": "scd-similar-pair-validation",
+  "pair_policy": {
+    "require_same_family": true,
+    "require_same_base_model": true,
+    "require_shared_tokenizer": true,
+    "require_architecture_match": true
+  },
+  "bucket_policy": {
+    "close_top_k": 1,
+    "far_bottom_k": 1
+  },
+  "models": [
+    {
+      "model_id": "fill_me_model_a",
+      "family": "Qwen3.5",
+      "base_model": "Qwen3.5-7B",
+      "tokenizer_id": "fill_me_tokenizer",
+      "repo_id": "",
+      "model_path": "",
+      "finetune_domain": "fill_me_domain_a",
+      "architecture": {
+        "num_layers": 28,
+        "hidden_size": 3584,
+        "num_attention_heads": 28,
+        "num_key_value_heads": 4,
+        "rope_type": "qwen_rope"
+      }
+    }
+  ]
+}

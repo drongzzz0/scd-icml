@@ -1,0 +1,31 @@
+﻿{
+    "model_a":  {
+                    "name":  "tiny-gpt2-a",
+                    "path":  "sshleifer/tiny-gpt2"
+                },
+    "model_b":  {
+                    "name":  "tiny-gpt2-b",
+                    "path":  "sshleifer/tiny-gpt2"
+                },
+    "architecture":  {
+                         "num_layers":  2,
+                         "num_attention_heads":  2,
+                         "num_key_value_heads":  2,
+                         "head_dim":  32,
+                         "hidden_dim":  64,
+                         "rope_theta":  10000.0,
+                         "sliding_window":  256
+                     },
+    "runtime":  {
+                    "dtype":  "float16",
+                    "device":  "cuda:0",
+                    "cpu_fallback":  true
+                },
+    "compute":  {
+                    "model_a_device":  "cuda:0",
+                    "model_b_device":  "cuda:0",
+                    "accel_mode":  "balanced",
+                    "layer_block_size":  4,
+                    "group_block_size":  2
+                }
+}

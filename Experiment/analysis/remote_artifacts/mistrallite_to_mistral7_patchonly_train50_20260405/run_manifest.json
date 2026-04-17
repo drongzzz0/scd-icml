@@ -1,0 +1,14 @@
+{
+  "timestamp_utc": "2026-04-05T09:39:07.657317+00:00",
+  "command": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/src/scd_repro/cli/eval_cmrc_strict.py --models-config configs/models_ser_mistrallite_to_mistral7_20260405.json --eval-config configs/eval_patch_only_train50_20260405.json --data-root /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/tmp_cmrc_train_only_20260405 --route configs/route_reuse_patchonly_all32_20260404.json --reuse-ckpt /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_reuse_layerwise_seed42 --patch-ckpt /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4 --out /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_patch_only_train50_20260405 --limit 50 --max-length 1024 --max-new-tokens 32 --producer-device cuda:0 --consumer-device cuda:1 --dtype bfloat16 --seed 42 --log /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_patch_only_train50_20260405.log",
+  "seed": 42,
+  "config_paths": {
+    "models": "configs/models_ser_mistrallite_to_mistral7_20260405.json",
+    "eval": "configs/eval_patch_only_train50_20260405.json",
+    "route": "configs/route_reuse_patchonly_all32_20260404.json",
+    "reuse": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_reuse_layerwise_seed42",
+    "patch": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4"
+  },
+  "git_commit": "f1a3a1a135e42a01f1af63dce6503aa10cb3178b",
+  "hostname": "unknown"
+}

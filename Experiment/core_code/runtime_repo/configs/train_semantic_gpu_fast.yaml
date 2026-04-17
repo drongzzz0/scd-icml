@@ -1,0 +1,58 @@
+{
+  "mode": "xkv_group",
+  "translator": {
+    "default_path": "shared_z",
+    "shared_z": {
+      "hidden_dim": 0,
+      "activation": "identity"
+    }
+  },
+  "xkv_group": {
+    "group_size": 4,
+    "rank_k": 128,
+    "rank_v": 128,
+    "center_before_svd": false,
+    "svd_backend": "moments_eigh",
+    "max_groups": 128,
+    "ridge_lambda": 0.0001
+  },
+  "patch": {
+    "fit_mode": "xnorm_semantic_v1",
+    "patch_budget": 6,
+    "code_dim": 0,
+    "enc_h_identity_if_possible": true,
+    "patch_mlp_hidden_dim": 512,
+    "patch_num_epochs": 5,
+    "patch_batch_size": 1024,
+    "lr": 0.0005,
+    "weight_decay": 0.0,
+    "lambda_h": 1.0,
+    "lambda_k": 0.5,
+    "lambda_v": 0.5,
+    "lambda_sem": 1.0,
+    "tau": 1.0,
+    "semantic_source": "probe",
+    "semantic_probe_dim": 256,
+    "semantic_probe_num_classes": 128,
+    "semantic_probe_shared": true,
+    "semantic_probe_frozen": true,
+    "semantic_loss_direction": "teacher_to_student",
+    "semantic_target_space": "probe_logits",
+    "ridge_lambda": 0.0001,
+    "alpha_rep": 0.5
+  },
+  "optimization": {
+    "learning_rate": 0.0005,
+    "batch_size": 8,
+    "epochs": 5
+  },
+  "compute": {
+    "train_device": "cuda:0",
+    "accel_mode": "balanced",
+    "layer_block_size": 4,
+    "group_block_size": 2
+  },
+  "runtime": {
+    "cpu_fallback": true
+  }
+}

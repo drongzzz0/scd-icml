@@ -1,0 +1,94 @@
+{
+  "selector_policy": {
+    "mode": "quality_threshold_ttft_first",
+    "max_f1_drop_ratio_vs_patch_only": 0.05,
+    "max_f1_drop_abs_vs_patch_only": null,
+    "max_em_drop_vs_patch_only": null
+  },
+  "anchor_patch_only": {
+    "f1": 0.6285388243746529,
+    "em": 0.285,
+    "ttft_ms": 68.79358621314168,
+    "encode_ms": 4.677339773625135,
+    "transfer_ms": 14.183161547407508,
+    "rebuild_ms": 0.0,
+    "patch_infer_ms": 26.223351880908012,
+    "decode_first_ms": 23.709733011201024
+  },
+  "quality_pass_candidates": [
+    {
+      "block_label": "block_10_0010_0010",
+      "f1": 0.6482288070675603,
+      "em": 0.305,
+      "ttft_ms": 66.04708779603243,
+      "delta_vs_patch_only": {
+        "ttft_gain_ms": 2.746498417109251,
+        "f1_drop": -0.019689982692907337,
+        "em_drop": -0.020000000000000018
+      }
+    },
+    {
+      "block_label": "block_04_0004_0004",
+      "f1": 0.6310275098103383,
+      "em": 0.28,
+      "ttft_ms": 70.7287813629955,
+      "delta_vs_patch_only": {
+        "ttft_gain_ms": -1.9351951498538256,
+        "f1_drop": -0.002488685435685367,
+        "em_drop": 0.004999999999999949
+      }
+    }
+  ],
+  "selected_candidate": {
+    "block_label": "block_10_0010_0010",
+    "reuse_layers": [
+      10
+    ],
+    "patch_layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "f1": 0.6482288070675603,
+    "em": 0.305,
+    "ttft_ms": 66.04708779603243,
+    "encode_ms": 2.8611168265342712,
+    "transfer_ms": 14.987424071878195,
+    "rebuild_ms": 0.5406145006418228,
+    "patch_infer_ms": 23.697586059570312,
+    "decode_first_ms": 23.960346337407827,
+    "delta_vs_patch_only": {
+      "ttft_gain_ms": 2.746498417109251,
+      "f1_drop": -0.019689982692907337,
+      "em_drop": -0.020000000000000018
+    }
+  }
+}

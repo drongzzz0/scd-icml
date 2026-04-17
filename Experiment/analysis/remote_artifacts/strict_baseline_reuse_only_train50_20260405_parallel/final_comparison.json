@@ -1,0 +1,224 @@
+{
+  "meta": {
+    "route_path": "configs/route_reuse_patchonly_all32_20260404.json",
+    "patch_ckpt_path": "runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4",
+    "reuse_ckpt_path": "runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_reuse_layerwise_seed42",
+    "eval_config_path": "configs/eval_baseline_only_train50_20260405.json",
+    "models_config_path": "configs/models_ser_mistrallite_to_mistral7_20260405.json",
+    "producer_model": "/disk_n/c101-3-1/models/MistralLite",
+    "consumer_model": "/disk_n/c101-3-1/models/Mistral-7B-v0.1",
+    "producer_device": "cuda:0",
+    "consumer_device": "cuda:1",
+    "bandwidth_gbps": 200.0,
+    "max_new_tokens": 32,
+    "max_length": 1024,
+    "route_counts": {
+      "reuse_layers": 32,
+      "patch_layers": 32,
+      "fallback_layers": 0,
+      "selected_recompute_layers": 0
+    },
+    "fit_mode": "xnorm_nativekv_shared_residual_mlp_v1",
+    "semantic_source": null,
+    "methods": [
+      "full_consumer",
+      "reuse_only"
+    ],
+    "strict_mode": true,
+    "align_full_consumer_first_decode": true,
+    "qid_allowlist": [],
+    "merge_inputs": [
+      {
+        "dir": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_baseline_reuse_only_train50_20260405_parallel__baseline",
+        "methods": [
+          "full_consumer"
+        ],
+        "meta": {
+          "route_path": "configs/route_reuse_patchonly_all32_20260404.json",
+          "patch_ckpt_path": "runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4",
+          "reuse_ckpt_path": "runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_reuse_layerwise_seed42",
+          "eval_config_path": "configs/eval_baseline_only_train50_20260405.json",
+          "models_config_path": "configs/models_ser_mistrallite_to_mistral7_20260405.json",
+          "producer_model": "/disk_n/c101-3-1/models/MistralLite",
+          "consumer_model": "/disk_n/c101-3-1/models/Mistral-7B-v0.1",
+          "producer_device": "cuda:0",
+          "consumer_device": "cuda:1",
+          "bandwidth_gbps": 200.0,
+          "max_new_tokens": 32,
+          "max_length": 1024,
+          "route_counts": {
+            "reuse_layers": 32,
+            "patch_layers": 32,
+            "fallback_layers": 0,
+            "selected_recompute_layers": 0
+          },
+          "fit_mode": "xnorm_nativekv_shared_residual_mlp_v1",
+          "semantic_source": null,
+          "methods": [
+            "full_consumer"
+          ],
+          "strict_mode": true,
+          "align_full_consumer_first_decode": true,
+          "qid_allowlist": []
+        }
+      },
+      {
+        "dir": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_to_mistral7_cmrc_locked_20260405/strict_baseline_reuse_only_train50_20260405_parallel__reuse_only",
+        "methods": [
+          "reuse_only"
+        ],
+        "meta": {
+          "route_path": "configs/route_reuse_patchonly_all32_20260404.json",
+          "patch_ckpt_path": "runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2048_r512_b2_seed42_sharded_w4",
+          "reuse_ckpt_path": "runs/mistrallite_to_mistral7_cmrc_locked_20260405/ckpt_reuse_layerwise_seed42",
+          "eval_config_path": "configs/eval_reuse_only_train50_20260405.json",
+          "models_config_path": "configs/models_ser_mistrallite_to_mistral7_20260405.json",
+          "producer_model": "/disk_n/c101-3-1/models/MistralLite",
+          "consumer_model": "/disk_n/c101-3-1/models/Mistral-7B-v0.1",
+          "producer_device": "cuda:2",
+          "consumer_device": "cuda:3",
+          "bandwidth_gbps": 200.0,
+          "max_new_tokens": 32,
+          "max_length": 1024,
+          "route_counts": {
+            "reuse_layers": 32,
+            "patch_layers": 32,
+            "fallback_layers": 0,
+            "selected_recompute_layers": 0
+          },
+          "fit_mode": "xnorm_nativekv_shared_residual_mlp_v1",
+          "semantic_source": null,
+          "methods": [
+            "reuse_only"
+          ],
+          "strict_mode": true,
+          "align_full_consumer_first_decode": true,
+          "qid_allowlist": []
+        }
+      }
+    ],
+    "isolated_patch_only": false
+  },
+  "modes": {
+    "full_consumer": {
+      "method": "full_consumer",
+      "method_label": "Full Consumer",
+      "num_samples": 50,
+      "f1": 0.6364101712753589,
+      "em": 0.22,
+      "avg_logp": -0.40167619019392314,
+      "avg_nll": 0.40167619019392314,
+      "payload_mb": 0.0,
+      "ttft_ms": 128.558660261333,
+      "producer_prefill_ms": 0.0,
+      "consumer_prefill_ms": 103.12412813305855,
+      "encode_ms": 0.0,
+      "transfer_ms": 0.0,
+      "staging_copy_ms": 0.0,
+      "rebuild_ms": 0.0,
+      "rebuild_prep_ms": 0.0,
+      "rebuild_decode_core_ms": 0.0,
+      "rebuild_rerope_ms": 0.0,
+      "rebuild_materialize_ms": 0.0,
+      "patch_infer_ms": 0.0,
+      "patch_shard_load_ms": 0.0,
+      "patch_shard_gpu_copy_ms": 0.0,
+      "patch_identity_check_ms": 0.0,
+      "patch_residual_forward_ms": 0.0,
+      "patch_kproj_vproj_ms": 0.0,
+      "patch_knorm_ms": 0.0,
+      "patch_rotary_ms": 0.0,
+      "recompute_ms": 0.0,
+      "decode_first_ms": 25.43453212827444,
+      "decode_rest_ms": 731.6546401381493,
+      "decode_total_ms": 757.0891722664237,
+      "total_ms": 860.2133003994823,
+      "bytes_transferred": 0.0,
+      "raw_cache_bytes": 80554229.76,
+      "compression_ratio": null,
+      "teacher_token_count": 1093,
+      "delta_ttft_vs_full": 0.0,
+      "delta_logp_vs_full": 0.0,
+      "delta_nll_vs_full": 0.0,
+      "delta_ttft_vs_reuse_only": 75.7877604663372,
+      "delta_logp_vs_reuse_only": 7.217062373392536,
+      "delta_nll_vs_reuse_only": -7.217062373392536
+    },
+    "reuse_only": {
+      "method": "reuse_only",
+      "method_label": "Reuse-only",
+      "num_samples": 50,
+      "f1": 0.016058261282856142,
+      "em": 0.0,
+      "avg_logp": -7.618738563586459,
+      "avg_nll": 7.618738563586459,
+      "payload_mb": 76.8225,
+      "ttft_ms": 52.770899794995785,
+      "producer_prefill_ms": 0.0,
+      "consumer_prefill_ms": 0.0,
+      "encode_ms": 0.7342351227998734,
+      "transfer_ms": 11.66289996355772,
+      "staging_copy_ms": 11.66289996355772,
+      "rebuild_ms": 14.138350114226341,
+      "rebuild_prep_ms": 0.12019623070955276,
+      "rebuild_decode_core_ms": 11.267501004040241,
+      "rebuild_rerope_ms": 1.9218115508556366,
+      "rebuild_materialize_ms": 0.8288413286209106,
+      "patch_infer_ms": 0.0,
+      "patch_shard_load_ms": 0.0,
+      "patch_shard_gpu_copy_ms": 0.0,
+      "patch_identity_check_ms": 0.0,
+      "patch_residual_forward_ms": 0.0,
+      "patch_kproj_vproj_ms": 0.0,
+      "patch_knorm_ms": 0.0,
+      "patch_rotary_ms": 0.0,
+      "recompute_ms": 0.0,
+      "decode_first_ms": 26.23541459441185,
+      "decode_rest_ms": 728.278710693121,
+      "decode_total_ms": 754.5141252875328,
+      "total_ms": 781.0496104881167,
+      "bytes_transferred": 80554229.76,
+      "raw_cache_bytes": 80554229.76,
+      "compression_ratio": 1.0,
+      "teacher_token_count": 1093,
+      "delta_ttft_vs_full": -75.7877604663372,
+      "delta_logp_vs_full": -7.217062373392536,
+      "delta_nll_vs_full": 7.217062373392536,
+      "delta_ttft_vs_reuse_only": 0.0,
+      "delta_logp_vs_reuse_only": 0.0,
+      "delta_nll_vs_reuse_only": 0.0
+    }
+  },
+  "delta_vs_full_consumer": {
+    "full_consumer": {
+      "delta_ttft_ms": 0.0,
+      "delta_logp": 0.0,
+      "delta_nll": 0.0,
+      "delta_em": 0.0,
+      "delta_f1": 0.0
+    },
+    "reuse_only": {
+      "delta_ttft_ms": -75.7877604663372,
+      "delta_logp": -7.217062373392536,
+      "delta_nll": 7.217062373392536,
+      "delta_em": -0.22,
+      "delta_f1": -0.6203519099925028
+    }
+  },
+  "delta_vs_reuse_only": {
+    "full_consumer": {
+      "delta_ttft_ms": 75.7877604663372,
+      "delta_logp": 7.217062373392536,
+      "delta_nll": -7.217062373392536,
+      "delta_em": 0.22,
+      "delta_f1": 0.6203519099925028
+    },
+    "reuse_only": {
+      "delta_ttft_ms": 0.0,
+      "delta_logp": 0.0,
+      "delta_nll": 0.0,
+      "delta_em": 0.0,
+      "delta_f1": 0.0
+    }
+  }
+}

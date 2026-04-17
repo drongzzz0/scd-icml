@@ -1,0 +1,14 @@
+{
+  "timestamp_utc": "2026-03-30T02:47:21.806043+00:00",
+  "command": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/src/scd_repro/cli/eval_cmrc_strict.py --models-config configs/models_ser_qwen17_bf16.yaml --eval-config /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/configs/eval_qwen17_route_b_direct_kv.json --data-root /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/.tmp_data_root_qwen17_bf16_clean_orig --route /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_to_bf16_cmrc_clean_orig_s42/route_cmrc_seed42.json --reuse-ckpt /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_to_bf16_cmrc_clean_orig_s42/ckpt_reuse_seed42 --patch-ckpt /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_to_bf16_cmrc_clean_orig_s42/ckpt_patch_routeb_directkv_seed42 --out /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_to_bf16_cmrc_clean_orig_s42/strict_routeb_directkv_main200 --limit 200 --max-length 1024 --max-new-tokens 32 --bandwidth-gbps 200 --quant-group-size 128 --producer-device cuda:3 --consumer-device cuda:1 --dtype bfloat16 --seed 42",
+  "seed": 42,
+  "config_paths": {
+    "models": "configs/models_ser_qwen17_bf16.yaml",
+    "eval": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/configs/eval_qwen17_route_b_direct_kv.json",
+    "route": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_to_bf16_cmrc_clean_orig_s42/route_cmrc_seed42.json",
+    "reuse": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_to_bf16_cmrc_clean_orig_s42/ckpt_reuse_seed42",
+    "patch": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_to_bf16_cmrc_clean_orig_s42/ckpt_patch_routeb_directkv_seed42"
+  },
+  "git_commit": "f1a3a1a135e42a01f1af63dce6503aa10cb3178b",
+  "hostname": "unknown"
+}

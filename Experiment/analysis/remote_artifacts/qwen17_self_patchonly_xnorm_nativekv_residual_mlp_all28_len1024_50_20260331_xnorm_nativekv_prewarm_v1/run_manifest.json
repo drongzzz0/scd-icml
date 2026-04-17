@@ -1,0 +1,14 @@
+{
+  "timestamp_utc": "2026-03-31T11:59:40.164326+00:00",
+  "command": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/src/scd_repro/cli/eval_cmrc_strict.py --models-config configs/models_ser_qwen17_self.yaml --eval-config /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/eval_patchonly_diag50.json --data-root /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/.tmp_data_root_qwen17_self_cmrc --route /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/route_patchonly_all28_seed42.json --reuse-ckpt /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/ckpt_reuse_layerwise_seed42 --patch-ckpt /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/ckpt_patch_xnorm_nativekv_residual_mlp_all28_len1024_seed42 --out /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/strict_diag_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260331_xnorm_nativekv_prewarm_v1 --limit 50 --max-length 1024 --max-new-tokens 32 --bandwidth-gbps 200 --quant-group-size 128 --producer-device cuda:0 --consumer-device cuda:1 --dtype bfloat16 --seed 42",
+  "seed": 42,
+  "config_paths": {
+    "models": "configs/models_ser_qwen17_self.yaml",
+    "eval": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/eval_patchonly_diag50.json",
+    "route": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/route_patchonly_all28_seed42.json",
+    "reuse": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/ckpt_reuse_layerwise_seed42",
+    "patch": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/ckpt_patch_xnorm_nativekv_residual_mlp_all28_len1024_seed42"
+  },
+  "git_commit": "f1a3a1a135e42a01f1af63dce6503aa10cb3178b",
+  "hostname": "unknown"
+}

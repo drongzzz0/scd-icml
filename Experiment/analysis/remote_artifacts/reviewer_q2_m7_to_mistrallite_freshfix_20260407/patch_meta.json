@@ -1,0 +1,58 @@
+{
+  "fit_mode": "xnorm_semantic_v1",
+  "selected_layers": [
+    12,
+    20,
+    28,
+    29,
+    30,
+    31
+  ],
+  "hidden_dim": 4096,
+  "code_dim": 4096,
+  "mlp_hidden_dim": 512,
+  "num_key_value_heads": 8,
+  "head_dim": 128,
+  "k_space": "raw_derope",
+  "semantic_source": "probe",
+  "semantic_probe_shared": true,
+  "semantic_probe_frozen": true,
+  "semantic_probe_pretrained": false,
+  "semantic_probe_arch": "mlp_gelu_v1",
+  "semantic_probe_version": "v1",
+  "semantic_probe_dim": 256,
+  "semantic_probe_num_classes": 128,
+  "state_target_space": "residual_pre_ln",
+  "semantic_target_space": "probe_logits",
+  "vocab_size": 32000,
+  "patch_apply_mode": "residual_blend",
+  "patch_blend_alpha_k": 0.25,
+  "patch_blend_alpha_v": 0.5,
+  "loss_weights": {
+    "lambda_h": 1.0,
+    "lambda_k": 0.5,
+    "lambda_v": 0.5,
+    "lambda_sem": 1.0
+  },
+  "tau": 1.0,
+  "route_layers": [
+    12,
+    20,
+    28,
+    29,
+    30,
+    31
+  ],
+  "enc_h_is_identity": true,
+  "rope": {
+    "model_b": {
+      "rope_theta": 1000000.0,
+      "head_dim": 128,
+      "rotary_dim": 128,
+      "scaling_type": "none",
+      "scaling_factor": 1.0,
+      "max_position_embeddings": 32768,
+      "original_max_position_embeddings": 32768
+    }
+  }
+}

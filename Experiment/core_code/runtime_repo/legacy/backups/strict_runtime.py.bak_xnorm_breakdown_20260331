@@ -1,0 +1,2030 @@
+﻿from __future__ import annotations
+
+import math
+import inspect
+import time
+from dataclasses import dataclass, field
+from typing import Any
+
+from transformers.cache_utils import DynamicCache
+from transformers.models.mistral.modeling_mistral import create_causal_mask, create_sliding_window_causal_mask
+
+from .cmrc import CMRCSample, extract_answer_text, score_cmrc_prediction
+from .direct_kv_residual_patch import PATCH_FIT_MODE_DIRECT_KV_KNORM_RESIDUAL_MLP_V1, PATCH_FIT_MODE_XNORM_NATIVEKV_RESIDUAL_MLP_V1, infer_direct_kv_residual_patch_layer_torch, infer_xnorm_nativekv_residual_patch_layer_torch, load_direct_kv_residual_patch_layer_from_ckpt, load_xnorm_nativekv_residual_patch_layer_from_ckpt
+from .patch import (
+    PATCH_FIT_MODE_DIRECT_KV_V1,
+    PATCH_FIT_MODE_DIRECT_KV_KNORM_V1,
+    PATCH_FIT_MODE_XNORM_SEMANTIC_V1,
+    infer_direct_kv_patch_layer_torch,
+    infer_patch_layer_torch,
+    load_semantic_patch_layer_from_ckpt,
+)
+from .reuse import decode_group, encode_group, group_layers_for_gid, move_reuse_weights, pack_group, unpack_group
+from .rope import de_rope_k_torch, re_rope_k_torch, remap_rope_k_torch, rope_spec_from_hf_config
+from .torch_utils import clear_torch_cache, require_torch, resolve_device, resolve_torch_dtype, tensor_to_cpu
+
+
+PAPER_TABLE2_ANCHOR = {
+    "oracle": {"payload_mb": 0.00, "ttft_ms": 331.9, "speedup_vs_oracle": 1.00, "f1": 0.8105},
+    "raw_kv": {"payload_mb": 115.02, "ttft_ms": 145.5, "speedup_vs_oracle": 2.28, "f1": 0.2725},
+    "quantized_4bit": {"payload_mb": 28.76, "ttft_ms": 59.2, "speedup_vs_oracle": 5.60, "f1": 0.1289},
+    "selective_recompute": {"payload_mb": 127.34, "ttft_ms": 198.7, "speedup_vs_oracle": 1.67, "f1": 0.7052},
+    "reuse_only": {"payload_mb": 69.02, "ttft_ms": 118.2, "speedup_vs_oracle": 2.81, "f1": 0.6421},
+    "scd_full": {"payload_mb": 87.31, "ttft_ms": 125.2, "speedup_vs_oracle": 2.65, "f1": 0.7850},
+}
+
+_METHOD_LABELS = {
+    "full_consumer": "Full Consumer",
+    "oracle": "Oracle",
+    "oracle_xnorm_suffix": "Oracle XNorm Suffix",
+    "oracle_state_suffix": "Oracle State Suffix",
+    "oracle_kv_patchonly": "Oracle KV Patch-only",
+    "raw_kv": "Raw KV (BF16)",
+    "quantized_4bit": "Quantized (4-bit)",
+    "selective_recompute": "Selective Recompute",
+    "reuse_only": "Reuse-only",
+    "reuse_fallback": "Reuse + Fallback",
+    "reuse_patch": "Reuse + Patch",
+    "reuse_patch_recompute": "Reuse + Patch + Short Recompute",
+    "scd_full": "SCD",
+}
+
+STEP_C_METHODS = [
+    "full_consumer",
+    "reuse_only",
+    "reuse_fallback",
+    "reuse_patch",
+    "reuse_patch_recompute",
+]
+
+
+def _resolve_hidden_states(args, kwargs):
+    if args:
+        return args[0]
+    if kwargs:
+        hidden_states = kwargs.get("hidden_states")
+        if hidden_states is not None:
+            return hidden_states
+    return None
+
+
+@dataclass
+class PrefillCapture:
+    input_ids: Any
+    attention_mask: Any
+    logits_last: Any
+    past_key_values: list[tuple[Any, Any]]
+    xnorm_by_layer: dict[int, Any]
+    prefill_ms: float
+    layer_ms: list[float]
+    vocab_size: int
+    residual_by_layer: dict[int, Any] = field(default_factory=dict)
+
+
+@dataclass
+class MethodTiming:
+    producer_prefill_ms: float = 0.0
+    consumer_prefill_ms: float = 0.0
+    encode_ms: float = 0.0
+    transfer_ms: float = 0.0
+    rebuild_ms: float = 0.0
+    patch_infer_ms: float = 0.0
+    recompute_ms: float = 0.0
+    decode_first_ms: float = 0.0
+    decode_rest_ms: float = 0.0
+    decode_total_ms: float = 0.0
+    ttft_ms: float = 0.0
+    total_ms: float = 0.0
+    bytes_transferred: int = 0
+    raw_cache_bytes: int = 0
+    compression_ratio: float | None = None
+
+
+@dataclass
+class MethodSampleResult:
+    qid: str
+    method: str
+    pred_text: str
+    f1: float
+    em: float
+    payload_mb: float
+    timing: MethodTiming
+    gold_answers: list[str]
+    prompt_tokens: int
+    prefix_tokens: int
+    first_token_id: int | None
+    avg_logp: float = 0.0
+    avg_nll: float = 0.0
+    teacher_logp_sum: float = 0.0
+    teacher_token_count: int = 0
+
+
+class TransformersRuntimeSession:
+    def __init__(self, model_path: str, device: str, dtype: str, cpu_fallback: bool = True):
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except Exception as exc:
+            raise RuntimeError("缺少运行依赖: transformers") from exc
+
+        self.torch = require_torch()
+        self.device = str(resolve_device(device, cpu_fallback=cpu_fallback))
+        self.dtype = dtype
+        self.torch_dtype = resolve_torch_dtype(dtype)
+        self.cpu_fallback = cpu_fallback
+        self.model_path = model_path
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+        load_kwargs = {
+            "torch_dtype": self.torch_dtype,
+            "trust_remote_code": True,
+            "low_cpu_mem_usage": True,
+        }
+        self.model = AutoModelForCausalLM.from_pretrained(model_path, **load_kwargs)
+        if self.device != "cpu":
+            self.model.to(self.device)
+        self.model.eval()
+        self.layers = _get_decoder_layers(self.model)
+        self.target_device = resolve_device(self.device, cpu_fallback=cpu_fallback)
+        self.rope_spec = rope_spec_from_hf_config(self.model.config)
+
+    def _synchronize(self) -> None:
+        if str(self.target_device).startswith("cuda"):
+            self.torch.cuda.synchronize(self.target_device)
+
+    def tokenize(self, prompt: str, max_length: int | None = None) -> tuple[Any, Any]:
+        kwargs = {"return_tensors": "pt", "padding": False}
+        if max_length is not None and int(max_length) > 0:
+            kwargs["truncation"] = True
+            kwargs["max_length"] = int(max_length)
+        else:
+            kwargs["truncation"] = False
+        encoded = self.tokenizer(prompt, **kwargs)
+        input_ids = encoded["input_ids"].to(self.target_device)
+        attention_mask = encoded.get("attention_mask")
+        if attention_mask is None:
+            attention_mask = self.torch.ones_like(input_ids, device=self.target_device)
+        else:
+            attention_mask = attention_mask.to(self.target_device)
+        return input_ids, attention_mask
+
+    def prefill(
+        self,
+        prompt: str,
+        max_length: int | None = None,
+        capture_xnorm: bool = False,
+        capture_residual: bool = False,
+        profile_layers: bool = False,
+    ) -> PrefillCapture:
+        input_ids, attention_mask = self.tokenize(prompt, max_length=max_length)
+        xnorm_by_layer: dict[int, Any] = {}
+        residual_by_layer: dict[int, Any] = {}
+        layer_ms = [0.0 for _ in self.layers]
+        starts = [0.0 for _ in self.layers]
+        hooks = []
+
+        if capture_xnorm:
+            def make_xnorm_hook(layer_idx: int):
+                def _hook(_module, args, kwargs):
+                    hidden_states = _resolve_hidden_states(args, kwargs)
+                    if hidden_states is not None:
+                        xnorm_by_layer[layer_idx] = hidden_states.detach().to(dtype=self.torch.float32)
+                return _hook
+
+            for idx, layer in enumerate(self.layers):
+                attn = getattr(layer, "self_attn", None) or getattr(layer, "attn", None)
+                if attn is not None:
+                    hooks.append(attn.register_forward_pre_hook(make_xnorm_hook(idx), with_kwargs=True))
+
+        if capture_residual:
+            def make_residual_hook(layer_idx: int):
+                def _hook(_module, args):
+                    hidden_states = args[0] if args else None
+                    if hidden_states is not None:
+                        residual_by_layer[layer_idx] = hidden_states.detach().to(dtype=self.torch.float32)
+                return _hook
+
+            for idx, layer in enumerate(self.layers):
+                hooks.append(layer.register_forward_pre_hook(make_residual_hook(idx)))
+
+        if profile_layers:
+            def make_pre_hook(layer_idx: int):
+                def _hook(_module, _args):
+                    self._synchronize()
+                    starts[layer_idx] = time.perf_counter()
+                return _hook
+
+            def make_post_hook(layer_idx: int):
+                def _hook(_module, _args, _out):
+                    self._synchronize()
+                    layer_ms[layer_idx] += (time.perf_counter() - starts[layer_idx]) * 1000.0
+                return _hook
+
+            for idx, layer in enumerate(self.layers):
+                hooks.append(layer.register_forward_pre_hook(make_pre_hook(idx)))
+                hooks.append(layer.register_forward_hook(make_post_hook(idx)))
+
+        try:
+            self._synchronize()
+            start = time.perf_counter()
+            with self.torch.no_grad():
+                out = self.model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    use_cache=True,
+                    output_hidden_states=False,
+                    return_dict=True,
+                )
+            self._synchronize()
+            prefill_ms = (time.perf_counter() - start) * 1000.0
+        finally:
+            for hook in hooks:
+                hook.remove()
+
+        past = cache_to_layer_tuples(out.past_key_values)
+        logits_last = out.logits[:, -1, :].detach()
+        return PrefillCapture(
+            input_ids=input_ids.detach(),
+            attention_mask=attention_mask.detach(),
+            logits_last=logits_last,
+            past_key_values=past,
+            xnorm_by_layer=xnorm_by_layer,
+            prefill_ms=float(prefill_ms),
+            layer_ms=[float(x) for x in layer_ms],
+            vocab_size=int(logits_last.shape[-1]),
+            residual_by_layer=residual_by_layer,
+        )
+
+    def generate_from_prefill(
+        self,
+        capture: PrefillCapture,
+        max_new_tokens: int = 32,
+        align_first_decode_to_cache: bool = False,
+    ) -> tuple[str, float, float, int | None]:
+        if align_first_decode_to_cache:
+            prefix_tokens = int(capture.input_ids.shape[1]) - 1
+            if prefix_tokens <= 0:
+                raise ValueError("从 full prefill 对齐首 token 计时时，prompt 至少需要 2 个 token")
+            prefix_cache_layers = [
+                (
+                    _slice_prefix_tensor(k, prefix_tokens).contiguous(),
+                    _slice_prefix_tensor(v, prefix_tokens).contiguous(),
+                )
+                for k, v in capture.past_key_values
+            ]
+            return self.generate_from_cache(
+                cache_layers=prefix_cache_layers,
+                prompt_input_ids=capture.input_ids,
+                prompt_attention_mask=capture.attention_mask,
+                prefix_tokens=prefix_tokens,
+                max_new_tokens=max_new_tokens,
+            )
+
+        eos_token_id = self.tokenizer.eos_token_id
+        generated: list[int] = []
+        attention_mask = capture.attention_mask.clone()
+        past = build_dynamic_cache(self.model, capture.past_key_values)
+
+        decode_start = time.perf_counter()
+        first_decode_ms = 0.0
+        first_token_id: int | None = None
+        logits = capture.logits_last
+        for step in range(max_new_tokens):
+            self._synchronize()
+            step_start = time.perf_counter()
+            token = int(self.torch.argmax(logits, dim=-1).item())
+            self._synchronize()
+            elapsed = (time.perf_counter() - step_start) * 1000.0
+            if step == 0:
+                first_decode_ms = elapsed
+                first_token_id = token
+            if eos_token_id is not None and token == int(eos_token_id):
+                break
+            generated.append(token)
+            text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
+            if text and "\n" in text:
+                break
+            attention_mask = self.torch.cat([attention_mask, self.torch.ones((1, 1), device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
+            with self.torch.no_grad():
+                out = self.model(
+                    input_ids=self.torch.tensor([[token]], device=self.target_device, dtype=capture.input_ids.dtype),
+                    attention_mask=attention_mask,
+                    past_key_values=past,
+                    use_cache=True,
+                    return_dict=True,
+                )
+            past = out.past_key_values
+            logits = out.logits[:, -1, :].detach()
+
+        self._synchronize()
+        decode_total_ms = (time.perf_counter() - decode_start) * 1000.0
+        text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
+        return text, float(first_decode_ms), float(decode_total_ms), first_token_id
+
+    def generate_from_cache(
+        self,
+        cache_layers: list[tuple[Any, Any]],
+        prompt_input_ids: Any,
+        prompt_attention_mask: Any,
+        prefix_tokens: int,
+        max_new_tokens: int = 32,
+    ) -> tuple[str, float, float, int | None]:
+        total_prompt_tokens = int(prompt_input_ids.shape[1])
+        if total_prompt_tokens < 2:
+            raise ValueError("从 prefix cache 恢复生成时，prompt 至少需要 2 个 token")
+        if prefix_tokens <= 0 or prefix_tokens >= total_prompt_tokens:
+            raise ValueError(f"非法的 prefix_tokens: {prefix_tokens}, prompt_tokens={total_prompt_tokens}")
+        if not cache_layers:
+            raise ValueError("cache_layers 不能为空")
+
+        for layer_idx, (k, v) in enumerate(cache_layers):
+            k_tokens = int(k.shape[-2])
+            v_tokens = int(v.shape[-2])
+            if k_tokens != prefix_tokens or v_tokens != prefix_tokens:
+                raise ValueError(
+                    f"第 {layer_idx} 层 cache 长度与 prefix_tokens 不一致: "
+                    f"k_tokens={k_tokens}, v_tokens={v_tokens}, prefix_tokens={prefix_tokens}"
+                )
+
+        if int(prompt_attention_mask.shape[1]) < prefix_tokens + 1:
+            raise ValueError(
+                f"attention_mask 长度不足: mask_tokens={int(prompt_attention_mask.shape[1])}, 需要至少 {prefix_tokens + 1}"
+            )
+
+        past = build_dynamic_cache(self.model, [(k.contiguous(), v.contiguous()) for k, v in cache_layers])
+        last_token = prompt_input_ids[:, prefix_tokens : prefix_tokens + 1].to(self.target_device)
+        attention_mask = prompt_attention_mask[:, : prefix_tokens + 1].to(self.target_device)
+        eos_token_id = self.tokenizer.eos_token_id
+
+        self._synchronize()
+        decode_start = time.perf_counter()
+        with self.torch.no_grad():
+            out = self.model(
+                input_ids=last_token,
+                attention_mask=attention_mask,
+                past_key_values=past,
+                use_cache=True,
+                return_dict=True,
+            )
+        self._synchronize()
+        first_decode_ms = (time.perf_counter() - decode_start) * 1000.0
+
+        generated: list[int] = []
+        logits = out.logits[:, -1, :].detach()
+        past = out.past_key_values
+        token = int(self.torch.argmax(logits, dim=-1).item())
+        first_token_id: int | None = token
+        if eos_token_id is None or token != int(eos_token_id):
+            generated.append(token)
+        else:
+            text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
+            return text, float(first_decode_ms), float(first_decode_ms), first_token_id
+
+        attention_mask = self.torch.cat([attention_mask, self.torch.ones((1, 1), device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
+        for _ in range(1, max_new_tokens):
+            text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
+            if text and "\n" in text:
+                break
+            with self.torch.no_grad():
+                out = self.model(
+                    input_ids=self.torch.tensor([[generated[-1]]], device=self.target_device, dtype=prompt_input_ids.dtype),
+                    attention_mask=attention_mask,
+                    past_key_values=past,
+                    use_cache=True,
+                    return_dict=True,
+                )
+            past = out.past_key_values
+            logits = out.logits[:, -1, :].detach()
+            token = int(self.torch.argmax(logits, dim=-1).item())
+            if eos_token_id is None or token != int(eos_token_id):
+                generated.append(token)
+            else:
+                break
+            attention_mask = self.torch.cat([attention_mask, self.torch.ones((1, 1), device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
+
+        self._synchronize()
+        decode_total_ms = (time.perf_counter() - decode_start) * 1000.0
+        text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
+        return text, float(first_decode_ms), float(decode_total_ms), first_token_id
+
+    def close(self) -> None:
+        del self.model
+        clear_torch_cache()
+
+
+def _get_decoder_layers(model):
+    if hasattr(model, "model") and hasattr(model.model, "layers"):
+        return model.model.layers
+    if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
+        return model.transformer.h
+    raise RuntimeError("无法从模型中定位 decoder layers")
+
+
+def cache_to_layer_tuples(past_key_values) -> list[tuple[Any, Any]]:
+    if hasattr(past_key_values, "layers"):
+        return [(layer.keys.detach().clone(), layer.values.detach().clone()) for layer in past_key_values.layers]
+    if isinstance(past_key_values, (tuple, list)):
+        return [(row[0].detach().clone(), row[1].detach().clone()) for row in past_key_values]
+    raise TypeError(f"不支持的 cache 类型: {type(past_key_values)!r}")
+
+
+def build_dynamic_cache(model, cache_layers: list[tuple[Any, Any]]):
+    from transformers.cache_utils import DynamicCache
+
+    return DynamicCache(ddp_cache_data=[(k.contiguous(), v.contiguous()) for k, v in cache_layers], config=model.config)
+
+
+def assert_same_tokenization(a_capture: PrefillCapture, b_capture: PrefillCapture) -> None:
+    t = require_torch()
+    if a_capture.input_ids.shape != b_capture.input_ids.shape or not t.equal(a_capture.input_ids.cpu(), b_capture.input_ids.cpu()):
+        raise ValueError("Producer 和 Consumer 的 tokenizer 输出不一致，无法进行严格 cache 对齐评测")
+
+
+def _synchronize_for_device(device: str | Any) -> None:
+    t = require_torch()
+    if str(device).startswith("cuda"):
+        t.cuda.synchronize(device)
+
+
+def _tensor_bytes(x: Any) -> int:
+    t = require_torch()
+    if t.is_tensor(x):
+        return int(x.numel()) * int(x.element_size())
+    return int(x.numel()) * int(x.dtype.itemsize)
+
+
+def _move_layers_to_device(cache_layers: list[tuple[Any, Any]], device: str, dtype: Any) -> list[tuple[Any, Any]]:
+    out = []
+    for k, v in cache_layers:
+        out.append((k.to(device=device, dtype=dtype).contiguous(), v.to(device=device, dtype=dtype).contiguous()))
+    return out
+
+
+def _quantize_dequantize_int4(x: Any, group_size: int, scale_dtype: Any) -> tuple[Any, int]:
+    t = require_torch()
+    shape = tuple(x.shape)
+    flat = x.reshape(-1).to(dtype=t.float32)
+    if flat.numel() == 0:
+        return x.to(dtype=t.float32), 0
+    pad = (group_size - (flat.numel() % group_size)) % group_size
+    if pad:
+        flat = t.cat([flat, t.zeros((pad,), device=flat.device, dtype=flat.dtype)], dim=0)
+    groups = flat.reshape(-1, group_size)
+    scales = t.amax(t.abs(groups), dim=1, keepdim=True) / 7.0
+    scales = t.clamp(scales, min=1e-8)
+    q = t.round(groups / scales).clamp(-8, 7)
+    deq = (q * scales).reshape(-1)[: math.prod(shape)].reshape(shape).to(dtype=t.float32)
+    packed_bytes = (int(math.prod(shape)) + 1) // 2
+    scale_bytes = int(scales.numel()) * _dtype_size_bytes(scale_dtype)
+    return deq, int(packed_bytes + scale_bytes)
+
+
+def _dtype_size_bytes(dtype: Any) -> int:
+    t = require_torch()
+    return int(t.tensor([], dtype=dtype).element_size())
+
+
+def _slice_prefix_tensor(x: Any, prefix_tokens: int) -> Any:
+    if x.ndim == 4:
+        return x[..., :prefix_tokens, :]
+    if x.ndim == 3:
+        return x[:, :prefix_tokens, :]
+    raise ValueError(f"不支持的 prefix 张量维度: {tuple(x.shape)}")
+
+
+def _build_layer_forward_inputs(
+    consumer_session: TransformersRuntimeSession,
+    hidden_states: Any,
+    attention_mask: Any,
+) -> dict[str, Any]:
+    t = require_torch()
+    model_dtype = getattr(consumer_session.model, "dtype", t.float32)
+    hidden_states = hidden_states.to(device=consumer_session.target_device, dtype=model_dtype)
+    attention_mask = attention_mask.to(device=consumer_session.target_device)
+    seq_len = int(hidden_states.shape[1])
+    cache_position = t.arange(seq_len, device=hidden_states.device)
+    position_ids = cache_position.unsqueeze(0)
+    mask_fn = create_sliding_window_causal_mask if getattr(consumer_session.model.config, "sliding_window", None) is not None else create_causal_mask
+    mask_kwargs = {
+        "config": consumer_session.model.config,
+        "attention_mask": attention_mask,
+        "cache_position": cache_position,
+        "past_key_values": None,
+        "position_ids": position_ids,
+    }
+    sig = inspect.signature(mask_fn)
+    if "inputs_embeds" in sig.parameters:
+        causal_mask = mask_fn(inputs_embeds=hidden_states, **mask_kwargs)
+    elif "input_embeds" in sig.parameters:
+        causal_mask = mask_fn(input_embeds=hidden_states, **mask_kwargs)
+    else:
+        raise TypeError(f"{mask_fn.__name__} does not accept inputs_embeds/input_embeds")
+    position_embeddings = consumer_session.model.model.rotary_emb(hidden_states, position_ids=position_ids)
+    return {
+        "attention_mask": causal_mask,
+        "position_ids": position_ids,
+        "cache_position": cache_position,
+        "position_embeddings": position_embeddings,
+    }
+
+
+def _run_consumer_layer_native(
+    *,
+    consumer_session: TransformersRuntimeSession,
+    layer_idx: int,
+    hidden_states: Any,
+    attention_mask: Any,
+    position_ids: Any,
+    cache_position: Any,
+    position_embeddings: Any,
+) -> tuple[Any, Any, Any]:
+    t = require_torch()
+    model_dtype = getattr(consumer_session.model, "dtype", t.float32)
+    layers = consumer_session.layers if hasattr(consumer_session, "layers") else _get_decoder_layers(consumer_session.model)
+    layer_module = layers[int(layer_idx)]
+    cache = DynamicCache(config=consumer_session.model.config)
+    with t.no_grad():
+        next_hidden = layer_module(
+            hidden_states.to(device=consumer_session.target_device, dtype=model_dtype),
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            past_key_values=cache,
+            use_cache=True,
+            cache_position=cache_position,
+            position_embeddings=position_embeddings,
+        )
+    layer_cache = cache.layers[int(layer_idx)]
+    return next_hidden, layer_cache.keys.detach(), layer_cache.values.detach()
+
+
+def _run_patch_breakpoint_native(
+    *,
+    consumer_session: TransformersRuntimeSession,
+    layer_idx: int,
+    hidden_states: Any,
+    attention_mask: Any,
+    position_ids: Any,
+    cache_position: Any,
+    position_embeddings: Any,
+) -> tuple[Any, Any, Any]:
+    return _run_consumer_layer_native(
+        consumer_session=consumer_session,
+        layer_idx=layer_idx,
+        hidden_states=hidden_states,
+        attention_mask=attention_mask,
+        position_ids=position_ids,
+        cache_position=cache_position,
+        position_embeddings=position_embeddings,
+    )
+
+
+def _run_consumer_suffix_native(
+    *,
+    consumer_session: TransformersRuntimeSession,
+    start_layer: int,
+    end_layer_exclusive: int,
+    hidden_states: Any,
+    attention_mask: Any,
+    position_ids: Any,
+    cache_position: Any,
+    position_embeddings: Any,
+) -> tuple[Any, dict[int, tuple[Any, Any]]]:
+    current_hidden = hidden_states
+    layer_caches: dict[int, tuple[Any, Any]] = {}
+    for layer_idx in range(int(start_layer), int(end_layer_exclusive)):
+        current_hidden, k, v = _run_consumer_layer_native(
+            consumer_session=consumer_session,
+            layer_idx=layer_idx,
+            hidden_states=current_hidden,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            cache_position=cache_position,
+            position_embeddings=position_embeddings,
+        )
+        layer_caches[int(layer_idx)] = (k, v)
+    return current_hidden, layer_caches
+
+
+def _as_int_list(values: Any) -> list[int]:
+    if not isinstance(values, list):
+        return []
+    return sorted({int(x) for x in values})
+
+
+def _as_int_map(values: Any) -> dict[int, int]:
+    if not isinstance(values, dict):
+        return {}
+    out: dict[int, int] = {}
+    for key, value in values.items():
+        try:
+            layer = int(key)
+            seg_len = int(value)
+        except Exception:
+            continue
+        if seg_len > 0:
+            out[layer] = seg_len
+    return out
+
+
+def _covered_recompute_layers(num_layers: int, recompute_segment_length_by_layer: dict[int, int]) -> list[int]:
+    covered: set[int] = set()
+    for layer, seg_len in recompute_segment_length_by_layer.items():
+        start = int(layer) + 1
+        stop = min(int(num_layers), start + int(seg_len))
+        covered.update(range(start, stop))
+    return sorted(covered)
+
+
+def _raw_cache_payload_bytes(capture: PrefillCapture, prefix_tokens: int, transfer_dtype: Any) -> int:
+    total = 0
+    for k, v in capture.past_key_values:
+        k_prefix = _slice_prefix_tensor(k, prefix_tokens)
+        v_prefix = _slice_prefix_tensor(v, prefix_tokens)
+        total += int(k_prefix.numel()) * _dtype_size_bytes(transfer_dtype)
+        total += int(v_prefix.numel()) * _dtype_size_bytes(transfer_dtype)
+    return int(total)
+
+
+def _compression_ratio(raw_cache_bytes: int, bytes_transferred: int) -> float | None:
+    if int(bytes_transferred) <= 0:
+        return None
+    return float(raw_cache_bytes) / float(bytes_transferred)
+
+
+def _normalize_runtime_route(
+    route: dict[str, Any] | None,
+    *,
+    mode: str,
+    num_layers: int,
+    default_recompute_segment_length: int = 0,
+    override_route_recompute_length: int | None = None,
+    fail_on_missing_route_fields: bool = False,
+    fail_on_missing_patch_fields: bool = False,
+) -> dict[str, Any]:
+    route = route or {}
+    all_layers = list(range(int(num_layers)))
+    route_reuse = _as_int_list(route.get("reuse_layers", []))
+    route_patch = _as_int_list(route.get("selected_patch_layers", route.get("patch_layers", [])))
+    fallback_explicit = "fallback_layers" in route
+    route_fallback = _as_int_list(route.get("fallback_layers", []))
+    recompute_map = _as_int_map(route.get("recompute_segment_length_by_layer", {}))
+    selected_recompute = _as_int_list(route.get("selected_recompute_layers", []))
+
+    if mode in {"reuse_fallback", "reuse_patch", "reuse_patch_recompute"} and fail_on_missing_route_fields and not route_reuse:
+        raise ValueError(f"{mode} 缺少 route.reuse_layers")
+    if mode in {"reuse_patch", "reuse_patch_recompute"} and fail_on_missing_patch_fields and not route_patch:
+        raise ValueError(f"{mode} 缺少 route.patch_layers/selected_patch_layers")
+
+    if override_route_recompute_length is not None and int(override_route_recompute_length) > 0:
+        if recompute_map:
+            recompute_map = {int(layer): int(override_route_recompute_length) for layer in recompute_map}
+        elif selected_recompute:
+            recompute_map = {int(layer): int(override_route_recompute_length) for layer in selected_recompute}
+    elif not recompute_map and selected_recompute:
+        if int(default_recompute_segment_length) <= 0:
+            if fail_on_missing_route_fields and mode == "reuse_patch_recompute":
+                raise ValueError("reuse_patch_recompute 缺少 recompute_segment_length_by_layer，且未提供默认长度")
+        else:
+            recompute_map = {int(layer): int(default_recompute_segment_length) for layer in selected_recompute}
+    if mode == "reuse_patch_recompute" and not recompute_map and int(default_recompute_segment_length) > 0:
+        recompute_map = {int(layer): int(default_recompute_segment_length) for layer in route_patch}
+
+    if mode == "reuse_only":
+        patch_layers: list[int] = []
+        fallback_layers: list[int] = []
+        recompute_map = {}
+        reuse_layers = list(all_layers)
+    elif mode == "reuse_fallback":
+        patch_layers = []
+        recompute_map = {}
+        fallback_layers = sorted(layer for layer in all_layers if layer not in set(route_reuse))
+        reuse_layers = sorted(route_reuse)
+    elif mode == "reuse_patch":
+        patch_layers = sorted(route_patch)
+        recompute_map = {}
+        fallback_layers = sorted(route_fallback if fallback_explicit else [])
+        reuse_layers = sorted(layer for layer in all_layers if layer not in set(patch_layers) and layer not in set(fallback_layers))
+    elif mode == "reuse_patch_recompute":
+        patch_layers = sorted(route_patch)
+        recompute_covered = _covered_recompute_layers(int(num_layers), recompute_map)
+        fallback_layers = sorted(route_fallback if fallback_explicit else [])
+        reuse_layers = sorted(layer for layer in all_layers if layer not in set(patch_layers) and layer not in set(fallback_layers))
+    else:
+        patch_layers = sorted(route_patch)
+        fallback_layers = sorted(route_fallback)
+        reuse_layers = sorted(route_reuse)
+
+    recompute_covered_layers = _covered_recompute_layers(int(num_layers), recompute_map)
+    layer_sources: dict[str, str] = {}
+    patch_set = set(int(layer) for layer in patch_layers)
+    fallback_set = set(int(layer) for layer in fallback_layers)
+    recompute_covered_set = set(int(layer) for layer in recompute_covered_layers)
+    for layer in all_layers:
+        if layer in recompute_covered_set:
+            source = "recompute"
+        elif layer in fallback_set:
+            source = "fallback"
+        elif layer in patch_set:
+            source = "patch"
+        else:
+            source = "reuse"
+        layer_sources[str(layer)] = source
+
+    return {
+        "reuse_layers": reuse_layers,
+        "patch_layers": patch_layers,
+        "fallback_layers": fallback_layers,
+        "selected_recompute_layers": sorted(recompute_map),
+        "recompute_segment_length_by_layer": {int(layer): int(seg_len) for layer, seg_len in sorted(recompute_map.items())},
+        "recompute_covered_layers": recompute_covered_layers,
+        "layer_sources": layer_sources,
+    }
+
+
+def _target_answer_ids(session: TransformersRuntimeSession, answers: list[str], max_new_tokens: int) -> Any:
+    t = require_torch()
+    answer = next((str(x).strip() for x in answers if str(x).strip()), "")
+    if not answer:
+        return t.zeros((0,), dtype=t.long, device=session.target_device)
+    if callable(getattr(session.tokenizer, "__call__", None)):
+        encoded = session.tokenizer(
+            answer,
+            return_tensors="pt",
+            add_special_tokens=False,
+            truncation=True,
+            max_length=max(1, int(max_new_tokens)),
+        )
+        input_ids = encoded["input_ids"]
+    elif hasattr(session.tokenizer, "encode"):
+        input_ids = t.tensor(
+            session.tokenizer.encode(answer, add_special_tokens=False)[: max(1, int(max_new_tokens))],
+            dtype=t.long,
+        )
+    else:
+        return t.zeros((0,), dtype=t.long, device=session.target_device)
+    if input_ids.ndim == 2:
+        input_ids = input_ids[0]
+    return input_ids.to(session.target_device)
+
+
+def _teacher_forced_from_prefill(
+    session: TransformersRuntimeSession,
+    capture: PrefillCapture,
+    target_ids: Any,
+) -> tuple[float, float, int]:
+    t = require_torch()
+    if int(target_ids.numel()) <= 0:
+        return 0.0, 0.0, 0
+    past = build_dynamic_cache(session.model, capture.past_key_values)
+    attention_mask = capture.attention_mask.clone().to(session.target_device)
+    logits = capture.logits_last.to(session.target_device)
+    logp_sum = 0.0
+    for idx in range(int(target_ids.numel())):
+        token = target_ids[idx : idx + 1].reshape(1, 1)
+        log_probs = t.log_softmax(logits, dim=-1)
+        logp_sum += float(log_probs[0, int(token.item())].item())
+        if idx + 1 < int(target_ids.numel()):
+            attention_mask = t.cat([attention_mask, t.ones((1, 1), device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
+            with t.no_grad():
+                out = session.model(
+                    input_ids=token.to(dtype=capture.input_ids.dtype),
+                    attention_mask=attention_mask,
+                    past_key_values=past,
+                    use_cache=True,
+                    return_dict=True,
+                )
+            past = out.past_key_values
+            logits = out.logits[:, -1, :].detach()
+    avg_logp = float(logp_sum / int(target_ids.numel()))
+    return avg_logp, float(-avg_logp), int(target_ids.numel())
+
+
+def _teacher_forced_from_cache(
+    session: TransformersRuntimeSession,
+    *,
+    cache_layers: list[tuple[Any, Any]],
+    prompt_input_ids: Any,
+    prompt_attention_mask: Any,
+    prefix_tokens: int,
+    target_ids: Any,
+) -> tuple[float, float, int]:
+    t = require_torch()
+    if int(target_ids.numel()) <= 0:
+        return 0.0, 0.0, 0
+    past = build_dynamic_cache(session.model, [(k.contiguous(), v.contiguous()) for k, v in cache_layers])
+    attention_mask = prompt_attention_mask[:, : prefix_tokens + 1].to(session.target_device)
+    last_token = prompt_input_ids[:, prefix_tokens : prefix_tokens + 1].to(session.target_device)
+    with t.no_grad():
+        out = session.model(
+            input_ids=last_token,
+            attention_mask=attention_mask,
+            past_key_values=past,
+            use_cache=True,
+            return_dict=True,
+        )
+    past = out.past_key_values
+    logits = out.logits[:, -1, :].detach()
+    logp_sum = 0.0
+    for idx in range(int(target_ids.numel())):
+        token = target_ids[idx : idx + 1].reshape(1, 1)
+        log_probs = t.log_softmax(logits, dim=-1)
+        logp_sum += float(log_probs[0, int(token.item())].item())
+        if idx + 1 < int(target_ids.numel()):
+            attention_mask = t.cat([attention_mask, t.ones((1, 1), device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
+            with t.no_grad():
+                out = session.model(
+                    input_ids=token.to(dtype=prompt_input_ids.dtype),
+                    attention_mask=attention_mask,
+                    past_key_values=past,
+                    use_cache=True,
+                    return_dict=True,
+                )
+            past = out.past_key_values
+            logits = out.logits[:, -1, :].detach()
+    avg_logp = float(logp_sum / int(target_ids.numel()))
+    return avg_logp, float(-avg_logp), int(target_ids.numel())
+
+
+def _producer_prefix_layers(capture: PrefillCapture, prefix_tokens: int) -> list[tuple[Any, Any]]:
+    out = []
+    for k, v in capture.past_key_values:
+        out.append((_slice_prefix_tensor(k, prefix_tokens), _slice_prefix_tensor(v, prefix_tokens)))
+    return out
+
+
+def _consumer_prefix_layers(capture: PrefillCapture, prefix_tokens: int) -> list[tuple[Any, Any]]:
+    return _producer_prefix_layers(capture, prefix_tokens)
+
+
+def _map_k_between_sessions(k_src: Any, prefix_tokens: int, producer_session: TransformersRuntimeSession, consumer_session: TransformersRuntimeSession):
+    k_prefix = _slice_prefix_tensor(k_src, prefix_tokens).to(dtype=require_torch().float32)
+    k_mapped = remap_rope_k_torch(k_prefix, producer_session.rope_spec, consumer_session.rope_spec)
+    return k_mapped
+
+
+def _decode_reuse_layers(
+    producer_capture: PrefillCapture,
+    producer_session: TransformersRuntimeSession,
+    consumer_session: TransformersRuntimeSession,
+    reuse_prod,
+    reuse_cons,
+    prefix_tokens: int,
+    transfer_dtype: Any,
+    consumer_dtype: Any,
+    consumer_device: str,
+) -> tuple[list[tuple[Any, Any]], int, float, float]:
+    t = require_torch()
+    num_layers = reuse_prod.num_layers
+    num_groups = reuse_prod.num_groups
+    bsz = int(producer_capture.input_ids.shape[0])
+    kvh = int(producer_capture.past_key_values[0][0].shape[1])
+    hd = int(producer_capture.past_key_values[0][0].shape[-1])
+
+    transfer_codes: list[tuple[Any, Any]] = []
+    _synchronize_for_device(producer_capture.past_key_values[0][0].device)
+    enc_start = time.perf_counter()
+    payload_bytes = 0
+    for gid in range(num_groups):
+        layers = group_layers_for_gid(reuse_prod, gid)
+        a_k = pack_group([
+            (
+                de_rope_k_torch(_slice_prefix_tensor(producer_capture.past_key_values[layer][0], prefix_tokens), producer_session.rope_spec)
+                if reuse_prod.k_de_rope
+                else _slice_prefix_tensor(producer_capture.past_key_values[layer][0], prefix_tokens)
+            ).to(dtype=t.float32)
+            for layer in layers
+        ])
+        a_v = pack_group([_slice_prefix_tensor(producer_capture.past_key_values[layer][1], prefix_tokens).to(dtype=t.float32) for layer in layers])
+        z_k, z_v = encode_group(a_k, a_v, reuse_prod.weights[gid])
+        z_k = z_k.to(dtype=transfer_dtype).detach()
+        z_v = z_v.to(dtype=transfer_dtype).detach()
+        transfer_codes.append((z_k, z_v))
+        payload_bytes += _tensor_bytes(z_k) + _tensor_bytes(z_v)
+    _synchronize_for_device(producer_capture.past_key_values[0][0].device)
+    encode_ms = (time.perf_counter() - enc_start) * 1000.0
+
+    decoded: list[tuple[Any, Any]] = [None for _ in range(num_layers)]  # type: ignore[list-item]
+    _synchronize_for_device(consumer_device)
+    dec_start = time.perf_counter()
+    for gid in range(num_groups):
+        layers = group_layers_for_gid(reuse_cons, gid)
+        z_k, z_v = transfer_codes[gid]
+        z_k = z_k.to(device=consumer_device, dtype=t.float32, non_blocking=True)
+        z_v = z_v.to(device=consumer_device, dtype=t.float32, non_blocking=True)
+        rec_k_raw, rec_v = decode_group(z_k, z_v, reuse_cons.weights[gid])
+        rec_k_layers_raw = unpack_group(rec_k_raw, len(layers), hd, bsz, kvh, prefix_tokens)
+        rec_v_layers = unpack_group(rec_v, len(layers), hd, bsz, kvh, prefix_tokens)
+        for layer, rk_raw, rv in zip(layers, rec_k_layers_raw, rec_v_layers):
+            rk = re_rope_k_torch(rk_raw, consumer_session.rope_spec) if reuse_cons.k_re_rope else rk_raw
+            decoded[layer] = (rk.to(dtype=consumer_dtype).contiguous(), rv.to(dtype=consumer_dtype).contiguous())
+    _synchronize_for_device(consumer_device)
+    decode_ms = (time.perf_counter() - dec_start) * 1000.0
+    return decoded, int(payload_bytes), float(encode_ms), float(decode_ms)
+
+
+def _overlay_consumer_layers(
+    caches: list[tuple[Any, Any]],
+    *,
+    consumer_capture: PrefillCapture,
+    layers: list[int],
+    prefix_tokens: int,
+    consumer_device: str,
+    consumer_dtype: Any,
+) -> None:
+    for layer in sorted(set(int(layer) for layer in layers)):
+        caches[layer] = (
+            _slice_prefix_tensor(consumer_capture.past_key_values[layer][0], prefix_tokens).to(device=consumer_device, dtype=consumer_dtype, non_blocking=True),
+            _slice_prefix_tensor(consumer_capture.past_key_values[layer][1], prefix_tokens).to(device=consumer_device, dtype=consumer_dtype, non_blocking=True),
+        )
+
+
+def _oracle_cache_payload_bytes(
+    consumer_capture: PrefillCapture,
+    *,
+    layers: list[int],
+    prefix_tokens: int,
+    transfer_dtype: Any,
+) -> int:
+    total = 0
+    for layer in sorted(set(int(layer) for layer in layers)):
+        total += int(_slice_prefix_tensor(consumer_capture.past_key_values[layer][0], prefix_tokens).numel()) * _dtype_size_bytes(transfer_dtype)
+        total += int(_slice_prefix_tensor(consumer_capture.past_key_values[layer][1], prefix_tokens).numel()) * _dtype_size_bytes(transfer_dtype)
+    return int(total)
+
+
+def _resolve_oracle_breakpoint_state(
+    consumer_capture: PrefillCapture,
+    *,
+    layer: int,
+    state_kind: str,
+) -> Any:
+    if state_kind == "xnorm":
+        hidden = consumer_capture.xnorm_by_layer.get(int(layer))
+    elif state_kind == "residual":
+        hidden = consumer_capture.residual_by_layer.get(int(layer))
+    else:
+        raise ValueError(f"未知 oracle breakpoint state_kind: {state_kind}")
+    if hidden is None:
+        raise ValueError(f"oracle {state_kind} 诊断缺少 layer={layer} 的 consumer state")
+    return hidden
+
+
+def _apply_oracle_breakpoints_native(
+    *,
+    caches: list[tuple[Any, Any]],
+    patch_layers: list[int],
+    consumer_capture: PrefillCapture,
+    consumer_session: TransformersRuntimeSession,
+    prefix_tokens: int,
+    consumer_dtype: Any,
+    consumer_device: str,
+    transfer_dtype: Any,
+    state_kind: str,
+) -> tuple[int, float, dict[int, Any]]:
+    payload_bytes = 0
+    breakpoint_hidden_by_layer: dict[int, Any] = {}
+    attn_mask_prefix = consumer_capture.attention_mask[:, :prefix_tokens].to(device=consumer_device)
+    _synchronize_for_device(consumer_device)
+    start = time.perf_counter()
+    for layer in sorted(set(int(layer) for layer in patch_layers)):
+        hidden = _resolve_oracle_breakpoint_state(consumer_capture, layer=layer, state_kind=state_kind)
+        hidden_prefix = _slice_prefix_tensor(hidden, prefix_tokens).to(device=consumer_device, dtype=require_torch().float32, non_blocking=True)
+        payload_bytes += int(hidden_prefix.numel()) * _dtype_size_bytes(transfer_dtype)
+        layer_inputs = _build_layer_forward_inputs(consumer_session, hidden_prefix, attn_mask_prefix)
+        next_hidden, patch_k, patch_v = _run_patch_breakpoint_native(
+            consumer_session=consumer_session,
+            layer_idx=layer,
+            hidden_states=hidden_prefix,
+            attention_mask=layer_inputs["attention_mask"],
+            position_ids=layer_inputs["position_ids"],
+            cache_position=layer_inputs["cache_position"],
+            position_embeddings=layer_inputs["position_embeddings"],
+        )
+        caches[layer] = (
+            patch_k.to(device=consumer_device, dtype=consumer_dtype),
+            patch_v.to(device=consumer_device, dtype=consumer_dtype),
+        )
+        breakpoint_hidden_by_layer[int(layer)] = next_hidden.detach()
+    _synchronize_for_device(consumer_device)
+    return int(payload_bytes), float((time.perf_counter() - start) * 1000.0), breakpoint_hidden_by_layer
+
+
+def _get_consumer_attn_modules(consumer_session: TransformersRuntimeSession, layer: int) -> tuple[Any, Any, Any | None]:
+    layers = consumer_session.layers if hasattr(consumer_session, "layers") else _get_decoder_layers(consumer_session.model)
+    layer_module = layers[int(layer)]
+    attn = getattr(layer_module, "self_attn", None) or getattr(layer_module, "attn", None)
+    if attn is None or not hasattr(attn, "k_proj") or not hasattr(attn, "v_proj"):
+        raise ValueError(f"layer={layer} 缺少 consumer native k_proj/v_proj")
+    return attn.k_proj, attn.v_proj, getattr(attn, "k_norm", None)
+
+
+def _apply_consumer_k_norm_to_flat_keys(k_pre_flat: Any, k_norm: Any | None, kvh: int, hd: int) -> Any:
+    t = require_torch()
+    if k_norm is None:
+        return k_pre_flat.to(dtype=t.float32)
+    k_pre_flat = k_pre_flat.to(dtype=t.float32)
+    norm_in = k_pre_flat.reshape(-1, kvh, hd)
+    norm_dtype = getattr(getattr(k_norm, "weight", None), "dtype", norm_in.dtype)
+    with t.no_grad():
+        normed = k_norm(norm_in.to(dtype=norm_dtype)).to(dtype=t.float32)
+    return normed.reshape(-1, kvh * hd).contiguous()
+
+
+def _apply_consumer_native_rotary_to_patch_keys(
+    *,
+    k_states: Any,
+    layer: int,
+    consumer_session: TransformersRuntimeSession,
+    attention_mask_prefix: Any,
+    hidden_dim: int,
+) -> Any:
+    t = require_torch()
+    layers = consumer_session.layers if hasattr(consumer_session, "layers") else _get_decoder_layers(consumer_session.model)
+    layer_module = layers[int(layer)]
+    attn = getattr(layer_module, "self_attn", None) or getattr(layer_module, "attn", None)
+    if attn is None:
+        return re_rope_k_torch(k_states, consumer_session.rope_spec)
+    try:
+        import importlib
+
+        attn_mod = importlib.import_module(attn.__class__.__module__)
+        apply_rotary_pos_emb = getattr(attn_mod, "apply_rotary_pos_emb", None)
+    except Exception:
+        apply_rotary_pos_emb = None
+    if apply_rotary_pos_emb is None:
+        return re_rope_k_torch(k_states, consumer_session.rope_spec)
+    seq_len = int(k_states.shape[2])
+    model_dtype = getattr(consumer_session.model, "dtype", t.float32)
+    dummy_hidden = t.zeros((1, seq_len, hidden_dim), device=consumer_session.target_device, dtype=model_dtype)
+    layer_inputs = _build_layer_forward_inputs(
+        consumer_session,
+        dummy_hidden,
+        attention_mask_prefix[:, :seq_len],
+    )
+    position_embeddings = layer_inputs.get("position_embeddings")
+    if not isinstance(position_embeddings, tuple) or len(position_embeddings) < 2:
+        return re_rope_k_torch(k_states, consumer_session.rope_spec)
+    cos, sin = position_embeddings
+    rotary_dtype = getattr(getattr(attn, "k_proj", None), "weight", k_states).dtype
+    k_states = k_states.to(device=consumer_session.target_device, dtype=rotary_dtype)
+    q_dummy = t.zeros_like(k_states)
+    with t.no_grad():
+        _q_rot, k_rot = apply_rotary_pos_emb(q_dummy, k_states, cos, sin)
+    return k_rot.to(dtype=t.float32)
+
+
+def _load_runtime_direct_residual_module(
+    *,
+    layer: int,
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    consumer_session: TransformersRuntimeSession,
+):
+    runtime_modules = patch_meta.setdefault("__runtime_direct_residual_modules__", {})  # type: ignore[assignment]
+    if not isinstance(runtime_modules, dict):
+        runtime_modules = {}
+        patch_meta["__runtime_direct_residual_modules__"] = runtime_modules
+    if int(layer) not in runtime_modules:
+        runtime_modules[int(layer)] = load_direct_kv_residual_patch_layer_from_ckpt(
+            patch_bundle,
+            patch_meta,
+            layer=int(layer),
+            device=consumer_session.target_device,
+            dtype="float32",
+        )
+    return runtime_modules[int(layer)]
+
+
+def _load_runtime_xnorm_nativekv_residual_module(
+    *,
+    layer: int,
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    consumer_session: TransformersRuntimeSession,
+):
+    runtime_modules = patch_meta.setdefault("__runtime_xnorm_nativekv_residual_modules__", {})  # type: ignore[assignment]
+    if not isinstance(runtime_modules, dict):
+        runtime_modules = {}
+        patch_meta["__runtime_xnorm_nativekv_residual_modules__"] = runtime_modules
+    if int(layer) not in runtime_modules:
+        runtime_modules[int(layer)] = load_xnorm_nativekv_residual_patch_layer_from_ckpt(
+            patch_bundle,
+            patch_meta,
+            layer=int(layer),
+            device=consumer_session.target_device,
+            dtype="float32",
+        )
+    return runtime_modules[int(layer)]
+
+
+def _runtime_xnorm_nativekv_residual_is_identity(
+    *,
+    layer: int,
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    consumer_session: TransformersRuntimeSession,
+    atol: float = 0.0,
+) -> bool:
+    runtime_identity = patch_meta.setdefault("__runtime_xnorm_nativekv_identity__", {})  # type: ignore[assignment]
+    if not isinstance(runtime_identity, dict):
+        runtime_identity = {}
+        patch_meta["__runtime_xnorm_nativekv_identity__"] = runtime_identity
+    if int(layer) not in runtime_identity:
+        residual_module = _load_runtime_xnorm_nativekv_residual_module(
+            layer=layer,
+            patch_bundle=patch_bundle,
+            patch_meta=patch_meta,
+            consumer_session=consumer_session,
+        )
+        delta_head = getattr(residual_module, "delta_h_head", None)
+        weight = getattr(delta_head, "weight", None)
+        bias = getattr(delta_head, "bias", None)
+        weight_max = float(weight.detach().abs().max().item()) if weight is not None else 0.0
+        bias_max = float(bias.detach().abs().max().item()) if bias is not None else 0.0
+        runtime_identity[int(layer)] = max(weight_max, bias_max) <= float(atol)
+    return bool(runtime_identity[int(layer)])
+
+
+def _apply_semantic_patch_layer(
+    *,
+    layer: int,
+    xa: Any,
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    consumer_session: TransformersRuntimeSession,
+    kvh: int,
+    hd: int,
+) -> tuple[Any, Any, int]:
+    t = require_torch()
+    runtime_modules = patch_meta.setdefault("__runtime_semantic_modules__", {})  # type: ignore[assignment]
+    if not isinstance(runtime_modules, dict):
+        runtime_modules = {}
+        patch_meta["__runtime_semantic_modules__"] = runtime_modules
+    if int(layer) not in runtime_modules:
+        runtime_modules[int(layer)] = load_semantic_patch_layer_from_ckpt(
+            patch_bundle,
+            patch_meta,
+            layer=int(layer),
+            device=consumer_session.target_device,
+            dtype="float32",
+        )
+    patch_layer = runtime_modules[int(layer)]
+    k_proj, v_proj, _k_norm = _get_consumer_attn_modules(consumer_session, int(layer))
+    with t.no_grad():
+        xa = xa.to(device=consumer_session.target_device, dtype=t.float32)
+        z_h = patch_layer.encode(xa)
+        xb_hat = patch_layer.patch_mlp(z_h)
+        proj_dtype = getattr(getattr(k_proj, "weight", None), "dtype", xb_hat.dtype)
+        k_raw_flat = k_proj(xb_hat.to(dtype=proj_dtype)).to(dtype=t.float32)
+        v_flat = v_proj(xb_hat.to(dtype=proj_dtype)).to(dtype=t.float32)
+    kv_dim = int(kvh * hd)
+    kb_raw = k_raw_flat.reshape(1, xa.shape[0], kv_dim).reshape(1, xa.shape[0], kvh, hd).permute(0, 2, 1, 3).contiguous()
+    vb = v_flat.reshape(1, xa.shape[0], kv_dim).reshape(1, xa.shape[0], kvh, hd).permute(0, 2, 1, 3).contiguous()
+    return kb_raw, vb, int(z_h.numel())
+
+
+def _infer_semantic_patch_hidden(
+    *,
+    layer: int,
+    xa_prefix: Any,
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    consumer_session: TransformersRuntimeSession,
+) -> tuple[Any, int]:
+    t = require_torch()
+    runtime_modules = patch_meta.setdefault("__runtime_semantic_modules__", {})  # type: ignore[assignment]
+    if not isinstance(runtime_modules, dict):
+        runtime_modules = {}
+        patch_meta["__runtime_semantic_modules__"] = runtime_modules
+    if int(layer) not in runtime_modules:
+        runtime_modules[int(layer)] = load_semantic_patch_layer_from_ckpt(
+            patch_bundle,
+            patch_meta,
+            layer=int(layer),
+            device=consumer_session.target_device,
+            dtype="float32",
+        )
+    patch_layer = runtime_modules[int(layer)]
+    xa_prefix = xa_prefix.to(device=consumer_session.target_device, dtype=t.float32)
+    flat = xa_prefix.reshape(-1, xa_prefix.shape[-1])
+    with t.no_grad():
+        z_h = patch_layer.encode(flat)
+        xb_hat = patch_layer.patch_mlp(z_h).reshape_as(xa_prefix)
+    return xb_hat, int(z_h.numel())
+
+
+def _blend_patch_with_reuse(
+    *,
+    base_k: Any,
+    base_v: Any,
+    patch_k_raw: Any,
+    patch_v: Any,
+    consumer_session: TransformersRuntimeSession,
+    alpha_k: float,
+    alpha_v: float,
+    consumer_device: str,
+    consumer_dtype: Any,
+) -> tuple[Any, Any]:
+    t = require_torch()
+    base_k_raw = de_rope_k_torch(base_k.to(device=consumer_device, dtype=t.float32), consumer_session.rope_spec)
+    base_v = base_v.to(device=consumer_device, dtype=t.float32)
+    blended_k_raw = base_k_raw + (float(alpha_k) * (patch_k_raw.to(dtype=t.float32) - base_k_raw))
+    blended_v = base_v + (float(alpha_v) * (patch_v.to(dtype=t.float32) - base_v))
+    blended_k = re_rope_k_torch(blended_k_raw, consumer_session.rope_spec)
+    return blended_k.to(device=consumer_device, dtype=consumer_dtype), blended_v.to(device=consumer_device, dtype=consumer_dtype)
+
+
+def _blend_native_patch_with_reuse(
+    *,
+    base_k: Any,
+    base_v: Any,
+    patch_k: Any,
+    patch_v: Any,
+    alpha_k: float,
+    alpha_v: float,
+    consumer_device: str,
+    consumer_dtype: Any,
+) -> tuple[Any, Any]:
+    t = require_torch()
+    base_k = base_k.to(device=consumer_device, dtype=t.float32)
+    base_v = base_v.to(device=consumer_device, dtype=t.float32)
+    patch_k = patch_k.to(device=consumer_device, dtype=t.float32)
+    patch_v = patch_v.to(device=consumer_device, dtype=t.float32)
+    blended_k = base_k + (float(alpha_k) * (patch_k - base_k))
+    blended_v = base_v + (float(alpha_v) * (patch_v - base_v))
+    return blended_k.to(device=consumer_device, dtype=consumer_dtype), blended_v.to(device=consumer_device, dtype=consumer_dtype)
+
+
+def _apply_patch_breakpoints_native(
+    *,
+    caches: list[tuple[Any, Any]],
+    patch_layers: list[int],
+    producer_capture: PrefillCapture,
+    consumer_capture: PrefillCapture,
+    consumer_session: TransformersRuntimeSession,
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    prefix_tokens: int,
+    hidden_dim: int,
+    consumer_dtype: Any,
+    consumer_device: str,
+    transfer_dtype: Any,
+) -> tuple[int, float, dict[int, Any]]:
+    t = require_torch()
+    payload_bytes = 0
+    patch_hidden_by_layer: dict[int, Any] = {}
+    attn_mask_prefix = consumer_capture.attention_mask[:, :prefix_tokens].to(device=consumer_device)
+    _synchronize_for_device(consumer_device)
+    patch_start = time.perf_counter()
+    patch_apply_mode = str(patch_meta.get("patch_apply_mode") or "overwrite")
+    alpha_k = float(patch_meta.get("patch_blend_alpha_k", 0.25))
+    alpha_v = float(patch_meta.get("patch_blend_alpha_v", 0.5))
+
+    for layer in sorted(set(int(layer) for layer in patch_layers)):
+        xa = producer_capture.xnorm_by_layer.get(layer)
+        if xa is None:
+            raise ValueError(f"patch 层 {layer} 缺少 xnorm_a")
+        xa_prefix = _slice_prefix_tensor(xa, prefix_tokens).to(device=consumer_device, dtype=t.float32, non_blocking=True)
+        xb_hat, payload_units = _infer_semantic_patch_hidden(
+            layer=layer,
+            xa_prefix=xa_prefix,
+            patch_bundle=patch_bundle,
+            patch_meta=patch_meta,
+            consumer_session=consumer_session,
+        )
+        payload_bytes += int(payload_units) * _dtype_size_bytes(transfer_dtype)
+        layer_inputs = _build_layer_forward_inputs(consumer_session, xb_hat, attn_mask_prefix)
+        next_hidden, patch_k, patch_v = _run_patch_breakpoint_native(
+            consumer_session=consumer_session,
+            layer_idx=layer,
+            hidden_states=xb_hat,
+            attention_mask=layer_inputs["attention_mask"],
+            position_ids=layer_inputs["position_ids"],
+            cache_position=layer_inputs["cache_position"],
+            position_embeddings=layer_inputs["position_embeddings"],
+        )
+        if patch_apply_mode == "residual_blend":
+            base_k, base_v = caches[layer]
+            caches[layer] = _blend_native_patch_with_reuse(
+                base_k=base_k,
+                base_v=base_v,
+                patch_k=patch_k,
+                patch_v=patch_v,
+                alpha_k=alpha_k,
+                alpha_v=alpha_v,
+                consumer_device=consumer_device,
+                consumer_dtype=consumer_dtype,
+            )
+        else:
+            caches[layer] = (patch_k.to(device=consumer_device, dtype=consumer_dtype), patch_v.to(device=consumer_device, dtype=consumer_dtype))
+        patch_hidden_by_layer[int(layer)] = next_hidden.detach()
+
+    _synchronize_for_device(consumer_device)
+    return int(payload_bytes), float((time.perf_counter() - patch_start) * 1000.0), patch_hidden_by_layer
+
+
+def _run_true_recompute_suffixes(
+    *,
+    caches: list[tuple[Any, Any]],
+    breakpoint_hidden_by_layer: dict[int, Any],
+    recompute_segment_length_by_layer: dict[int, int],
+    consumer_session: TransformersRuntimeSession,
+    consumer_capture: PrefillCapture,
+    prefix_tokens: int,
+    consumer_dtype: Any,
+    consumer_device: str,
+) -> float:
+    recompute_ms = 0.0
+    attn_mask_prefix = consumer_capture.attention_mask[:, :prefix_tokens].to(device=consumer_device)
+    num_layers = len(caches)
+    for layer in sorted(recompute_segment_length_by_layer):
+        if int(layer) not in breakpoint_hidden_by_layer:
+            continue
+        seg_len = int(recompute_segment_length_by_layer[layer])
+        start_layer = int(layer) + 1
+        end_layer = min(int(num_layers), start_layer + seg_len)
+        if start_layer >= end_layer:
+            continue
+        hidden = breakpoint_hidden_by_layer[int(layer)].to(device=consumer_device)
+        layer_inputs = _build_layer_forward_inputs(consumer_session, hidden, attn_mask_prefix)
+        _synchronize_for_device(consumer_device)
+        start = time.perf_counter()
+        _final_hidden, layer_caches = _run_consumer_suffix_native(
+            consumer_session=consumer_session,
+            start_layer=start_layer,
+            end_layer_exclusive=end_layer,
+            hidden_states=hidden,
+            attention_mask=layer_inputs["attention_mask"],
+            position_ids=layer_inputs["position_ids"],
+            cache_position=layer_inputs["cache_position"],
+            position_embeddings=layer_inputs["position_embeddings"],
+        )
+        _synchronize_for_device(consumer_device)
+        recompute_ms += (time.perf_counter() - start) * 1000.0
+        for lid, (k, v) in layer_caches.items():
+            caches[int(lid)] = (
+                k.to(device=consumer_device, dtype=consumer_dtype),
+                v.to(device=consumer_device, dtype=consumer_dtype),
+            )
+    return float(recompute_ms)
+
+
+def _apply_patch_layers_to_cache(
+    *,
+    caches: list[tuple[Any, Any]],
+    patch_layers: list[int],
+    producer_capture: PrefillCapture,
+    consumer_capture: PrefillCapture,
+    consumer_session: TransformersRuntimeSession,
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    prefix_tokens: int,
+    hidden_dim: int,
+    kvh: int,
+    hd: int,
+    consumer_dtype: Any,
+    consumer_device: str,
+    transfer_dtype: Any,
+) -> tuple[int, float]:
+    t = require_torch()
+    kv_dim = kvh * hd
+    payload_bytes = 0
+    _synchronize_for_device(consumer_device)
+    patch_start = time.perf_counter()
+    fit_mode = str(patch_meta.get("fit_mode") or "")
+    patch_apply_mode = str(patch_meta.get("patch_apply_mode") or "overwrite")
+    alpha_k = float(patch_meta.get("patch_blend_alpha_k", 0.25))
+    alpha_v = float(patch_meta.get("patch_blend_alpha_v", 0.5))
+    state_target_space = str(patch_meta.get("state_target_space") or "xnorm")
+    for layer in sorted(set(int(layer) for layer in patch_layers)):
+        xa = producer_capture.xnorm_by_layer.get(layer)
+        if xa is None:
+            raise ValueError(f"patch 层 {layer} 缺少 xnorm_a")
+        xa = _slice_prefix_tensor(xa, prefix_tokens).reshape(-1, hidden_dim).to(device=consumer_device, dtype=t.float32, non_blocking=True)
+        payload_units = int(xa.numel())
+        if fit_mode == PATCH_FIT_MODE_DIRECT_KV_V1:
+            wk = patch_bundle[f"direct_wk.{layer}"]
+            wv = patch_bundle[f"direct_wv.{layer}"]
+            kb_raw_flat, vb_flat = infer_direct_kv_patch_layer_torch(xa, wk, wv)
+            kb_raw = kb_raw_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+            vb = vb_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+        elif fit_mode == PATCH_FIT_MODE_DIRECT_KV_KNORM_V1:
+            wk = patch_bundle[f"direct_wk.{layer}"]
+            wv = patch_bundle[f"direct_wv.{layer}"]
+            k_pre_flat, vb_flat = infer_direct_kv_patch_layer_torch(xa, wk, wv)
+            _k_proj, _v_proj, k_norm = _get_consumer_attn_modules(consumer_session, int(layer))
+            kb_norm_flat = _apply_consumer_k_norm_to_flat_keys(k_pre_flat, k_norm, kvh, hd)
+            kb_norm = kb_norm_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+            vb = vb_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+            payload_bytes += int(payload_units) * _dtype_size_bytes(transfer_dtype)
+            kb = _apply_consumer_native_rotary_to_patch_keys(
+                k_states=kb_norm,
+                layer=layer,
+                consumer_session=consumer_session,
+                attention_mask_prefix=consumer_capture.attention_mask,
+                hidden_dim=hidden_dim,
+            )
+            caches[layer] = (kb.to(device=consumer_device, dtype=consumer_dtype), vb.to(device=consumer_device, dtype=consumer_dtype))
+            continue
+        elif fit_mode == PATCH_FIT_MODE_DIRECT_KV_KNORM_RESIDUAL_MLP_V1:
+            wk = patch_bundle[f"direct_wk.{layer}"]
+            wv = patch_bundle[f"direct_wv.{layer}"]
+            residual_layers = [int(v) for v in patch_meta.get("residual_layers", [])] if isinstance(patch_meta.get("residual_layers", []), list) else []
+            if int(layer) in residual_layers:
+                residual_module = _load_runtime_direct_residual_module(
+                    layer=layer,
+                    patch_bundle=patch_bundle,
+                    patch_meta=patch_meta,
+                    consumer_session=consumer_session,
+                )
+                k_pre_flat, vb_flat = infer_direct_kv_residual_patch_layer_torch(xa, wk, wv, residual_module)
+            else:
+                k_pre_flat, vb_flat = infer_direct_kv_patch_layer_torch(xa, wk, wv)
+            _k_proj, _v_proj, k_norm = _get_consumer_attn_modules(consumer_session, int(layer))
+            kb_norm_flat = _apply_consumer_k_norm_to_flat_keys(k_pre_flat, k_norm, kvh, hd)
+            kb_norm = kb_norm_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+            vb = vb_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+            payload_bytes += int(payload_units) * _dtype_size_bytes(transfer_dtype)
+            kb = _apply_consumer_native_rotary_to_patch_keys(
+                k_states=kb_norm,
+                layer=layer,
+                consumer_session=consumer_session,
+                attention_mask_prefix=consumer_capture.attention_mask,
+                hidden_dim=hidden_dim,
+            )
+            caches[layer] = (kb.to(device=consumer_device, dtype=consumer_dtype), vb.to(device=consumer_device, dtype=consumer_dtype))
+            continue
+        elif fit_mode == PATCH_FIT_MODE_XNORM_NATIVEKV_RESIDUAL_MLP_V1:
+            wk = patch_bundle[f"direct_wk.{layer}"]
+            wv = patch_bundle[f"direct_wv.{layer}"]
+            residual_layers = [int(v) for v in patch_meta.get("residual_layers", [])] if isinstance(patch_meta.get("residual_layers", []), list) else []
+            _k_proj, _v_proj, k_norm = _get_consumer_attn_modules(consumer_session, int(layer))
+            if int(layer) in residual_layers:
+                residual_is_identity = _runtime_xnorm_nativekv_residual_is_identity(
+                    layer=layer,
+                    patch_bundle=patch_bundle,
+                    patch_meta=patch_meta,
+                    consumer_session=consumer_session,
+                )
+                if residual_is_identity:
+                    xb_hat = xa
+                else:
+                    residual_module = _load_runtime_xnorm_nativekv_residual_module(
+                        layer=layer,
+                        patch_bundle=patch_bundle,
+                        patch_meta=patch_meta,
+                        consumer_session=consumer_session,
+                    )
+                    xb_hat = infer_xnorm_nativekv_residual_patch_layer_torch(xa, residual_module)
+                proj_dtype = getattr(getattr(_k_proj, "weight", None), "dtype", xb_hat.dtype)
+                xb_proj = xb_hat.to(device=consumer_device, dtype=proj_dtype)
+                k_pre_flat = _k_proj(xb_proj).to(dtype=t.float32)
+                vb_flat = _v_proj(xb_proj).to(dtype=t.float32)
+            else:
+                k_pre_flat, vb_flat = infer_direct_kv_patch_layer_torch(xa, wk, wv)
+            kb_norm_flat = _apply_consumer_k_norm_to_flat_keys(k_pre_flat, k_norm, kvh, hd)
+            kb_norm = kb_norm_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+            vb = vb_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+            payload_bytes += int(payload_units) * _dtype_size_bytes(transfer_dtype)
+            kb = _apply_consumer_native_rotary_to_patch_keys(
+                k_states=kb_norm,
+                layer=layer,
+                consumer_session=consumer_session,
+                attention_mask_prefix=consumer_capture.attention_mask,
+                hidden_dim=hidden_dim,
+            )
+            caches[layer] = (kb.to(device=consumer_device, dtype=consumer_dtype), vb.to(device=consumer_device, dtype=consumer_dtype))
+            continue
+        elif fit_mode == PATCH_FIT_MODE_XNORM_SEMANTIC_V1:
+            if state_target_space == "residual_pre_ln":
+                xa_prefix = xa.reshape(1, prefix_tokens, hidden_dim)
+                resid_hat, payload_units = _infer_semantic_patch_hidden(
+                    layer=layer,
+                    xa_prefix=xa_prefix,
+                    patch_bundle=patch_bundle,
+                    patch_meta=patch_meta,
+                    consumer_session=consumer_session,
+                )
+                layer_inputs = _build_layer_forward_inputs(consumer_session, resid_hat, consumer_capture.attention_mask[:, :prefix_tokens])
+                _next_hidden, patch_k, patch_v = _run_patch_breakpoint_native(
+                    consumer_session=consumer_session,
+                    layer_idx=layer,
+                    hidden_states=resid_hat,
+                    attention_mask=layer_inputs["attention_mask"],
+                    position_ids=layer_inputs["position_ids"],
+                    cache_position=layer_inputs["cache_position"],
+                    position_embeddings=layer_inputs["position_embeddings"],
+                )
+                kb = patch_k.to(device=consumer_device, dtype=consumer_dtype)
+                vb = patch_v.to(device=consumer_device, dtype=consumer_dtype)
+                payload_bytes += int(payload_units) * _dtype_size_bytes(transfer_dtype)
+                if patch_apply_mode == "residual_blend":
+                    base_k, base_v = caches[layer]
+                    caches[layer] = _blend_native_patch_with_reuse(
+                        base_k=base_k,
+                        base_v=base_v,
+                        patch_k=kb,
+                        patch_v=vb,
+                        alpha_k=alpha_k,
+                        alpha_v=alpha_v,
+                        consumer_device=consumer_device,
+                        consumer_dtype=consumer_dtype,
+                    )
+                else:
+                    caches[layer] = (kb, vb)
+                continue
+            kb_raw, vb, payload_units = _apply_semantic_patch_layer(
+                layer=layer,
+                xa=xa,
+                patch_bundle=patch_bundle,
+                patch_meta=patch_meta,
+                consumer_session=consumer_session,
+                kvh=kvh,
+                hd=hd,
+            )
+        else:
+            align_w = patch_bundle[f"align_w.{layer}"]
+            align_b = patch_bundle[f"align_b.{layer}"]
+            wk = patch_bundle[f"wk.{layer}"]
+            wv = patch_bundle[f"wv.{layer}"]
+            xb = infer_patch_layer_torch(xa, type("_W", (), {"w": align_w, "b": align_b})())
+            kb_raw_flat = xb @ wk
+            vb_flat = xb @ wv
+            kb_raw = kb_raw_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+            vb = vb_flat.reshape(1, prefix_tokens, kv_dim).reshape(1, prefix_tokens, kvh, hd).permute(0, 2, 1, 3).contiguous()
+        payload_bytes += int(payload_units) * _dtype_size_bytes(transfer_dtype)
+        if fit_mode == PATCH_FIT_MODE_XNORM_SEMANTIC_V1 and patch_apply_mode == "residual_blend":
+            base_k, base_v = caches[layer]
+            caches[layer] = _blend_patch_with_reuse(
+                base_k=base_k,
+                base_v=base_v,
+                patch_k_raw=kb_raw,
+                patch_v=vb,
+                consumer_session=consumer_session,
+                alpha_k=alpha_k,
+                alpha_v=alpha_v,
+                consumer_device=consumer_device,
+                consumer_dtype=consumer_dtype,
+            )
+        else:
+            kb = re_rope_k_torch(kb_raw, consumer_session.rope_spec)
+            caches[layer] = (kb.to(device=consumer_device, dtype=consumer_dtype), vb.to(device=consumer_device, dtype=consumer_dtype))
+    _synchronize_for_device(consumer_device)
+    patch_infer_ms = (time.perf_counter() - patch_start) * 1000.0
+    return int(payload_bytes), float(patch_infer_ms)
+
+
+def _assemble_method_cache(
+    *,
+    method: str,
+    producer_capture: PrefillCapture,
+    consumer_capture: PrefillCapture,
+    producer_session: TransformersRuntimeSession,
+    consumer_session: TransformersRuntimeSession,
+    route: dict[str, list[int]],
+    reuse_prod,
+    reuse_cons,
+    patch_bundle: dict[str, Any] | None,
+    patch_meta: dict[str, object] | None,
+    bandwidth_gbps: float,
+    quant_group_size: int,
+    transfer_dtype: Any,
+    default_recompute_segment_length: int = 0,
+    override_route_recompute_length: int | None = None,
+    fail_on_missing_route_fields: bool = False,
+    fail_on_missing_patch_fields: bool = False,
+) -> tuple[list[tuple[Any, Any]], MethodTiming, float]:
+    t = require_torch()
+    prefix_tokens = int(producer_capture.input_ids.shape[1]) - 1
+    if prefix_tokens <= 0:
+        raise ValueError("严格运行时要求 prompt 至少包含两个 token")
+
+    consumer_device = str(consumer_session.target_device)
+    consumer_dtype = consumer_session.model.dtype
+    route = route or {"reuse_layers": [], "patch_layers": [], "fallback_layers": []}
+    reuse_set = set(int(x) for x in route.get("reuse_layers", []))
+    patch_set = set(int(x) for x in route.get("patch_layers", []))
+    fallback_set = set(int(x) for x in route.get("fallback_layers", []))
+    num_layers = len(producer_capture.past_key_values)
+    raw_cache_bytes = _raw_cache_payload_bytes(producer_capture, prefix_tokens, transfer_dtype)
+
+    timing = MethodTiming()
+    caches: list[tuple[Any, Any]] = [None for _ in range(num_layers)]  # type: ignore[list-item]
+    payload_bytes = 0
+    timing.raw_cache_bytes = int(raw_cache_bytes)
+
+    if method in {"oracle", "full_consumer"}:
+        timing.consumer_prefill_ms = float(consumer_capture.prefill_ms)
+        timing.ttft_ms = float(consumer_capture.prefill_ms)
+        timing.compression_ratio = None
+        return _move_layers_to_device(consumer_capture.past_key_values, consumer_device, consumer_dtype), timing, 0.0
+
+    if method == "raw_kv":
+        for layer in range(num_layers):
+            k = _map_k_between_sessions(producer_capture.past_key_values[layer][0], prefix_tokens, producer_session, consumer_session).to(device=consumer_device, dtype=consumer_dtype, non_blocking=True)
+            v = _slice_prefix_tensor(producer_capture.past_key_values[layer][1], prefix_tokens).to(device=consumer_device, dtype=consumer_dtype, non_blocking=True)
+            caches[layer] = (k, v)
+            payload_bytes += k.numel() * _dtype_size_bytes(transfer_dtype) + v.numel() * _dtype_size_bytes(transfer_dtype)
+    elif method == "quantized_4bit":
+        _synchronize_for_device(producer_capture.past_key_values[0][0].device)
+        enc_start = time.perf_counter()
+        quantized_layers: list[tuple[Any, Any]] = []
+        for layer in range(num_layers):
+            mapped_k = _map_k_between_sessions(producer_capture.past_key_values[layer][0], prefix_tokens, producer_session, consumer_session)
+            qk, bytes_k = _quantize_dequantize_int4(mapped_k, group_size=quant_group_size, scale_dtype=transfer_dtype)
+            qv, bytes_v = _quantize_dequantize_int4(_slice_prefix_tensor(producer_capture.past_key_values[layer][1], prefix_tokens), group_size=quant_group_size, scale_dtype=transfer_dtype)
+            quantized_layers.append((qk, qv))
+            payload_bytes += bytes_k + bytes_v
+        _synchronize_for_device(producer_capture.past_key_values[0][0].device)
+        timing.encode_ms = (time.perf_counter() - enc_start) * 1000.0
+
+        _synchronize_for_device(consumer_device)
+        rebuild_start = time.perf_counter()
+        for layer in range(num_layers):
+            qk, qv = quantized_layers[layer]
+            caches[layer] = (qk.to(device=consumer_device, dtype=consumer_dtype, non_blocking=True), qv.to(device=consumer_device, dtype=consumer_dtype, non_blocking=True))
+        _synchronize_for_device(consumer_device)
+        timing.rebuild_ms = (time.perf_counter() - rebuild_start) * 1000.0
+    elif method == "selective_recompute":
+        recompute_set = patch_set | fallback_set
+        for layer in range(num_layers):
+            if layer in reuse_set:
+                k = _map_k_between_sessions(producer_capture.past_key_values[layer][0], prefix_tokens, producer_session, consumer_session).to(device=consumer_device, dtype=consumer_dtype, non_blocking=True)
+                v = _slice_prefix_tensor(producer_capture.past_key_values[layer][1], prefix_tokens).to(device=consumer_device, dtype=consumer_dtype, non_blocking=True)
+                payload_bytes += k.numel() * _dtype_size_bytes(transfer_dtype) + v.numel() * _dtype_size_bytes(transfer_dtype)
+            else:
+                k = _slice_prefix_tensor(consumer_capture.past_key_values[layer][0], prefix_tokens).to(device=consumer_device, dtype=consumer_dtype, non_blocking=True)
+                v = _slice_prefix_tensor(consumer_capture.past_key_values[layer][1], prefix_tokens).to(device=consumer_device, dtype=consumer_dtype, non_blocking=True)
+            caches[layer] = (k, v)
+        timing.recompute_ms = float(sum(consumer_capture.layer_ms[layer] for layer in recompute_set if 0 <= layer < len(consumer_capture.layer_ms)))
+    elif method in {"reuse_only", "scd_full", "reuse_fallback", "reuse_patch", "reuse_patch_recompute", "oracle_xnorm_suffix", "oracle_state_suffix", "oracle_kv_patchonly"}:
+        if reuse_prod is None or reuse_cons is None:
+            raise ValueError(f"{method} 缺少 reuse 检查点")
+        decoded_layers, payload_bytes, encode_ms, decode_ms = _decode_reuse_layers(
+            producer_capture=producer_capture,
+            producer_session=producer_session,
+            consumer_session=consumer_session,
+            reuse_prod=reuse_prod,
+            reuse_cons=reuse_cons,
+            prefix_tokens=prefix_tokens,
+            transfer_dtype=transfer_dtype,
+            consumer_dtype=consumer_dtype,
+            consumer_device=consumer_device,
+        )
+        timing.encode_ms = encode_ms
+        timing.rebuild_ms = decode_ms
+        caches = decoded_layers
+        if method in {"reuse_fallback", "reuse_patch", "reuse_patch_recompute"}:
+            runtime_route = _normalize_runtime_route(
+                route,
+                mode=method,
+                num_layers=num_layers,
+                default_recompute_segment_length=default_recompute_segment_length,
+                override_route_recompute_length=override_route_recompute_length,
+                fail_on_missing_route_fields=fail_on_missing_route_fields,
+                fail_on_missing_patch_fields=fail_on_missing_patch_fields,
+            )
+            runtime_patch_layers = [int(layer) for layer in runtime_route["patch_layers"]]
+            runtime_fallback_layers = [int(layer) for layer in runtime_route["fallback_layers"]]
+            runtime_recompute_covered = [int(layer) for layer in runtime_route.get("recompute_covered_layers", [])]
+            if method in {"reuse_patch", "reuse_patch_recompute"}:
+                if patch_bundle is None or patch_meta is None:
+                    raise ValueError(f"{method} 缺少 patch 检查点")
+                hidden_dim = int(patch_meta["hidden_dim"])
+                kvh = int(patch_meta["num_key_value_heads"])
+                hd = int(patch_meta["head_dim"])
+                fit_mode = str(patch_meta.get("fit_mode") or "")
+                if method == "reuse_patch_recompute" and fit_mode == PATCH_FIT_MODE_XNORM_SEMANTIC_V1:
+                    extra_payload_bytes, patch_infer_ms, breakpoint_hidden_by_layer = _apply_patch_breakpoints_native(
+                        caches=caches,
+                        patch_layers=runtime_patch_layers,
+                        producer_capture=producer_capture,
+                        consumer_capture=consumer_capture,
+                        consumer_session=consumer_session,
+                        patch_bundle=patch_bundle,
+                        patch_meta=patch_meta,
+                        prefix_tokens=prefix_tokens,
+                        hidden_dim=hidden_dim,
+                        consumer_dtype=consumer_dtype,
+                        consumer_device=consumer_device,
+                        transfer_dtype=transfer_dtype,
+                    )
+                    timing.recompute_ms = _run_true_recompute_suffixes(
+                        caches=caches,
+                        breakpoint_hidden_by_layer=breakpoint_hidden_by_layer,
+                        recompute_segment_length_by_layer=runtime_route["recompute_segment_length_by_layer"],
+                        consumer_session=consumer_session,
+                        consumer_capture=consumer_capture,
+                        prefix_tokens=prefix_tokens,
+                        consumer_dtype=consumer_dtype,
+                        consumer_device=consumer_device,
+                    )
+                else:
+                    extra_payload_bytes, patch_infer_ms = _apply_patch_layers_to_cache(
+                        caches=caches,
+                        patch_layers=runtime_patch_layers,
+                        producer_capture=producer_capture,
+                        consumer_capture=consumer_capture,
+                        consumer_session=consumer_session,
+                        patch_bundle=patch_bundle,
+                        patch_meta=patch_meta,
+                        prefix_tokens=prefix_tokens,
+                        hidden_dim=hidden_dim,
+                        kvh=kvh,
+                        hd=hd,
+                        consumer_dtype=consumer_dtype,
+                        consumer_device=consumer_device,
+                        transfer_dtype=transfer_dtype,
+                    )
+                    if runtime_recompute_covered:
+                        _overlay_consumer_layers(
+                            caches,
+                            consumer_capture=consumer_capture,
+                            layers=runtime_recompute_covered,
+                            prefix_tokens=prefix_tokens,
+                            consumer_device=consumer_device,
+                            consumer_dtype=consumer_dtype,
+                        )
+                        timing.recompute_ms += float(
+                            sum(
+                                consumer_capture.layer_ms[layer]
+                                for layer in runtime_recompute_covered
+                                if 0 <= int(layer) < len(consumer_capture.layer_ms)
+                            )
+                        )
+                payload_bytes += int(extra_payload_bytes)
+                timing.patch_infer_ms = float(patch_infer_ms)
+            if runtime_fallback_layers:
+                _overlay_consumer_layers(
+                    caches,
+                    consumer_capture=consumer_capture,
+                    layers=runtime_fallback_layers,
+                    prefix_tokens=prefix_tokens,
+                    consumer_device=consumer_device,
+                    consumer_dtype=consumer_dtype,
+                )
+                timing.recompute_ms += float(
+                    sum(
+                        consumer_capture.layer_ms[layer]
+                        for layer in runtime_fallback_layers
+                        if 0 <= int(layer) < len(consumer_capture.layer_ms)
+                    )
+                )
+        elif method == "scd_full":
+            if patch_bundle is None or patch_meta is None:
+                raise ValueError("scd_full 缺少 patch 检查点")
+            hidden_dim = int(patch_meta["hidden_dim"])
+            kvh = int(patch_meta["num_key_value_heads"])
+            hd = int(patch_meta["head_dim"])
+            extra_payload_bytes, patch_infer_ms = _apply_patch_layers_to_cache(
+                caches=caches,
+                patch_layers=sorted(patch_set),
+                producer_capture=producer_capture,
+                consumer_capture=consumer_capture,
+                consumer_session=consumer_session,
+                patch_bundle=patch_bundle,
+                patch_meta=patch_meta,
+                prefix_tokens=prefix_tokens,
+                hidden_dim=hidden_dim,
+                kvh=kvh,
+                hd=hd,
+                consumer_dtype=consumer_dtype,
+                consumer_device=consumer_device,
+                transfer_dtype=transfer_dtype,
+            )
+            payload_bytes += int(extra_payload_bytes)
+            timing.patch_infer_ms = float(patch_infer_ms)
+            _overlay_consumer_layers(
+                caches,
+                consumer_capture=consumer_capture,
+                layers=sorted(fallback_set),
+                prefix_tokens=prefix_tokens,
+                consumer_device=consumer_device,
+                consumer_dtype=consumer_dtype,
+            )
+            timing.recompute_ms = float(sum(consumer_capture.layer_ms[layer] for layer in fallback_set if 0 <= layer < len(consumer_capture.layer_ms)))
+        elif method == "oracle_kv_patchonly":
+            runtime_route = _normalize_runtime_route(
+                route,
+                mode="reuse_patch",
+                num_layers=num_layers,
+                default_recompute_segment_length=default_recompute_segment_length,
+                override_route_recompute_length=override_route_recompute_length,
+                fail_on_missing_route_fields=fail_on_missing_route_fields,
+                fail_on_missing_patch_fields=fail_on_missing_patch_fields,
+            )
+            runtime_patch_layers = [int(layer) for layer in runtime_route["patch_layers"]]
+            _overlay_consumer_layers(
+                caches,
+                consumer_capture=consumer_capture,
+                layers=runtime_patch_layers,
+                prefix_tokens=prefix_tokens,
+                consumer_device=consumer_device,
+                consumer_dtype=consumer_dtype,
+            )
+            payload_bytes += _oracle_cache_payload_bytes(
+                consumer_capture,
+                layers=runtime_patch_layers,
+                prefix_tokens=prefix_tokens,
+                transfer_dtype=transfer_dtype,
+            )
+        elif method in {"oracle_xnorm_suffix", "oracle_state_suffix"}:
+            runtime_route = _normalize_runtime_route(
+                route,
+                mode="reuse_patch_recompute",
+                num_layers=num_layers,
+                default_recompute_segment_length=default_recompute_segment_length,
+                override_route_recompute_length=override_route_recompute_length,
+                fail_on_missing_route_fields=fail_on_missing_route_fields,
+                fail_on_missing_patch_fields=fail_on_missing_patch_fields,
+            )
+            runtime_patch_layers = [int(layer) for layer in runtime_route["patch_layers"]]
+            state_kind = "xnorm" if method == "oracle_xnorm_suffix" else "residual"
+            extra_payload_bytes, _breakpoint_ms, breakpoint_hidden_by_layer = _apply_oracle_breakpoints_native(
+                caches=caches,
+                patch_layers=runtime_patch_layers,
+                consumer_capture=consumer_capture,
+                consumer_session=consumer_session,
+                prefix_tokens=prefix_tokens,
+                consumer_dtype=consumer_dtype,
+                consumer_device=consumer_device,
+                transfer_dtype=transfer_dtype,
+                state_kind=state_kind,
+            )
+            payload_bytes += int(extra_payload_bytes)
+            timing.recompute_ms = _run_true_recompute_suffixes(
+                caches=caches,
+                breakpoint_hidden_by_layer=breakpoint_hidden_by_layer,
+                recompute_segment_length_by_layer=runtime_route["recompute_segment_length_by_layer"],
+                consumer_session=consumer_session,
+                consumer_capture=consumer_capture,
+                prefix_tokens=prefix_tokens,
+                consumer_dtype=consumer_dtype,
+                consumer_device=consumer_device,
+            )
+    else:
+        raise ValueError(f"未知方法: {method}")
+
+    transfer_ms = 0.0 if payload_bytes <= 0 else (float(payload_bytes) * 8.0 / (bandwidth_gbps * 1e9) * 1000.0)
+    timing.transfer_ms = transfer_ms
+    timing.bytes_transferred = int(payload_bytes)
+    timing.compression_ratio = _compression_ratio(raw_cache_bytes, payload_bytes)
+    payload_mb = float(payload_bytes) / (1024.0 * 1024.0)
+    return caches, timing, payload_mb
+
+
+def evaluate_cmrc_method(
+    *,
+    method: str,
+    sample: CMRCSample,
+    producer_capture: PrefillCapture,
+    consumer_capture: PrefillCapture,
+    producer_session: TransformersRuntimeSession,
+    consumer_session: TransformersRuntimeSession,
+    route: dict[str, list[int]],
+    reuse_prod,
+    reuse_cons,
+    patch_bundle: dict[str, Any] | None,
+    patch_meta: dict[str, object] | None,
+    bandwidth_gbps: float,
+    max_new_tokens: int,
+    quant_group_size: int,
+    transfer_dtype: Any,
+    default_recompute_segment_length: int = 0,
+    override_route_recompute_length: int | None = None,
+    fail_on_missing_route_fields: bool = False,
+    fail_on_missing_patch_fields: bool = False,
+    measure_teacher_forced_metrics: bool = True,
+    align_full_consumer_first_decode: bool = False,
+) -> MethodSampleResult:
+    prefix_tokens = int(consumer_capture.input_ids.shape[1]) - 1
+    target_ids = _target_answer_ids(consumer_session, sample.answers, max_new_tokens=max_new_tokens)
+    if method in {"oracle", "full_consumer"}:
+        answer, first_decode_ms, decode_total_ms, first_token_id = consumer_session.generate_from_prefill(
+            consumer_capture,
+            max_new_tokens=max_new_tokens,
+            align_first_decode_to_cache=align_full_consumer_first_decode,
+        )
+        avg_logp, avg_nll, teacher_token_count = _teacher_forced_from_prefill(consumer_session, consumer_capture, target_ids) if measure_teacher_forced_metrics else (0.0, 0.0, 0)
+        timing = MethodTiming(
+            producer_prefill_ms=0.0,
+            consumer_prefill_ms=float(consumer_capture.prefill_ms),
+            encode_ms=0.0,
+            transfer_ms=0.0,
+            rebuild_ms=0.0,
+            patch_infer_ms=0.0,
+            recompute_ms=0.0,
+            decode_first_ms=float(first_decode_ms),
+            decode_rest_ms=max(0.0, float(decode_total_ms - first_decode_ms)),
+            decode_total_ms=float(decode_total_ms),
+            ttft_ms=float(consumer_capture.prefill_ms + first_decode_ms),
+            total_ms=float(consumer_capture.prefill_ms + decode_total_ms),
+            bytes_transferred=0,
+            raw_cache_bytes=_raw_cache_payload_bytes(consumer_capture, prefix_tokens, transfer_dtype),
+            compression_ratio=None,
+        )
+        payload_mb = 0.0
+    else:
+        cache_layers, timing, payload_mb = _assemble_method_cache(
+            method=method,
+            producer_capture=producer_capture,
+            consumer_capture=consumer_capture,
+            producer_session=producer_session,
+            consumer_session=consumer_session,
+            route=route,
+            reuse_prod=reuse_prod,
+            reuse_cons=reuse_cons,
+            patch_bundle=patch_bundle,
+            patch_meta=patch_meta,
+            bandwidth_gbps=bandwidth_gbps,
+            quant_group_size=quant_group_size,
+            transfer_dtype=transfer_dtype,
+            default_recompute_segment_length=default_recompute_segment_length,
+            override_route_recompute_length=override_route_recompute_length,
+            fail_on_missing_route_fields=fail_on_missing_route_fields,
+            fail_on_missing_patch_fields=fail_on_missing_patch_fields,
+        )
+        answer, first_decode_ms, decode_total_ms, first_token_id = consumer_session.generate_from_cache(
+            cache_layers=cache_layers,
+            prompt_input_ids=consumer_capture.input_ids,
+            prompt_attention_mask=consumer_capture.attention_mask,
+            prefix_tokens=prefix_tokens,
+            max_new_tokens=max_new_tokens,
+        )
+        avg_logp, avg_nll, teacher_token_count = (
+            _teacher_forced_from_cache(
+                consumer_session,
+                cache_layers=cache_layers,
+                prompt_input_ids=consumer_capture.input_ids,
+                prompt_attention_mask=consumer_capture.attention_mask,
+                prefix_tokens=prefix_tokens,
+                target_ids=target_ids,
+            )
+            if measure_teacher_forced_metrics
+            else (0.0, 0.0, 0)
+        )
+        timing.decode_first_ms = float(first_decode_ms)
+        timing.decode_rest_ms = max(0.0, float(decode_total_ms - first_decode_ms))
+        timing.decode_total_ms = float(decode_total_ms)
+        timing.ttft_ms = float(timing.encode_ms + timing.transfer_ms + timing.rebuild_ms + timing.patch_infer_ms + timing.recompute_ms + timing.decode_first_ms)
+        timing.total_ms = float(timing.encode_ms + timing.transfer_ms + timing.rebuild_ms + timing.patch_infer_ms + timing.recompute_ms + timing.decode_total_ms)
+
+    score = score_cmrc_prediction(answer, sample.answers)
+    return MethodSampleResult(
+        qid=sample.qid,
+        method=method,
+        pred_text=answer,
+        f1=float(score["f1"]),
+        em=float(score["em"]),
+        payload_mb=float(payload_mb),
+        timing=timing,
+        gold_answers=list(sample.answers),
+        prompt_tokens=int(consumer_capture.input_ids.shape[1]),
+        prefix_tokens=prefix_tokens,
+        first_token_id=first_token_id,
+        avg_logp=float(avg_logp),
+        avg_nll=float(avg_nll),
+        teacher_logp_sum=float(avg_logp * max(1, int(teacher_token_count))) if int(teacher_token_count) > 0 else 0.0,
+        teacher_token_count=int(teacher_token_count),
+    )
+
+
+def summarize_method_results(results: list[MethodSampleResult]) -> dict[str, Any]:
+    if not results:
+        raise ValueError("method results 为空")
+    n = len(results)
+    mean = lambda fn: float(sum(fn(x) for x in results) / n)
+    total_teacher_tokens = int(sum(int(x.teacher_token_count) for x in results))
+    total_teacher_logp = float(sum(float(x.teacher_logp_sum) for x in results))
+    avg_logp = float(total_teacher_logp / total_teacher_tokens) if total_teacher_tokens > 0 else 0.0
+    avg_nll = float(-avg_logp)
+    total_raw_bytes = int(sum(int(x.timing.raw_cache_bytes) for x in results))
+    total_transfer_bytes = int(sum(int(x.timing.bytes_transferred) for x in results))
+    return {
+        "method": results[0].method,
+        "method_label": _METHOD_LABELS.get(results[0].method, results[0].method),
+        "num_samples": n,
+        "f1": mean(lambda x: x.f1),
+        "em": mean(lambda x: x.em),
+        "avg_logp": avg_logp,
+        "avg_nll": avg_nll,
+        "payload_mb": mean(lambda x: x.payload_mb),
+        "ttft_ms": mean(lambda x: x.timing.ttft_ms),
+        "producer_prefill_ms": mean(lambda x: x.timing.producer_prefill_ms),
+        "consumer_prefill_ms": mean(lambda x: x.timing.consumer_prefill_ms),
+        "encode_ms": mean(lambda x: x.timing.encode_ms),
+        "transfer_ms": mean(lambda x: x.timing.transfer_ms),
+        "rebuild_ms": mean(lambda x: x.timing.rebuild_ms),
+        "patch_infer_ms": mean(lambda x: x.timing.patch_infer_ms),
+        "recompute_ms": mean(lambda x: x.timing.recompute_ms),
+        "decode_first_ms": mean(lambda x: x.timing.decode_first_ms),
+        "decode_rest_ms": mean(lambda x: x.timing.decode_rest_ms),
+        "decode_total_ms": mean(lambda x: x.timing.decode_total_ms),
+        "total_ms": mean(lambda x: x.timing.total_ms),
+        "bytes_transferred": float(total_transfer_bytes / max(1, n)),
+        "raw_cache_bytes": float(total_raw_bytes / max(1, n)),
+        "compression_ratio": None if total_transfer_bytes <= 0 else float(total_raw_bytes / total_transfer_bytes),
+        "teacher_token_count": total_teacher_tokens,
+    }

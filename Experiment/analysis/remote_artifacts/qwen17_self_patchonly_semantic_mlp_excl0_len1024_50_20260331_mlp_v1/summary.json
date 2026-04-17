@@ -1,0 +1,63 @@
+{
+  "meta": {
+    "route_path": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/route_patchonly_excl0_seed42.json",
+    "patch_ckpt_path": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/ckpt_patch_semantic_mlp_all28_len1024_seed42",
+    "reuse_ckpt_path": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/ckpt_reuse_layerwise_seed42",
+    "eval_config_path": "/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/qwen17_self_cmrc/eval_patchonly_excl0_diag50.json",
+    "models_config_path": "configs/models_ser_qwen17_self.yaml",
+    "producer_model": "/disk_n/c101-3-1/models/Qwen3-1.7B",
+    "consumer_model": "/disk_n/c101-3-1/models/Qwen3-1.7B",
+    "producer_device": "cuda:0",
+    "consumer_device": "cuda:1",
+    "bandwidth_gbps": 200.0,
+    "max_new_tokens": 32,
+    "max_length": 1024,
+    "route_counts": {
+      "reuse_layers": 0,
+      "patch_layers": 27,
+      "fallback_layers": 0,
+      "selected_recompute_layers": 0
+    },
+    "fit_mode": "xnorm_semantic_v1",
+    "semantic_source": "probe",
+    "methods": [
+      "reuse_patch"
+    ],
+    "strict_mode": true,
+    "align_full_consumer_first_decode": false
+  },
+  "summary": [
+    {
+      "method": "reuse_patch",
+      "method_label": "Reuse + Patch",
+      "num_samples": 50,
+      "f1": 0.0,
+      "em": 0.0,
+      "avg_logp": -17.204968163538872,
+      "avg_nll": 17.204968163538872,
+      "payload_mb": 81.155078125,
+      "ttft_ms": 126.85134213048008,
+      "producer_prefill_ms": 0.0,
+      "consumer_prefill_ms": 0.0,
+      "encode_ms": 13.864477835595608,
+      "transfer_ms": 3.403890688,
+      "rebuild_ms": 37.90980722755194,
+      "patch_infer_ms": 43.19773007184267,
+      "recompute_ms": 0.0,
+      "decode_first_ms": 28.475436307489872,
+      "decode_rest_ms": 791.0790985450149,
+      "decode_total_ms": 819.5545348525047,
+      "total_ms": 917.9304406754949,
+      "bytes_transferred": 85097267.2,
+      "raw_cache_bytes": 43322245.12,
+      "compression_ratio": 0.509090909090909,
+      "teacher_token_count": 373,
+      "delta_ttft_vs_full": null,
+      "delta_logp_vs_full": null,
+      "delta_nll_vs_full": null,
+      "delta_ttft_vs_reuse_only": null,
+      "delta_logp_vs_reuse_only": null,
+      "delta_nll_vs_reuse_only": null
+    }
+  ]
+}
