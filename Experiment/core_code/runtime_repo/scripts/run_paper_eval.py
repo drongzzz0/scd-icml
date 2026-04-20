@@ -174,6 +174,7 @@ def run_eval_method(
     *,
     workdir: Path,
     env: dict[str, str],
+    models_config: Path,
     pairs: Path,
     reuse_ckpt: Path,
     patch_ckpt: Path,
@@ -197,6 +198,8 @@ def run_eval_method(
             str(patch_ckpt),
             "--route",
             str(route),
+            "--models-config",
+            str(models_config),
             "--eval-config",
             str(eval_cfg),
             "--method",
@@ -246,7 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--capture-batch-size", type=int, default=1)
     p.add_argument("--max-chunk-tokens", type=int, default=4096)
     p.add_argument("--bandwidths", default="100,150,200,400,800,1000")
-    p.add_argument("--patch-budgets", default="0,1,3,5,8")
+    p.add_argument("--patch-budgets", default="0,1,3,5,6,8")
     p.add_argument("--skip-bandwidth-scan", action="store_true")
     p.add_argument("--skip-patch-budget-scan", action="store_true")
     return p
@@ -394,6 +397,8 @@ def main() -> None:
                 str(pairs_dir),
                 "--profile",
                 str(profile_path),
+                "--models-config",
+                str(models_cfg_path),
                 "--train-config",
                 str(train_cfg_path),
                 "--out",
@@ -425,6 +430,7 @@ def main() -> None:
             run_eval_method(
                 workdir=workdir,
                 env=env,
+                models_config=models_cfg_path,
                 pairs=pairs_dir,
                 reuse_ckpt=reuse_dir,
                 patch_ckpt=patch_dir,
@@ -452,6 +458,7 @@ def main() -> None:
                     run_eval_method(
                         workdir=workdir,
                         env=env,
+                        models_config=models_cfg_path,
                         pairs=pairs_dir,
                         reuse_ckpt=reuse_dir,
                         patch_ckpt=patch_dir,
@@ -490,6 +497,8 @@ def main() -> None:
                         str(pairs_dir),
                         "--profile",
                         str(profile_path),
+                        "--models-config",
+                        str(models_cfg_path),
                         "--train-config",
                         str(train_cfg_k_path),
                         "--out",
@@ -509,6 +518,7 @@ def main() -> None:
                 run_eval_method(
                     workdir=workdir,
                     env=env,
+                    models_config=models_cfg_path,
                     pairs=pairs_dir,
                     reuse_ckpt=reuse_dir,
                     patch_ckpt=patch_dir_k,

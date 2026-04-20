@@ -27,6 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--reuse-ckpt", default="")
     p.add_argument("--patch-ckpt", default="")
     p.add_argument("--route", default="")
+    p.add_argument("--models-config", default="")
     p.add_argument("--eval-config", required=True)
     p.add_argument("--method", choices=SUPPORTED_METHODS, required=True)
     p.add_argument("--out", required=True)
@@ -81,6 +82,7 @@ def main() -> None:
         reuse=reuse,
         patch_bundle=patch_bundle,
         patch_meta=patch_meta,
+        models_config=args.models_config or None,
         bandwidth_gbps=bandwidth,
         seed=args.seed,
         infer_device=infer_device,
@@ -93,6 +95,7 @@ def main() -> None:
         reuse=reuse,
         patch_bundle=patch_bundle,
         patch_meta=patch_meta,
+        models_config=args.models_config or None,
         bandwidth_gbps=bandwidth,
         seed=args.seed,
         infer_device=infer_device,

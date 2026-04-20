@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import copy
 import shutil
 import time
 from dataclasses import asdict, dataclass
@@ -10,7 +11,7 @@ import numpy as np
 
 from .cache_writer import CacheShapeSpec, CacheWriter
 from .io_utils import load_bundle, load_json, save_bundle, save_json
-from .patch import PATCH_FIT_MODE_DIRECT_KV_V1, infer_direct_kv_patch_layer_torch
+from .patch import PATCH_FIT_MODE_DIRECT_KV_V1, PATCH_FIT_MODE_XNORM_SEMANTIC_V1, infer_direct_kv_patch_layer_torch, load_semantic_patch_layer_from_ckpt
 from .reuse import (
     REUSE_MODE_XKV_GROUP,
     SHARED_Z_ACTIVATION_IDENTITY,
@@ -26,7 +27,7 @@ from .reuse import (
     unpack_group,
 )
 from .rope import de_rope_k_torch, re_rope_k_torch, resolve_rope_specs
-from .torch_utils import require_torch, tensor_to_cpu, tensor_to_device, tensor_to_numpy
+from .torch_utils import clear_torch_cache, require_torch, tensor_to_cpu, tensor_to_device, tensor_to_numpy
 
 
 PATCH_CKPT_SHARDED_FORMAT = "patch_ckpt_sharded_v1"
@@ -51,6 +52,16 @@ class PairMeta:
     seed: int
     eval_samples: int = 0
     rope: dict[str, object] | None = None
+
+
+@dataclass
+class ConsumerSemanticRuntimeLayer:
+    input_norm: Any | None
+    k_proj_weight: Any
+    k_proj_bias: Any | None
+    v_proj_weight: Any
+    v_proj_bias: Any | None
+    k_norm: Any | None
 
 
 def _rng(seed: int) -> np.random.Generator:
@@ -670,6 +681,15 @@ def _resolve_optional_rope_specs(meta: dict[str, object]) -> tuple[object | None
         return None, None
 
 
+def _patch_shard_manifest(patch_meta: dict[str, object] | None) -> dict[str, Any] | None:
+    if patch_meta is None:
+        return None
+    manifest = patch_meta.get("shard_manifest")
+    if isinstance(manifest, dict) and manifest:
+        return manifest
+    return None
+
+
 def method_payload_mb(method: str, arrays: dict[str, Any], route: dict[str, list[int]] | None = None) -> float:
     num_layers = len([key for key in arrays if key.startswith("k_a.")])
     sample = arrays["k_a.0"]
@@ -692,6 +712,270 @@ def method_payload_mb(method: str, arrays: dict[str, Any], route: dict[str, list
     if method == "scd_full":
         return raw_mb * 0.72
     raise ValueError(f"未知方法: {method}")
+
+
+def _resolve_decoder_layers_from_model(model: Any) -> Any:
+    if hasattr(model, "model") and hasattr(model.model, "layers"):
+        return model.model.layers
+    if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
+        return model.transformer.h
+    raise RuntimeError("无法从 consumer 模型中定位 decoder layers")
+
+
+def _resolve_attn_module(layer_module: Any) -> Any:
+    if hasattr(layer_module, "self_attn"):
+        return layer_module.self_attn
+    if hasattr(layer_module, "attn"):
+        return layer_module.attn
+    raise RuntimeError("无法从 decoder layer 中定位 attention 模块")
+
+
+def _resolve_input_norm_module(layer_module: Any) -> Any | None:
+    for attr in ("input_layernorm", "attention_norm", "ln_1"):
+        if hasattr(layer_module, attr):
+            return getattr(layer_module, attr)
+    return None
+
+
+def _load_consumer_semantic_runtime_layers(
+    models_config: str | Path,
+    patch_meta: dict[str, object],
+    *,
+    device: str,
+) -> dict[int, ConsumerSemanticRuntimeLayer]:
+    t = require_torch()
+    try:
+        from transformers import AutoModelForCausalLM
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError("缺少运行依赖: transformers") from exc
+
+    try:
+        models_cfg = load_json(models_config)
+    except Exception:
+        try:
+            import json
+
+            models_cfg = json.loads(Path(models_config).read_text(encoding="utf-8-sig"))
+        except Exception as exc:
+            raise ValueError(f"无法解析 models-config: {models_config}") from exc
+    model_b_cfg = models_cfg.get("model_b", {}) if isinstance(models_cfg, dict) else {}
+    model_b_path = str(model_b_cfg.get("path") or "").strip()
+    if not model_b_path:
+        raise ValueError("models-config 中缺少 model_b.path")
+
+    selected_layers = [int(layer) for layer in patch_meta.get("selected_layers", [])] if isinstance(patch_meta.get("selected_layers"), list) else []
+    if not selected_layers:
+        return {}
+
+    load_kwargs = {
+        "torch_dtype": t.bfloat16,
+        "trust_remote_code": True,
+        "low_cpu_mem_usage": True,
+        "device_map": {"": "cpu"},
+    }
+    model = AutoModelForCausalLM.from_pretrained(model_b_path, **load_kwargs)
+    model.eval()
+    layers = _resolve_decoder_layers_from_model(model)
+    runtime_layers: dict[int, ConsumerSemanticRuntimeLayer] = {}
+    try:
+        for layer in selected_layers:
+            layer_module = layers[int(layer)]
+            attn = _resolve_attn_module(layer_module)
+            input_norm = _resolve_input_norm_module(layer_module)
+            input_norm_copy = None
+            if input_norm is not None:
+                input_norm_copy = copy.deepcopy(input_norm).to(device=device, dtype=t.float32).eval()
+            k_norm = getattr(attn, "k_norm", None)
+            k_norm_copy = None
+            if k_norm is not None:
+                k_norm_copy = copy.deepcopy(k_norm).to(device=device, dtype=t.float32).eval()
+            runtime_layers[int(layer)] = ConsumerSemanticRuntimeLayer(
+                input_norm=input_norm_copy,
+                k_proj_weight=attn.k_proj.weight.detach().to(device=device, dtype=t.float32).contiguous(),
+                k_proj_bias=None if getattr(attn.k_proj, "bias", None) is None else attn.k_proj.bias.detach().to(device=device, dtype=t.float32).contiguous(),
+                v_proj_weight=attn.v_proj.weight.detach().to(device=device, dtype=t.float32).contiguous(),
+                v_proj_bias=None if getattr(attn.v_proj, "bias", None) is None else attn.v_proj.bias.detach().to(device=device, dtype=t.float32).contiguous(),
+                k_norm=k_norm_copy,
+            )
+    finally:
+        del model
+        clear_torch_cache()
+    return runtime_layers
+
+
+def _get_semantic_runtime_layers(
+    patch_meta: dict[str, object],
+    *,
+    models_config: str | Path | None,
+    infer_device: str,
+) -> dict[int, ConsumerSemanticRuntimeLayer]:
+    runtime_layers = patch_meta.get("__consumer_semantic_runtime_layers__")
+    if isinstance(runtime_layers, dict):
+        return runtime_layers  # type: ignore[return-value]
+    if not models_config:
+        raise ValueError("xnorm_semantic_v1 的离线推理需要提供 models-config")
+    loaded = _load_consumer_semantic_runtime_layers(models_config, patch_meta, device=infer_device)
+    patch_meta["__consumer_semantic_runtime_layers__"] = loaded
+    return loaded
+
+
+def _get_semantic_patch_layer(
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    *,
+    layer: int,
+    infer_device: str,
+    cpu_fallback: bool = True,
+) -> Any:
+    runtime_layers = patch_meta.setdefault("__runtime_semantic_patch_layers__", {})  # type: ignore[assignment]
+    if not isinstance(runtime_layers, dict):
+        runtime_layers = {}
+        patch_meta["__runtime_semantic_patch_layers__"] = runtime_layers
+    if int(layer) not in runtime_layers:
+        layer_bundle = patch_bundle
+        if not patch_bundle:
+            manifest = _patch_shard_manifest(patch_meta)
+            if isinstance(manifest, dict):
+                root = Path(str(patch_meta.get("__patch_ckpt_root__") or ""))
+                layer_to_shard_raw = manifest.get("layer_to_shard", {})
+                layer_to_shard = {
+                    int(raw_layer): str(shard_path)
+                    for raw_layer, shard_path in layer_to_shard_raw.items()
+                    if str(raw_layer).lstrip("-").isdigit() and str(shard_path)
+                } if isinstance(layer_to_shard_raw, dict) else {}
+                shard_relpath = layer_to_shard.get(int(layer), "")
+                if not shard_relpath:
+                    raise KeyError(f"patch shard manifest 缺少 layer {int(layer)} 的 shard 映射")
+                loaded_shards = patch_meta.setdefault("__offline_patch_loaded_shards__", {})  # type: ignore[assignment]
+                if not isinstance(loaded_shards, dict):
+                    loaded_shards = {}
+                    patch_meta["__offline_patch_loaded_shards__"] = loaded_shards
+                shard_arrays = loaded_shards.get(shard_relpath)
+                if not isinstance(shard_arrays, dict):
+                    shard_arrays = load_bundle(
+                        root / shard_relpath,
+                        device=infer_device,
+                        dtype="float32",
+                        cpu_fallback=cpu_fallback,
+                    ).arrays
+                    loaded_shards[shard_relpath] = shard_arrays
+                layer_keys_raw = manifest.get("layer_keys", {})
+                layer_keys = layer_keys_raw.get(str(int(layer)), []) if isinstance(layer_keys_raw, dict) else []
+                layer_bundle = {str(key): shard_arrays[str(key)] for key in layer_keys if str(key) in shard_arrays}
+                if not layer_bundle:
+                    raise KeyError(f"未能从 shard 中恢复 semantic patch layer={int(layer)}")
+        runtime_layers[int(layer)] = load_semantic_patch_layer_from_ckpt(
+            layer_bundle,
+            patch_meta,
+            layer=int(layer),
+            device=infer_device,
+            dtype="float32",
+        )
+    return runtime_layers[int(layer)]
+
+
+def _apply_optional_input_norm(hidden_states: Any, norm_module: Any | None) -> Any:
+    t = require_torch()
+    if norm_module is None:
+        return hidden_states.to(dtype=t.float32)
+    norm_dtype = getattr(getattr(norm_module, "weight", None), "dtype", hidden_states.dtype)
+    with t.no_grad():
+        return norm_module(hidden_states.to(dtype=norm_dtype)).to(dtype=t.float32)
+
+
+def _apply_optional_k_norm(k_pre_flat: Any, k_norm: Any | None, kvh: int, hd: int) -> Any:
+    t = require_torch()
+    if k_norm is None:
+        return k_pre_flat.to(dtype=t.float32)
+    norm_in = k_pre_flat.reshape(-1, kvh, hd)
+    norm_dtype = getattr(getattr(k_norm, "weight", None), "dtype", norm_in.dtype)
+    with t.no_grad():
+        normed = k_norm(norm_in.to(dtype=norm_dtype)).to(dtype=t.float32)
+    return normed.reshape(-1, kvh * hd).contiguous()
+
+
+def _linear_project(hidden_states: Any, weight: Any, bias: Any | None) -> Any:
+    t = require_torch()
+    return t.nn.functional.linear(hidden_states.to(dtype=t.float32), weight.to(dtype=t.float32), None if bias is None else bias.to(dtype=t.float32))
+
+
+def _blend_semantic_patch_with_reuse(
+    *,
+    patch_k_raw: Any,
+    patch_v: Any,
+    base_k: Any,
+    base_v: Any,
+    rope_b: object | None,
+    alpha_k: float,
+    alpha_v: float,
+) -> tuple[Any, Any]:
+    t = require_torch()
+    base_k_raw = de_rope_k_torch(base_k, rope_b) if rope_b is not None else base_k.to(dtype=t.float32)
+    base_v = base_v.to(dtype=t.float32)
+    blended_k_raw = base_k_raw + (float(alpha_k) * (patch_k_raw.to(dtype=t.float32) - base_k_raw))
+    blended_v = base_v + (float(alpha_v) * (patch_v.to(dtype=t.float32) - base_v))
+    return blended_k_raw.contiguous(), blended_v.contiguous()
+
+
+def _infer_semantic_patch_kv(
+    *,
+    layer: int,
+    x: Any,
+    meta: dict[str, object],
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    models_config: str | Path | None,
+    infer_device: str,
+    rope_b: object | None,
+    decoded_reuse_k: dict[int, Any],
+    decoded_reuse_v: dict[int, Any],
+) -> tuple[Any, Any]:
+    t = require_torch()
+    patch_layer = _get_semantic_patch_layer(
+        patch_bundle,
+        patch_meta,
+        layer=int(layer),
+        infer_device=infer_device,
+        cpu_fallback=True,
+    )
+    runtime_layers = _get_semantic_runtime_layers(
+        patch_meta,
+        models_config=models_config,
+        infer_device=infer_device,
+    )
+    runtime_layer = runtime_layers.get(int(layer))
+    if runtime_layer is None:
+        raise KeyError(f"consumer semantic runtime layer 缺失: {layer}")
+
+    with t.no_grad():
+        x_hidden = patch_layer(x.to(device=infer_device, dtype=t.float32))
+        k_pre = _linear_project(x_hidden, runtime_layer.k_proj_weight, runtime_layer.k_proj_bias)
+        v_flat = _linear_project(x_hidden, runtime_layer.v_proj_weight, runtime_layer.v_proj_bias)
+
+    kvh = int(meta["num_key_value_heads"])
+    hd = int(meta["head_dim"])
+    bsz = int(meta["batch_size"])
+    t_steps = int(meta["prefix_tokens"])
+    kv_dim = int(kvh * hd)
+
+    k_norm_flat = _apply_optional_k_norm(k_pre, runtime_layer.k_norm, kvh, hd)
+    k_raw = k_norm_flat.reshape(bsz, t_steps, kv_dim).reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+    v = v_flat.reshape(bsz, t_steps, kv_dim).reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+
+    patch_apply_mode = str(patch_meta.get("patch_apply_mode") or "overwrite")
+    if patch_apply_mode == "residual_blend" and int(layer) in decoded_reuse_k and int(layer) in decoded_reuse_v:
+        k_raw, v = _blend_semantic_patch_with_reuse(
+            patch_k_raw=k_raw,
+            patch_v=v,
+            base_k=decoded_reuse_k[int(layer)],
+            base_v=decoded_reuse_v[int(layer)],
+            rope_b=rope_b,
+            alpha_k=float(patch_meta.get("patch_blend_alpha_k", 0.25)),
+            alpha_v=float(patch_meta.get("patch_blend_alpha_v", 0.5)),
+        )
+
+    k = re_rope_k_torch(k_raw, rope_b) if rope_b is not None else k_raw
+    return k.contiguous(), v.contiguous()
 
 
 def quantize_4bit(x):
@@ -768,6 +1052,7 @@ def _prepare_cache_for_method(
     patch_bundle: dict[str, Any] | None,
     patch_meta: dict[str, object] | None,
     route: dict[str, list[int]] | None,
+    models_config: str | Path | None,
     infer_device: str,
     cpu_fallback: bool,
 ) -> CacheWriter:
@@ -852,6 +1137,27 @@ def _prepare_cache_for_method(
                     wk = patch_bundle[f"direct_wk.{layer}"]
                     wv = patch_bundle[f"direct_wv.{layer}"]
                     k2, v2 = infer_direct_kv_patch_layer_torch(x, wk, wv)
+                    bsz = int(meta["batch_size"])
+                    t_steps = int(meta["prefix_tokens"])
+                    kvh = int(meta["num_key_value_heads"])
+                    hd = int(meta["head_dim"])
+                    k = k2.reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+                    v = v2.reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+                elif fit_mode == PATCH_FIT_MODE_XNORM_SEMANTIC_V1:
+                    # 离线 paper runner 没有 strict runtime 的逐层 breakpoint，
+                    # 这里按 train_patch 的辅助投影契约，使用 consumer native k/v 投影恢复 KV。
+                    k, v = _infer_semantic_patch_kv(
+                        layer=int(layer),
+                        x=x,
+                        meta=meta,
+                        patch_bundle=patch_bundle,
+                        patch_meta=patch_meta,
+                        models_config=models_config,
+                        infer_device=infer_device,
+                        rope_b=rope_b,
+                        decoded_reuse_k=decoded_reuse_k,
+                        decoded_reuse_v=decoded_reuse_v,
+                    )
                 else:
                     w = patch_bundle[f"align_w.{layer}"]
                     b_vec = patch_bundle[f"align_b.{layer}"]
@@ -860,12 +1166,12 @@ def _prepare_cache_for_method(
                     wv = patch_bundle[f"wv.{layer}"]
                     k2 = xhat @ wk
                     v2 = xhat @ wv
-                bsz = int(meta["batch_size"])
-                t_steps = int(meta["prefix_tokens"])
-                kvh = int(meta["num_key_value_heads"])
-                hd = int(meta["head_dim"])
-                k = k2.reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
-                v = v2.reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+                    bsz = int(meta["batch_size"])
+                    t_steps = int(meta["prefix_tokens"])
+                    kvh = int(meta["num_key_value_heads"])
+                    hd = int(meta["head_dim"])
+                    k = k2.reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+                    v = v2.reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
             else:
                 if layer not in decoded_reuse_k:
                     raise ValueError("scd_full 的 reuse 层需要提供 reuse 检查点")
@@ -887,6 +1193,7 @@ def run_inference_method(
     reuse: ReuseWeights | None,
     patch_bundle: dict[str, Any] | None,
     patch_meta: dict[str, object] | None,
+    models_config: str | Path | None,
     bandwidth_gbps: float,
     seed: int,
     infer_device: str = "cpu",
@@ -897,7 +1204,7 @@ def run_inference_method(
     patch_bundle = None if patch_bundle is None else {key: tensor_to_device(value, infer_device, dtype="float32", cpu_fallback=cpu_fallback) for key, value in patch_bundle.items()}
 
     prep_start = time.perf_counter()
-    writer = _prepare_cache_for_method(method, arrays, meta, reuse, patch_bundle, patch_meta, route, infer_device, cpu_fallback)
+    writer = _prepare_cache_for_method(method, arrays, meta, reuse, patch_bundle, patch_meta, route, models_config, infer_device, cpu_fallback)
     assemble_ms = (time.perf_counter() - prep_start) * 1000.0
 
     payload_mb = method_payload_mb(method, arrays, route)
@@ -963,6 +1270,7 @@ def run_inference_method_over_pairs(
     reuse: ReuseWeights | None,
     patch_bundle: dict[str, Any] | None,
     patch_meta: dict[str, object] | None,
+    models_config: str | Path | None,
     bandwidth_gbps: float,
     seed: int,
     infer_device: str = "cpu",
@@ -994,6 +1302,7 @@ def run_inference_method_over_pairs(
             reuse=reuse,
             patch_bundle=patch_bundle,
             patch_meta=patch_meta,
+            models_config=models_config,
             bandwidth_gbps=bandwidth_gbps,
             seed=seed + chunk_idx * 1009,
             infer_device=infer_device,
