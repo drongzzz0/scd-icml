@@ -27,11 +27,11 @@ def run_cmd(cmd: list[str], env: dict[str, str], workdir: Path) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="A800 CMRC2018 严格子集评测总控脚本")
+    p = argparse.ArgumentParser(description="旧 CMRC paper subset 总控脚本（legacy semantic route）")
     p.add_argument("--models-config", default="configs/models_a800.yaml")
     p.add_argument("--data-config", default="configs/data_a800.yaml")
-    p.add_argument("--train-config", default="configs/train.yaml")
-    p.add_argument("--eval-config", default="configs/eval.yaml")
+    p.add_argument("--train-config", default="configs/train_paper_semantic_legacy.json")
+    p.add_argument("--eval-config", default="configs/eval_paper_semantic_legacy.json")
     p.add_argument("--data-root", default="/home/student_t/maqianli/no4/data")
     p.add_argument("--output-root", default="/nas/mql/scd-paper-cmrc-7b2lite-200")
     p.add_argument("--seed", type=int, default=42)

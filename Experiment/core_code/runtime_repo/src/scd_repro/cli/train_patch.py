@@ -73,7 +73,9 @@ def _select_layers(profile: dict, patch_budget: int, route: dict | None = None) 
         if route_layers:
             return route_layers[:patch_budget]
     if "recommended_patch_layers" in profile:
-        return list(profile["recommended_patch_layers"][:patch_budget])
+        recommended = [int(layer) for layer in profile["recommended_patch_layers"]]
+        if len(recommended) >= int(patch_budget):
+            return list(recommended[:patch_budget])
     scored = sorted(profile["layers"], key=lambda item: float(item["expected_gain"]), reverse=True)
     return [int(row["layer"]) for row in scored[:patch_budget]]
 

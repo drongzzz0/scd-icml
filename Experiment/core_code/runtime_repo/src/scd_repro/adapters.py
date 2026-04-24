@@ -176,7 +176,11 @@ class TransformersCaptureSession:
         for hook in self.hooks:
             hook.remove()
         self.hooks.clear()
-        del self.model
+        self.xnorm_by_layer.clear()
+        self.residual_by_layer.clear()
+        self.layers = []
+        self.tokenizer = None
+        self.model = None
         clear_torch_cache()
 
 

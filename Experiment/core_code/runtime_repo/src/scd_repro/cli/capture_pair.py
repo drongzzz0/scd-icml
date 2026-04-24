@@ -7,13 +7,14 @@ import shutil
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 from ..adapters import CaptureRequest, TransformersCaptureSession, is_cuda_oom
 from ..io_utils import save_bundle, save_json
 from ..pipeline import PairMeta, save_pairs, synthesize_pairs
 from ..rope import load_rope_spec_from_model_path, rope_spec_from_config_dict
 from ..seed import set_global_seed
-from ..torch_utils import clear_torch_cache, configure_torch_acceleration, current_rss_mb, gpu_memory_allocated_mb
+from ..torch_utils import clear_torch_cache, configure_torch_acceleration, current_rss_mb, gpu_memory_allocated_mb, require_torch, resolve_device, tensor_to_cpu
 from ..tracking import command_from_argv, write_manifest
 from ..validate import validate_path
 from .common import add_accel_args, load_cfg, resolve_accel_options, resolve_logger
@@ -284,6 +285,58 @@ def _capture_chunk_with_retry(session_a: TransformersCaptureSession, session_b: 
         return left + right
 
 
+def _capture_single_session_with_retry(session: TransformersCaptureSession, prompts: list[str], max_length: int | None, logger, depth: int = 0):
+    try:
+        return [(prompts, session.capture(prompts, max_length=max_length))]
+    except RuntimeError as exc:
+        if not is_cuda_oom(exc):
+            raise
+        clear_torch_cache()
+        if len(prompts) <= 1:
+            raise RuntimeError(f"鍗曟牱鏈?chunk 浠嶇劧 OOM锛屾棤娉曠户缁垏鍒嗐€俻rompt 闀垮害={len(prompts[0])}") from exc
+        mid = len(prompts) // 2
+        logger.warning("single-model chunk 瑙﹀彂 OOM锛屾寜鏍锋湰浜屽垎閲嶈瘯锛宒epth=%d, size=%d -> %d + %d", depth, len(prompts), mid, len(prompts) - mid)
+        left = _capture_single_session_with_retry(session, prompts[:mid], max_length, logger, depth + 1)
+        right = _capture_single_session_with_retry(session, prompts[mid:], max_length, logger, depth + 1)
+        return left + right
+
+
+def _normalize_runtime_device(device: str, cpu_fallback: bool) -> str:
+    return str(resolve_device(device, cpu_fallback=cpu_fallback))
+
+
+def _should_capture_sequentially(settings: dict[str, object]) -> bool:
+    return _normalize_runtime_device(str(settings["model_a_device"]), bool(settings["cpu_fallback"])) == _normalize_runtime_device(
+        str(settings["model_b_device"]), bool(settings["cpu_fallback"])
+    )
+
+
+def _tensor_tree_to_cpu(value: Any, artifact_dtype: str | None):
+    if isinstance(value, dict):
+        return {key: _tensor_tree_to_cpu(sub_value, artifact_dtype) for key, sub_value in value.items()}
+    if isinstance(value, list):
+        return [_tensor_tree_to_cpu(sub_value, artifact_dtype) for sub_value in value]
+    if isinstance(value, tuple):
+        return tuple(_tensor_tree_to_cpu(sub_value, artifact_dtype) for sub_value in value)
+    if isinstance(value, (str, bytes, int, float, bool)) or value is None:
+        return value
+    return tensor_to_cpu(value, dtype=artifact_dtype)
+
+
+def _save_capture_payload(path: Path, prompts: list[str], payload: dict[int, dict[str, object]], artifact_dtype: str) -> None:
+    torch = require_torch()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save({"prompts": list(prompts), "payload": _tensor_tree_to_cpu(payload, artifact_dtype)}, path)
+
+
+def _load_capture_payload(path: Path) -> tuple[list[str], dict[int, dict[str, object]]]:
+    torch = require_torch()
+    saved = torch.load(path, map_location="cpu", weights_only=False)
+    prompts = [str(prompt) for prompt in saved.get("prompts", [])]
+    payload = dict(saved.get("payload", {}))
+    return prompts, payload
+
+
 def _write_pairs_manifest(out_dir: Path, base_meta: PairMeta, chunk_entries: list[dict[str, object]], artifact_dtype: str) -> None:
     manifest = base_meta.__dict__.copy()
     manifest.update(
@@ -300,7 +353,7 @@ def _write_pairs_manifest(out_dir: Path, base_meta: PairMeta, chunk_entries: lis
     save_json(out_dir / "manifest.json", manifest)
 
 
-def capture_with_backend_transformers(models: dict, data: dict, args: argparse.Namespace, logger) -> None:
+def _capture_with_live_sessions(models: dict, data: dict, args: argparse.Namespace, logger) -> None:
     settings = _resolve_capture_settings(models, data, args)
     prompts = _normalize_prompt_list(resolve_prompt_payload(data, args))
     capture_cfg = data.get("capture", {})
@@ -376,6 +429,121 @@ def capture_with_backend_transformers(models: dict, data: dict, args: argparse.N
     finally:
         session_a.close()
         session_b.close()
+
+
+def _capture_with_sequential_session_swap(models: dict, data: dict, args: argparse.Namespace, logger) -> None:
+    settings = _resolve_capture_settings(models, data, args)
+    prompts = _normalize_prompt_list(resolve_prompt_payload(data, args))
+    capture_cfg = data.get("capture", {})
+    cli_has_max_length = any(arg == "--max-length" or arg.startswith("--max-length=") for arg in __import__("sys").argv[1:])
+    max_length_raw = args.max_length if cli_has_max_length else capture_cfg.get("max_length", args.max_length)
+    max_length = None if max_length_raw is None or int(max_length_raw) <= 0 else int(max_length_raw)
+
+    out_dir = Path(args.out)
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    (out_dir / "chunks").mkdir(parents=True, exist_ok=True)
+
+    staged_dir = out_dir / ".model_a_chunks"
+    staged_dir.mkdir(parents=True, exist_ok=True)
+
+    session_a = TransformersCaptureSession(str(models["model_a"]["path"]), str(settings["model_a_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
+    try:
+        prompt_chunks = _split_prompt_chunks(
+            prompts,
+            session_a.estimate_prompt_tokens,
+            chunk_samples=int(settings["chunk_samples"]),
+            max_chunk_tokens=int(settings["max_chunk_tokens"]),
+            max_length=max_length,
+        )
+        logger.info(
+            "閲囬泦寮€濮嬶紙鍚屽崱椤哄簭妯″紡锛夛細鎬绘牱鏈?%d锛屽垵濮?chunk=%d锛孉=%s锛孊=%s",
+            len(prompts),
+            len(prompt_chunks),
+            settings["model_a_device"],
+            settings["model_b_device"],
+        )
+        staged_entries: list[str] = []
+        stage_chunk_id = 0
+        for original_chunk in prompt_chunks:
+            sub_chunks = _capture_single_session_with_retry(session_a, original_chunk, max_length, logger)
+            for prompt_chunk, cap_a in sub_chunks:
+                chunk_name = f"chunk_{stage_chunk_id:05d}.pt"
+                _save_capture_payload(staged_dir / chunk_name, prompt_chunk, cap_a, str(settings["artifact_dtype"]))
+                staged_entries.append(chunk_name)
+                logger.info(
+                    "stage_a chunk=%05d samples=%d gpu_a=%.1fMB cpu_rss=%.1fMB",
+                    stage_chunk_id,
+                    len(prompt_chunk),
+                    gpu_memory_allocated_mb(str(settings["model_a_device"])),
+                    current_rss_mb(),
+                )
+                del cap_a
+                clear_torch_cache()
+                stage_chunk_id += 1
+    finally:
+        session_a.close()
+
+    session_b = TransformersCaptureSession(str(models["model_b"]["path"]), str(settings["model_b_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
+    try:
+        chunk_entries: list[dict[str, object]] = []
+        base_meta: PairMeta | None = None
+        durations: list[float] = []
+        total_chunks = len(staged_entries)
+
+        for chunk_id, chunk_name in enumerate(staged_entries):
+            stage_path = staged_dir / chunk_name
+            prompt_chunk, cap_a = _load_capture_payload(stage_path)
+            cap_b = session_b.capture(prompt_chunk, max_length=max_length)
+            start = time.perf_counter()
+            meta, arrays = _build_pair_chunk(models, capture_cfg, args.seed, len(prompt_chunk), cap_a, cap_b, prompt_chunk, session_b.tokenizer, max_length)
+            if base_meta is None:
+                base_meta = meta
+            output_chunk_name = f"chunk_{chunk_id:05d}.pt"
+            save_bundle(out_dir / "chunks" / output_chunk_name, arrays, meta=meta.__dict__, artifact_dtype=str(settings["artifact_dtype"]))
+            write_ms = (time.perf_counter() - start) * 1000.0
+            token_count = sum(session_b.estimate_prompt_tokens(prompt, max_length=max_length) for prompt in prompt_chunk)
+            durations.append(write_ms)
+            remain = max(0, total_chunks - (chunk_id + 1))
+            avg_ms = sum(durations) / max(1, len(durations))
+            eta_s = (avg_ms * remain) / 1000.0
+            logger.info(
+                "merge chunk=%05d samples=%d tokens=%d gpu_b=%.1fMB cpu_rss=%.1fMB write_ms=%.1f eta_s=%.1f",
+                chunk_id,
+                len(prompt_chunk),
+                token_count,
+                gpu_memory_allocated_mb(str(settings["model_b_device"])),
+                current_rss_mb(),
+                write_ms,
+                eta_s,
+            )
+            chunk_entries.append(
+                {
+                    "path": f"chunks/{output_chunk_name}",
+                    "batch_size": int(meta.batch_size),
+                    "prefix_tokens": int(meta.prefix_tokens),
+                    "eval_samples": int(meta.eval_samples),
+                    "num_layers": int(meta.num_layers),
+                }
+            )
+            stage_path.unlink(missing_ok=True)
+            del arrays, cap_a, cap_b
+            clear_torch_cache()
+
+        if base_meta is None:
+            raise RuntimeError("娌℃湁鐢熸垚浠讳綍 chunk")
+        _write_pairs_manifest(out_dir, base_meta, chunk_entries, str(settings["artifact_dtype"]))
+    finally:
+        session_b.close()
+        shutil.rmtree(staged_dir, ignore_errors=True)
+
+
+def capture_with_backend_transformers(models: dict, data: dict, args: argparse.Namespace, logger) -> None:
+    settings = _resolve_capture_settings(models, data, args)
+    if _should_capture_sequentially(settings):
+        _capture_with_sequential_session_swap(models, data, args, logger)
+        return
+    _capture_with_live_sessions(models, data, args, logger)
 
 
 def main() -> None:

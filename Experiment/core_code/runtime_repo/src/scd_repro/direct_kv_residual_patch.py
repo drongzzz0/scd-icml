@@ -354,7 +354,9 @@ def _select_layers(profile: dict[str, Any], patch_budget: int, route: dict[str, 
         if route_layers:
             return route_layers[:patch_budget]
     if "recommended_patch_layers" in profile:
-        return list(profile["recommended_patch_layers"][:patch_budget])
+        recommended = [int(layer) for layer in profile["recommended_patch_layers"]]
+        if len(recommended) >= int(patch_budget):
+            return list(recommended[:patch_budget])
     scored = sorted(profile["layers"], key=lambda item: float(item["expected_gain"]), reverse=True)
     return [int(row["layer"]) for row in scored[:patch_budget]]
 
@@ -1436,30 +1438,6 @@ def train_xnorm_nativekv_shared_residual_patch(
     del direct_stats_by_layer
     clear_torch_cache()
 
-    for layer in selected:
-        error_stats = create_direct_kv_error_stats_torch(device)
-        for chunk_path in chunk_paths:
-            bundle = load_bundle(chunk_path, device=str(device), dtype="float32")
-            arrays = bundle.arrays
-            xa = arrays[f"xnorm_a.{int(layer)}"].reshape(-1, hidden_dim).to(device=device, dtype=torch.float32)
-            kb_raw, vb = _project_consumer_native_kv_from_xnorm_b(arrays, layer, hidden_dim, device, native_components_by_layer[int(layer)])
-            accumulate_direct_kv_error_stats_torch(xa, kb_raw, vb, wk_by_layer[int(layer)], wv_by_layer[int(layer)], error_stats)
-            del arrays, bundle
-            clear_torch_cache()
-        patch_k_error, patch_v_error, patch_kv_error = finalize_direct_kv_error_stats_torch(error_stats, kv_dim=kv_dim)
-        metrics[str(int(layer))] = {
-            "linear_base_k_rel_mse": float(patch_k_error),
-            "linear_base_v_rel_mse": float(patch_v_error),
-            "linear_base_kv_rel_mse": float(patch_kv_error),
-        }
-        logger.info(
-            "linear base solved: layer=%d linear_base_k_rel_mse=%.6f linear_base_v_rel_mse=%.6f linear_base_kv_rel_mse=%.6f",
-            int(layer),
-            patch_k_error,
-            patch_v_error,
-            patch_kv_error,
-        )
-
     shared_arrays, shared_metrics = _train_xnorm_nativekv_shared_residual_patch(
         chunk_paths=chunk_paths,
         residual_layers=residual_layers,
@@ -1470,6 +1448,10 @@ def train_xnorm_nativekv_shared_residual_patch(
         accel=accel,
         logger=logger,
     )
+    # The shared-residual trainer already measures per-layer base metrics from the
+    # actual residual module forward path. Replaying every chunk once more per layer
+    # here only produced diagnostic linear-base numbers and was the dominant slowdown
+    # on the canonical shared route, so skip that extra pass.
     out_arrays.update(shared_arrays)
     for layer in residual_layers:
         layer_key = str(int(layer))

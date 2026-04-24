@@ -690,6 +690,21 @@ def _patch_shard_manifest(patch_meta: dict[str, object] | None) -> dict[str, Any
     return None
 
 
+def _patch_layer_runtime_hint(patch_meta: dict[str, object] | None, layer: int) -> dict[str, object]:
+    if patch_meta is None:
+        return {}
+    runtime_hints = patch_meta.get("runtime_layer_hints")
+    if not isinstance(runtime_hints, dict):
+        manifest = _patch_shard_manifest(patch_meta)
+        runtime_hints = manifest.get("runtime_layer_hints") if isinstance(manifest, dict) else None
+    if not isinstance(runtime_hints, dict):
+        return {}
+    layer_hint = runtime_hints.get(str(int(layer)), {})
+    if isinstance(layer_hint, dict):
+        return layer_hint
+    return {}
+
+
 def method_payload_mb(method: str, arrays: dict[str, Any], route: dict[str, list[int]] | None = None) -> float:
     num_layers = len([key for key in arrays if key.startswith("k_a.")])
     sample = arrays["k_a.0"]
@@ -705,7 +720,7 @@ def method_payload_mb(method: str, arrays: dict[str, Any], route: dict[str, list
     if method == "selective_recompute":
         if not route:
             return raw_mb
-        frac = max(0.0, 1.0 - (len(route.get("fallback_layers", [])) / max(1, num_layers)))
+        frac = max(0.0, 1.0 - (len(route.get("patch_layers", [])) / max(1, num_layers)))
         return raw_mb * frac
     if method == "reuse_only":
         return raw_mb * 0.6
@@ -817,6 +832,96 @@ def _get_semantic_runtime_layers(
     loaded = _load_consumer_semantic_runtime_layers(models_config, patch_meta, device=infer_device)
     patch_meta["__consumer_semantic_runtime_layers__"] = loaded
     return loaded
+
+
+def _get_shared_residual_runtime_layers(
+    patch_meta: dict[str, object],
+    *,
+    models_config: str | Path | None,
+    infer_device: str,
+) -> dict[int, ConsumerSemanticRuntimeLayer]:
+    return _get_semantic_runtime_layers(
+        patch_meta,
+        models_config=models_config,
+        infer_device=infer_device,
+    )
+
+
+def _get_patch_global_arrays(
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    *,
+    infer_device: str,
+    cpu_fallback: bool = True,
+) -> dict[str, Any]:
+    runtime_global = patch_meta.setdefault("__offline_patch_global_arrays__", {})  # type: ignore[assignment]
+    if not isinstance(runtime_global, dict):
+        runtime_global = {}
+        patch_meta["__offline_patch_global_arrays__"] = runtime_global
+    if runtime_global:
+        return runtime_global
+    if patch_bundle:
+        runtime_global.update({str(key): value for key, value in patch_bundle.items()})
+        return runtime_global
+
+    manifest = _patch_shard_manifest(patch_meta)
+    if not isinstance(manifest, dict):
+        return runtime_global
+    global_relpath = str(manifest.get("global_path") or "")
+    if not global_relpath:
+        return runtime_global
+    root = Path(str(patch_meta.get("__patch_ckpt_root__") or ""))
+    if not root:
+        return runtime_global
+    bundle = load_bundle(
+        root / global_relpath,
+        device=infer_device,
+        dtype="float32",
+        cpu_fallback=cpu_fallback,
+    )
+    runtime_global.update({str(key): value for key, value in bundle.arrays.items()})
+    return runtime_global
+
+
+def _get_shared_residual_patch_module(
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    *,
+    infer_device: str,
+    cpu_fallback: bool = True,
+) -> Any:
+    from .direct_kv_residual_patch import load_xnorm_nativekv_shared_residual_patch_from_ckpt
+
+    runtime_module = patch_meta.get("__runtime_xnorm_nativekv_shared_residual_module__")
+    if runtime_module is not None:
+        return runtime_module
+    global_arrays = _get_patch_global_arrays(
+        patch_bundle,
+        patch_meta,
+        infer_device=infer_device,
+        cpu_fallback=cpu_fallback,
+    )
+    if not global_arrays:
+        raise KeyError("shared residual patch checkpoint missing global arrays")
+    runtime_module = load_xnorm_nativekv_shared_residual_patch_from_ckpt(
+        global_arrays,
+        patch_meta,
+        device=infer_device,
+        dtype="float32",
+    )
+    patch_meta["__runtime_xnorm_nativekv_shared_residual_module__"] = runtime_module
+    return runtime_module
+
+
+def _shared_residual_patch_is_identity(
+    patch_meta: dict[str, object],
+    *,
+    layer: int,
+) -> bool:
+    layer_hint = _patch_layer_runtime_hint(patch_meta, int(layer))
+    if "xnorm_nativekv_shared_residual_identity" in layer_hint:
+        return bool(layer_hint.get("xnorm_nativekv_shared_residual_identity"))
+    return False
 
 
 def _get_semantic_patch_layer(
@@ -978,6 +1083,139 @@ def _infer_semantic_patch_kv(
     return k.contiguous(), v.contiguous()
 
 
+def _infer_shared_residual_patch_kv(
+    *,
+    layer: int,
+    x: Any,
+    meta: dict[str, object],
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    models_config: str | Path | None,
+    infer_device: str,
+    rope_b: object | None,
+    cpu_fallback: bool = True,
+) -> tuple[Any, Any]:
+    from .direct_kv_residual_patch import infer_xnorm_nativekv_shared_residual_patch_torch
+
+    t = require_torch()
+    runtime_layers = _get_shared_residual_runtime_layers(
+        patch_meta,
+        models_config=models_config,
+        infer_device=infer_device,
+    )
+    runtime_layer = runtime_layers.get(int(layer))
+    if runtime_layer is None:
+        raise KeyError(f"consumer shared residual runtime layer 缺失: {layer}")
+
+    x_rows = x.to(device=infer_device, dtype=t.float32)
+    if _shared_residual_patch_is_identity(patch_meta, layer=int(layer)):
+        xb_hat_rows = x_rows
+    else:
+        shared_module = _get_shared_residual_patch_module(
+            patch_bundle,
+            patch_meta,
+            infer_device=infer_device,
+            cpu_fallback=cpu_fallback,
+        )
+        layer_ids = t.tensor([int(layer)], device=infer_device, dtype=t.long)
+        xb_hat_rows = infer_xnorm_nativekv_shared_residual_patch_torch(
+            x_rows.unsqueeze(0),
+            layer_ids,
+            shared_module,
+        )[0]
+
+    with t.no_grad():
+        k_pre = _linear_project(xb_hat_rows, runtime_layer.k_proj_weight, runtime_layer.k_proj_bias)
+        v_flat = _linear_project(xb_hat_rows, runtime_layer.v_proj_weight, runtime_layer.v_proj_bias)
+
+    kvh = int(meta["num_key_value_heads"])
+    hd = int(meta["head_dim"])
+    bsz = int(meta["batch_size"])
+    t_steps = int(meta["prefix_tokens"])
+    kv_dim = int(kvh * hd)
+
+    k_norm_flat = _apply_optional_k_norm(k_pre, runtime_layer.k_norm, kvh, hd)
+    k_raw = k_norm_flat.reshape(bsz, t_steps, kv_dim).reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+    v = v_flat.reshape(bsz, t_steps, kv_dim).reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+
+    k = re_rope_k_torch(k_raw, rope_b) if rope_b is not None else k_raw
+    return k.contiguous(), v.contiguous()
+
+
+def _infer_shared_residual_patch_kv_batched(
+    *,
+    patch_layers: list[int],
+    arrays: dict[str, Any],
+    meta: dict[str, object],
+    patch_bundle: dict[str, Any],
+    patch_meta: dict[str, object],
+    models_config: str | Path | None,
+    infer_device: str,
+    rope_b: object | None,
+    cpu_fallback: bool = True,
+) -> dict[int, tuple[Any, Any]]:
+    from .direct_kv_residual_patch import infer_xnorm_nativekv_shared_residual_patch_torch
+
+    if not patch_layers:
+        return {}
+
+    t = require_torch()
+    hidden_dim = int(meta["hidden_dim"])
+    kvh = int(meta["num_key_value_heads"])
+    hd = int(meta["head_dim"])
+    bsz = int(meta["batch_size"])
+    t_steps = int(meta["prefix_tokens"])
+    kv_dim = int(kvh * hd)
+
+    runtime_layers = _get_shared_residual_runtime_layers(
+        patch_meta,
+        models_config=models_config,
+        infer_device=infer_device,
+    )
+    shared_module = None
+    active_layers: list[int] = []
+    active_inputs: list[Any] = []
+    xb_hat_by_layer: dict[int, Any] = {}
+
+    for layer in patch_layers:
+        runtime_layer = runtime_layers.get(int(layer))
+        if runtime_layer is None:
+            raise KeyError(f"consumer shared residual runtime layer 缺失: {layer}")
+        x_rows = arrays[f"xnorm_a.{int(layer)}"].reshape(-1, hidden_dim).to(device=infer_device, dtype=t.float32)
+        if _shared_residual_patch_is_identity(patch_meta, layer=int(layer)):
+            xb_hat_by_layer[int(layer)] = x_rows
+            continue
+        active_layers.append(int(layer))
+        active_inputs.append(x_rows)
+
+    if active_layers:
+        shared_module = _get_shared_residual_patch_module(
+            patch_bundle,
+            patch_meta,
+            infer_device=infer_device,
+            cpu_fallback=cpu_fallback,
+        )
+        layer_ids = t.tensor(active_layers, device=infer_device, dtype=t.long)
+        batch_x = t.stack(active_inputs, dim=0).contiguous()
+        batch_xb_hat = infer_xnorm_nativekv_shared_residual_patch_torch(batch_x, layer_ids, shared_module)
+        for idx, layer in enumerate(active_layers):
+            xb_hat_by_layer[int(layer)] = batch_xb_hat[idx]
+
+    outputs: dict[int, tuple[Any, Any]] = {}
+    for layer in patch_layers:
+        xb_hat_rows = xb_hat_by_layer[int(layer)]
+        runtime_layer = runtime_layers[int(layer)]
+        with t.no_grad():
+            k_pre = _linear_project(xb_hat_rows, runtime_layer.k_proj_weight, runtime_layer.k_proj_bias)
+            v_flat = _linear_project(xb_hat_rows, runtime_layer.v_proj_weight, runtime_layer.v_proj_bias)
+        k_norm_flat = _apply_optional_k_norm(k_pre, runtime_layer.k_norm, kvh, hd)
+        k_raw = k_norm_flat.reshape(bsz, t_steps, kv_dim).reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+        v = v_flat.reshape(bsz, t_steps, kv_dim).reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
+        k = re_rope_k_torch(k_raw, rope_b) if rope_b is not None else k_raw
+        outputs[int(layer)] = (k.contiguous(), v.contiguous())
+    return outputs
+
+
 def quantize_4bit(x):
     t = require_torch()
     if t.is_tensor(x):
@@ -1070,7 +1308,7 @@ def _prepare_cache_for_method(
     writer = CacheWriter(spec)
 
     if route is None:
-        route = {"reuse_layers": list(range(num_layers)), "patch_layers": [], "fallback_layers": []}
+        route = {"reuse_layers": list(range(num_layers)), "patch_layers": []}
 
     reuse_on_device = move_reuse_weights(reuse, infer_device, dtype="float32", cpu_fallback=cpu_fallback) if reuse is not None else None
     rope_a, rope_b = _resolve_optional_rope_specs(meta)
@@ -1102,6 +1340,23 @@ def _prepare_cache_for_method(
                 decoded_reuse_k[layer] = rk
                 decoded_reuse_v[layer] = rv
 
+    shared_residual_patch_kv: dict[int, tuple[Any, Any]] = {}
+    if method == "scd_full" and patch_meta is not None:
+        patch_layers = [int(layer) for layer in route.get("patch_layers", [])]
+        fit_mode = str(patch_meta.get("fit_mode") or "")
+        if fit_mode == _XNORM_NATIVEKV_SHARED_RESIDUAL_FIT_MODE and patch_layers:
+            shared_residual_patch_kv = _infer_shared_residual_patch_kv_batched(
+                patch_layers=patch_layers,
+                arrays=arrays,
+                meta=meta,
+                patch_bundle=patch_bundle or {},
+                patch_meta=patch_meta,
+                models_config=models_config,
+                infer_device=infer_device,
+                rope_b=rope_b,
+                cpu_fallback=cpu_fallback,
+            )
+
     for layer in range(num_layers):
         if method == "oracle":
             k = arrays[f"k_b.{layer}"]
@@ -1113,7 +1368,7 @@ def _prepare_cache_for_method(
             k = quantize_4bit(arrays[f"k_a.{layer}"])
             v = quantize_4bit(arrays[f"v_a.{layer}"])
         elif method == "selective_recompute":
-            if layer in route.get("fallback_layers", []):
+            if layer in route.get("patch_layers", []):
                 k = arrays[f"k_b.{layer}"]
                 v = arrays[f"v_b.{layer}"]
             else:
@@ -1125,10 +1380,7 @@ def _prepare_cache_for_method(
             k = decoded_reuse_k[layer]
             v = decoded_reuse_v[layer]
         elif method == "scd_full":
-            if layer in route.get("fallback_layers", []):
-                k = arrays[f"k_b.{layer}"]
-                v = arrays[f"v_b.{layer}"]
-            elif layer in route.get("patch_layers", []):
+            if layer in route.get("patch_layers", []):
                 if patch_bundle is None or patch_meta is None:
                     raise ValueError("scd_full 的 patch 层需要提供 patch 检查点")
                 x = arrays[f"xnorm_a.{layer}"].reshape(-1, int(meta["hidden_dim"]))
@@ -1158,6 +1410,10 @@ def _prepare_cache_for_method(
                         decoded_reuse_k=decoded_reuse_k,
                         decoded_reuse_v=decoded_reuse_v,
                     )
+                elif fit_mode == _XNORM_NATIVEKV_SHARED_RESIDUAL_FIT_MODE:
+                    if int(layer) not in shared_residual_patch_kv:
+                        raise KeyError(f"shared residual patch batch output missing layer {int(layer)}")
+                    k, v = shared_residual_patch_kv[int(layer)]
                 else:
                     w = patch_bundle[f"align_w.{layer}"]
                     b_vec = patch_bundle[f"align_b.{layer}"]
@@ -1174,7 +1430,7 @@ def _prepare_cache_for_method(
                     v = v2.reshape(bsz, t_steps, kvh, hd).permute(0, 2, 1, 3).contiguous()
             else:
                 if layer not in decoded_reuse_k:
-                    raise ValueError("scd_full 的 reuse 层需要提供 reuse 检查点")
+                    raise ValueError("scd_full 的非 patch 层需要提供 reuse 检查点")
                 k = decoded_reuse_k[layer]
                 v = decoded_reuse_v[layer]
         else:

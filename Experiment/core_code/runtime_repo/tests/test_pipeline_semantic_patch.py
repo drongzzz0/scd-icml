@@ -12,9 +12,11 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from scd_repro.direct_kv_residual_patch import PATCH_FIT_MODE_XNORM_NATIVEKV_SHARED_RESIDUAL_MLP_V1  # noqa: E402
 from scd_repro.patch import PATCH_FIT_MODE_XNORM_SEMANTIC_V1, XNormSemanticPatchLayer, pack_xnorm_semantic_patch_layer  # noqa: E402
 import scd_repro.pipeline as pipeline_module  # noqa: E402
 from scd_repro.pipeline import ConsumerSemanticRuntimeLayer, _get_semantic_patch_layer, _prepare_cache_for_method  # noqa: E402
+from scd_repro.routing import LayerProfile, build_route  # noqa: E402
 from scd_repro.torch_utils import require_torch  # noqa: E402
 
 
@@ -67,7 +69,7 @@ class SemanticPatchPipelineTests(unittest.TestCase):
         arrays = {
             "xnorm_a.0": self.torch.zeros((1, 1, 4), dtype=self.torch.float32),
         }
-        route = {"reuse_layers": [], "patch_layers": [0], "fallback_layers": []}
+        route = {"reuse_layers": [], "patch_layers": [0]}
 
         writer = _prepare_cache_for_method(
             "scd_full",
@@ -84,6 +86,45 @@ class SemanticPatchPipelineTests(unittest.TestCase):
 
         expected_k = self.torch.tensor([[[[1.0, 2.0]]]], dtype=self.torch.float32)
         expected_v = self.torch.tensor([[[[3.0, 4.0]]]], dtype=self.torch.float32)
+        self.assertTrue(self.torch.allclose(writer.k_cache[0], expected_k))
+        self.assertTrue(self.torch.allclose(writer.v_cache[0], expected_v))
+
+    def test_prepare_cache_supports_shared_residual_patch(self) -> None:
+        patch_meta = {
+            "fit_mode": PATCH_FIT_MODE_XNORM_NATIVEKV_SHARED_RESIDUAL_MLP_V1,
+            "selected_layers": [0],
+            "residual_layers": [0],
+            "runtime_layer_hints": {"0": {"xnorm_nativekv_shared_residual_identity": True}},
+            "__consumer_semantic_runtime_layers__": {0: self._runtime_layer()},
+        }
+        meta = {
+            "num_layers": 1,
+            "batch_size": 1,
+            "prefix_tokens": 1,
+            "num_key_value_heads": 1,
+            "head_dim": 2,
+            "hidden_dim": 4,
+        }
+        arrays = {
+            "xnorm_a.0": self.torch.tensor([[[5.0, 6.0, 7.0, 8.0]]], dtype=self.torch.float32),
+        }
+        route = {"reuse_layers": [], "patch_layers": [0]}
+
+        writer = _prepare_cache_for_method(
+            "scd_full",
+            arrays,
+            meta,
+            reuse=None,
+            patch_bundle={},
+            patch_meta=patch_meta,
+            route=route,
+            models_config=None,
+            infer_device="cpu",
+            cpu_fallback=True,
+        )
+
+        expected_k = self.torch.tensor([[[[5.0, 6.0]]]], dtype=self.torch.float32)
+        expected_v = self.torch.tensor([[[[7.0, 8.0]]]], dtype=self.torch.float32)
         self.assertTrue(self.torch.allclose(writer.k_cache[0], expected_k))
         self.assertTrue(self.torch.allclose(writer.v_cache[0], expected_v))
 
@@ -108,6 +149,20 @@ class SemanticPatchPipelineTests(unittest.TestCase):
 
         expected = self.torch.tensor([[1.0, 2.0, 3.0, 4.0]], dtype=self.torch.float32)
         self.assertTrue(self.torch.allclose(out, expected))
+
+    def test_build_route_outputs_strict_reuse_patch_split(self) -> None:
+        route = build_route(
+            [
+                LayerProfile(layer=0, reuse_error=0.001, patch_error=0.0005),
+                LayerProfile(layer=1, reuse_error=0.020, patch_error=0.003),
+                LayerProfile(layer=2, reuse_error=0.030, patch_error=0.050),
+            ],
+            reuse_threshold=0.01,
+            fallback_threshold=0.02,
+            patch_budget=1,
+        )
+
+        self.assertEqual(route, {"reuse_layers": [0, 2], "patch_layers": [1]})
 
 
 if __name__ == "__main__":

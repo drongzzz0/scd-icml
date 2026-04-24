@@ -184,7 +184,7 @@ def validate_patch_ckpt(path: str | Path) -> dict[str, Any]:
 
 def validate_route(path: str | Path) -> dict[str, Any]:
     route = load_json(path)
-    _expect_keys(route, ["reuse_layers", "patch_layers", "fallback_layers"], "route.json")
+    _expect_keys(route, ["reuse_layers", "patch_layers"], "route.json")
     return route
 
 

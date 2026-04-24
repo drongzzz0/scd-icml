@@ -445,7 +445,7 @@ def main() -> None:
         "patch_gain_curve": gain_curve,
         "recommended_patch_layers": [
             row["layer"]
-            for row in sorted(per_layer, key=lambda item: float(item["expected_gain"]), reverse=True)[: min(8, num_layers)]
+            for row in sorted(per_layer, key=lambda item: float(item["expected_gain"]), reverse=True)
         ],
     }
     save_json(args.out, payload)

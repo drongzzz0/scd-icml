@@ -146,7 +146,16 @@ def sample_wikitext_prompts(data_root: Path, num_samples: int) -> list[str]:
     for root in candidates:
         if not root.exists():
             continue
-        for path in root.rglob("*.txt"):
+        preferred = [
+            root / "wiki.train.txt",
+            root / "wiki.train.tokens",
+            root / "train.txt",
+            root / "train.tokens",
+        ]
+        paths = [path for path in preferred if path.exists()]
+        if not paths:
+            paths = sorted(root.rglob("*.txt"))
+        for path in paths:
             text = path.read_text(encoding="utf-8", errors="ignore")
             for line in text.splitlines():
                 s = line.strip()
@@ -168,6 +177,53 @@ def build_dataset_prompts(dataset: str, data_root: Path, num_samples: int) -> li
     else:
         prompts = []
     return prompts or [DEFAULT_PROMPT.get(dataset, "请完成文本任务。")]
+
+
+def _merge_patch_metrics_into_profile(profile_path: Path, patch_dir: Path, out_path: Path) -> Path:
+    metrics_path = patch_dir / "metrics.json"
+    if not metrics_path.exists():
+        return profile_path
+    metrics = load_json_cfg(metrics_path)
+    fit_mode = str(metrics.get("fit_mode", "")).strip()
+    if fit_mode not in {
+        "xnorm_semantic_v1",
+        "xnorm_nativekv_residual_mlp_v1",
+        "xnorm_nativekv_shared_residual_mlp_v1",
+    }:
+        return profile_path
+
+    profile = load_json_cfg(profile_path)
+    metric_rows = metrics.get("layers", {})
+    if not isinstance(metric_rows, dict) or not metric_rows:
+        return profile_path
+
+    changed = False
+    for row in profile.get("layers", []):
+        layer_key = str(row.get("layer"))
+        metric = metric_rows.get(layer_key)
+        if not isinstance(metric, dict):
+            continue
+        if fit_mode == "xnorm_semantic_v1":
+            k_mse = float(metric.get("k_mse", row.get("patch_k_error", row.get("patch_error", 0.0))))
+            v_mse = float(metric.get("v_mse", row.get("patch_v_error", row.get("patch_error", 0.0))))
+        else:
+            k_mse = float(metric.get("k_rel_mse", metric.get("base_k_rel_mse", row.get("patch_k_error", row.get("patch_error", 0.0)))))
+            v_mse = float(metric.get("v_rel_mse", metric.get("base_v_rel_mse", row.get("patch_v_error", row.get("patch_error", 0.0)))))
+        patch_kv_error = 0.5 * (k_mse + v_mse)
+        row["patch_k_error"] = k_mse
+        row["patch_v_error"] = v_mse
+        row["patch_kv_error"] = patch_kv_error
+        row["patch_error"] = patch_kv_error
+        row["expected_gain"] = max(0.0, float(row.get("reuse_error", 0.0)) - patch_kv_error)
+        changed = True
+
+    if not changed:
+        return profile_path
+
+    profile["patch_metric"] = "patch_kv_error"
+    profile["patch_fit_mode"] = fit_mode
+    save_json_cfg(out_path, profile)
+    return out_path
 
 
 def run_eval_method(
@@ -234,11 +290,11 @@ def run_eval_method(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="论文口径评测编排脚本（A=7B，B=Lite）")
+    p = argparse.ArgumentParser(description="旧 paper-runner 评测编排脚本（legacy semantic route）")
     p.add_argument("--models-config", default="configs/models_a800.yaml")
     p.add_argument("--data-config", default="configs/data_a800.yaml")
-    p.add_argument("--train-config", default="configs/train.yaml")
-    p.add_argument("--eval-config", default="configs/eval.yaml")
+    p.add_argument("--train-config", default="configs/train_paper_semantic_legacy.json")
+    p.add_argument("--eval-config", default="configs/eval_paper_semantic_legacy.json")
     p.add_argument("--data-root", default="/home/student_t/maqianli/no4/data")
     p.add_argument("--output-root", default="/nas/mql/scd-repro")
     p.add_argument("--datasets", default="cmrc2018,hotpotqa,wikitext2")
@@ -270,8 +326,12 @@ def main() -> None:
 
     path_a = str(models_cfg.get("model_a", {}).get("path", ""))
     path_b = str(models_cfg.get("model_b", {}).get("path", ""))
-    if "Mistral-7B" not in path_a or "MistralLite" not in path_b:
-        raise ValueError("model direction mismatch: need model_a=.../Mistral-7B*, model_b=.../MistralLite")
+    is_reverse_pair = "Mistral-7B" in path_a and "MistralLite" in path_b
+    is_forward_pair = "MistralLite" in path_a and "Mistral-7B" in path_b
+    if not (is_reverse_pair or is_forward_pair):
+        raise ValueError(
+            "model direction mismatch: need a MistralLite <-> Mistral-7B pair in either direction"
+        )
 
     output_root = Path(args.output_root)
     for sub in ["pairs", "ckpt_reuse", "ckpt_patch", "route", "reports"]:
@@ -411,6 +471,11 @@ def main() -> None:
             env,
             workdir,
         )
+        route_profile_path = _merge_patch_metrics_into_profile(
+            profile_path,
+            patch_dir,
+            temp_cfg_dir / f"profile_route_{dataset}_seed{args.seed}.json",
+        )
 
         main_eval_cfg = copy.deepcopy(eval_cfg)
         main_eval_cfg.setdefault("network", {})["bandwidth_gbps"] = 200.0
@@ -418,7 +483,7 @@ def main() -> None:
         save_json_cfg(main_eval_cfg_path, main_eval_cfg)
 
         run_cmd(
-            [sys.executable, "-m", "scd_repro.cli.build_route", "--profile", str(profile_path), "--eval-config", str(main_eval_cfg_path), "--out", str(route_path)],
+            [sys.executable, "-m", "scd_repro.cli.build_route", "--profile", str(route_profile_path), "--eval-config", str(main_eval_cfg_path), "--out", str(route_path)],
             env,
             workdir,
         )
@@ -511,7 +576,12 @@ def main() -> None:
                     env,
                     workdir,
                 )
-                run_cmd([sys.executable, "-m", "scd_repro.cli.build_route", "--profile", str(profile_path), "--eval-config", str(eval_cfg_k_path), "--out", str(route_path_k)], env, workdir)
+                route_profile_path_k = _merge_patch_metrics_into_profile(
+                    profile_path,
+                    patch_dir_k,
+                    temp_cfg_dir / f"profile_route_{dataset}_seed{args.seed}_k{k}.json",
+                )
+                run_cmd([sys.executable, "-m", "scd_repro.cli.build_route", "--profile", str(route_profile_path_k), "--eval-config", str(eval_cfg_k_path), "--out", str(route_path_k)], env, workdir)
 
                 out_dir = output_root / "reports" / dataset / "patch_budget" / f"k{k}" / "scd_full"
                 out_dir.mkdir(parents=True, exist_ok=True)

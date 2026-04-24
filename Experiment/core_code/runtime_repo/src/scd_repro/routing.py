@@ -83,16 +83,13 @@ def build_route(
     fallback_threshold: float,
     patch_budget: int,
 ) -> dict[str, list[int]]:
-    reuse_layers: list[int] = []
     patch_layers: list[int] = []
 
     gains = {row.layer: (row.reuse_error - row.patch_error) for row in profiles}
     candidate_layers: list[int] = []
 
     for row in profiles:
-        if row.reuse_error <= reuse_threshold:
-            reuse_layers.append(row.layer)
-        else:
+        if row.reuse_error > reuse_threshold:
             candidate_layers.append(row.layer)
 
     positive_candidates = [layer for layer in candidate_layers if gains[layer] > 0.0]
@@ -104,12 +101,12 @@ def build_route(
         )[:patch_budget]
         patch_layers = sorted(selected)
 
-    fallback_layers = sorted(set(candidate_layers) - set(patch_layers))
+    patch_set = set(patch_layers)
+    reuse_layers = sorted(row.layer for row in profiles if row.layer not in patch_set)
 
     return {
         "reuse_layers": sorted(reuse_layers),
         "patch_layers": sorted(patch_layers),
-        "fallback_layers": sorted(fallback_layers),
     }
 
 
@@ -436,7 +433,6 @@ def greedy_search_task_route(
         stop_reason = "patch_budget_reached" if len(current_patch_layers) >= int(config.patch_budget) else "no_positive_gain"
 
     recompute_covered_layers = _recompute_covered_layers(max(eval_layers) + 1, current_recompute_map)
-    fallback_layers: list[int] = []
     reuse_layers = sorted(layer for layer in eval_layers if layer not in set(current_patch_layers) and layer not in set(recompute_covered_layers))
     final_metrics = evaluate_task_level_route(
         task_profiles,
@@ -462,7 +458,6 @@ def greedy_search_task_route(
         "stop_reason": stop_reason,
         "num_evaluated_routes": eval_count,
         "patch_layers": sorted(current_patch_layers),
-        "fallback_layers": fallback_layers,
         "reuse_layers": reuse_layers,
         "expected_gain": float(final_metrics["delta_logp"]),
     }

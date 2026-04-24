@@ -12,6 +12,7 @@ from transformers.cache_utils import DynamicCache
 from transformers.models.mistral.modeling_mistral import create_causal_mask, create_sliding_window_causal_mask
 
 from .cmrc import CMRCSample, extract_answer_text, score_cmrc_prediction
+from .hotpotqa import HotpotQASample, postprocess_hotpotqa_prediction, score_hotpotqa_prediction
 from .direct_kv_residual_patch import PATCH_FIT_MODE_DIRECT_KV_KNORM_RESIDUAL_MLP_V1, PATCH_FIT_MODE_XNORM_NATIVEKV_RESIDUAL_MLP_V1, PATCH_FIT_MODE_XNORM_NATIVEKV_SHARED_RESIDUAL_MLP_V1, infer_direct_kv_residual_patch_layer_torch, infer_xnorm_nativekv_residual_patch_layer_torch, infer_xnorm_nativekv_shared_residual_patch_torch, load_direct_kv_residual_patch_layer_from_ckpt, load_xnorm_nativekv_residual_patch_layer_from_ckpt, load_xnorm_nativekv_shared_residual_patch_from_ckpt
 from .io_utils import load_bundle
 from .patch import (
@@ -22,9 +23,10 @@ from .patch import (
     infer_patch_layer_torch,
     load_semantic_patch_layer_from_ckpt,
 )
-from .reuse import decode_group, encode_group, group_layers_for_gid, move_reuse_weights, pack_group, unpack_group
+from .reuse import ReuseGroupWeights, decode_group, encode_group, group_layers_for_gid, move_reuse_weights, pack_group, unpack_group
 from .rope import de_rope_k_torch, re_rope_k_torch, remap_rope_k_torch, rope_spec_from_hf_config
 from .torch_utils import clear_torch_cache, require_torch, resolve_device, resolve_torch_dtype, tensor_to_cpu
+from .wikitext2 import WikiText2Sample, score_wikitext2_prediction
 
 
 PAPER_TABLE2_ANCHOR = {
@@ -446,7 +448,11 @@ class TransformersRuntimeSession:
         stack_cache = getattr(self, "__runtime_consumer_native_proj_stack__", None)
         if isinstance(stack_cache, dict):
             stack_cache.clear()
-        del self.model
+        self.layers = []
+        self.tokenizer = None
+        self.rope_spec = None
+        self.model = None
+        gc.collect()
         clear_torch_cache()
 
 
@@ -912,6 +918,29 @@ def _stack_group_row_vectors(rows: list[Any]) -> Any | None:
     return t.stack([row.to(dtype=t.float32) for row in rows], dim=0).contiguous()
 
 
+def _stack_group_row_vectors_on_device(rows: list[Any], device: str) -> Any | None:
+    if not rows or any(row is None for row in rows):
+        return None
+    t = require_torch()
+    return t.stack([row.to(device=device, dtype=t.float32) for row in rows], dim=0).contiguous()
+
+
+def _reuse_group_to_device(row: ReuseGroupWeights, device: str) -> ReuseGroupWeights:
+    t = require_torch()
+    return ReuseGroupWeights(
+        enc_k=row.enc_k.to(device=device, dtype=t.float32),
+        dec_k_b=row.dec_k_b.to(device=device, dtype=t.float32),
+        enc_v=row.enc_v.to(device=device, dtype=t.float32),
+        dec_v_b=row.dec_v_b.to(device=device, dtype=t.float32),
+        mean_a_k=None if row.mean_a_k is None else row.mean_a_k.to(device=device, dtype=t.float32),
+        mean_b_k=None if row.mean_b_k is None else row.mean_b_k.to(device=device, dtype=t.float32),
+        mean_a_v=None if row.mean_a_v is None else row.mean_a_v.to(device=device, dtype=t.float32),
+        mean_b_v=None if row.mean_b_v is None else row.mean_b_v.to(device=device, dtype=t.float32),
+        rank_k=row.rank_k,
+        rank_v=row.rank_v,
+    )
+
+
 def _apply_optional_group_center(x: Any, means: Any | None, *, subtract: bool) -> Any:
     if means is None:
         return x
@@ -1030,10 +1059,10 @@ def _decode_reuse_layers_batched_layerwise_fastpath(
 
     _synchronize_for_device(consumer_device)
     prep_start = time.perf_counter()
-    dec_k = t.stack([reuse_cons.weights[gid].dec_k_b.to(dtype=t.float32) for gid in selected_gids], dim=0).contiguous()
-    dec_v = t.stack([reuse_cons.weights[gid].dec_v_b.to(dtype=t.float32) for gid in selected_gids], dim=0).contiguous()
-    mean_b_k = _stack_group_row_vectors([reuse_cons.weights[gid].mean_b_k for gid in selected_gids])
-    mean_b_v = _stack_group_row_vectors([reuse_cons.weights[gid].mean_b_v for gid in selected_gids])
+    dec_k = t.stack([reuse_cons.weights[gid].dec_k_b.to(device=consumer_device, dtype=t.float32) for gid in selected_gids], dim=0).contiguous()
+    dec_v = t.stack([reuse_cons.weights[gid].dec_v_b.to(device=consumer_device, dtype=t.float32) for gid in selected_gids], dim=0).contiguous()
+    mean_b_k = _stack_group_row_vectors_on_device([reuse_cons.weights[gid].mean_b_k for gid in selected_gids], consumer_device)
+    mean_b_v = _stack_group_row_vectors_on_device([reuse_cons.weights[gid].mean_b_v for gid in selected_gids], consumer_device)
     _synchronize_for_device(consumer_device)
     rebuild_timing.rebuild_prep_ms = (time.perf_counter() - prep_start) * 1000.0
 
@@ -1147,9 +1176,12 @@ def _decode_reuse_layers(
     for gid in selected_gids:
         layers = group_layers_for_gid(reuse_cons, gid)
         z_k, z_v = transfer_codes_on_consumer[int(gid)]
+        reuse_cons_row = reuse_cons.weights[gid]
+        if str(getattr(reuse_cons_row.dec_k_b, "device", "cpu")) != str(consumer_device):
+            reuse_cons_row = _reuse_group_to_device(reuse_cons_row, consumer_device)
         _synchronize_for_device(consumer_device)
         core_start = time.perf_counter()
-        rec_k_raw, rec_v = decode_group(z_k, z_v, reuse_cons.weights[gid])
+        rec_k_raw, rec_v = decode_group(z_k, z_v, reuse_cons_row)
         rec_k_layers_raw = unpack_group(rec_k_raw, len(layers), hd, bsz, kvh, prefix_tokens)
         rec_v_layers = unpack_group(rec_v, len(layers), hd, bsz, kvh, prefix_tokens)
         _synchronize_for_device(consumer_device)
@@ -3538,10 +3570,10 @@ def _assemble_method_cache(
     return caches, timing, payload_mb
 
 
-def evaluate_cmrc_method(
+def _evaluate_answer_set_method(
     *,
     method: str,
-    sample: CMRCSample,
+    sample: Any,
     producer_capture: PrefillCapture,
     consumer_capture: PrefillCapture,
     producer_session: TransformersRuntimeSession,
@@ -3561,6 +3593,8 @@ def evaluate_cmrc_method(
     fail_on_missing_patch_fields: bool = False,
     measure_teacher_forced_metrics: bool = True,
     align_full_consumer_first_decode: bool = False,
+    score_prediction,
+    postprocess_prediction=None,
 ) -> MethodSampleResult:
     prefix_tokens = int(consumer_capture.input_ids.shape[1]) - 1
     target_ids = _target_answer_ids(consumer_session, sample.answers, max_new_tokens=max_new_tokens)
@@ -3638,7 +3672,9 @@ def evaluate_cmrc_method(
         timing.ttft_ms = float(timing.encode_ms + timing.transfer_ms + timing.rebuild_ms + timing.patch_infer_ms + timing.recompute_ms + timing.decode_first_ms)
         timing.total_ms = float(timing.encode_ms + timing.transfer_ms + timing.rebuild_ms + timing.patch_infer_ms + timing.recompute_ms + timing.decode_total_ms)
 
-    score = score_cmrc_prediction(answer, sample.answers)
+    if postprocess_prediction is not None:
+        answer = str(postprocess_prediction(answer))
+    score = score_prediction(answer, sample.answers)
     return MethodSampleResult(
         qid=sample.qid,
         method=method,
@@ -3658,6 +3694,159 @@ def evaluate_cmrc_method(
     )
 
 
+def evaluate_cmrc_method(
+    *,
+    method: str,
+    sample: CMRCSample,
+    producer_capture: PrefillCapture,
+    consumer_capture: PrefillCapture,
+    producer_session: TransformersRuntimeSession,
+    consumer_session: TransformersRuntimeSession,
+    route: dict[str, list[int]],
+    reuse_prod,
+    reuse_cons,
+    patch_bundle: dict[str, Any] | None,
+    patch_meta: dict[str, object] | None,
+    bandwidth_gbps: float,
+    max_new_tokens: int,
+    quant_group_size: int,
+    transfer_dtype: Any,
+    default_recompute_segment_length: int = 0,
+    override_route_recompute_length: int | None = None,
+    fail_on_missing_route_fields: bool = False,
+    fail_on_missing_patch_fields: bool = False,
+    measure_teacher_forced_metrics: bool = True,
+    align_full_consumer_first_decode: bool = False,
+) -> MethodSampleResult:
+    return _evaluate_answer_set_method(
+        method=method,
+        sample=sample,
+        producer_capture=producer_capture,
+        consumer_capture=consumer_capture,
+        producer_session=producer_session,
+        consumer_session=consumer_session,
+        route=route,
+        reuse_prod=reuse_prod,
+        reuse_cons=reuse_cons,
+        patch_bundle=patch_bundle,
+        patch_meta=patch_meta,
+        bandwidth_gbps=bandwidth_gbps,
+        max_new_tokens=max_new_tokens,
+        quant_group_size=quant_group_size,
+        transfer_dtype=transfer_dtype,
+        default_recompute_segment_length=default_recompute_segment_length,
+        override_route_recompute_length=override_route_recompute_length,
+        fail_on_missing_route_fields=fail_on_missing_route_fields,
+        fail_on_missing_patch_fields=fail_on_missing_patch_fields,
+        measure_teacher_forced_metrics=measure_teacher_forced_metrics,
+        align_full_consumer_first_decode=align_full_consumer_first_decode,
+        score_prediction=score_cmrc_prediction,
+        postprocess_prediction=None,
+    )
+
+
+def evaluate_hotpotqa_method(
+    *,
+    method: str,
+    sample: HotpotQASample,
+    producer_capture: PrefillCapture,
+    consumer_capture: PrefillCapture,
+    producer_session: TransformersRuntimeSession,
+    consumer_session: TransformersRuntimeSession,
+    route: dict[str, list[int]],
+    reuse_prod,
+    reuse_cons,
+    patch_bundle: dict[str, Any] | None,
+    patch_meta: dict[str, object] | None,
+    bandwidth_gbps: float,
+    max_new_tokens: int,
+    quant_group_size: int,
+    transfer_dtype: Any,
+    default_recompute_segment_length: int = 0,
+    override_route_recompute_length: int | None = None,
+    fail_on_missing_route_fields: bool = False,
+    fail_on_missing_patch_fields: bool = False,
+    measure_teacher_forced_metrics: bool = True,
+    align_full_consumer_first_decode: bool = False,
+) -> MethodSampleResult:
+    return _evaluate_answer_set_method(
+        method=method,
+        sample=sample,
+        producer_capture=producer_capture,
+        consumer_capture=consumer_capture,
+        producer_session=producer_session,
+        consumer_session=consumer_session,
+        route=route,
+        reuse_prod=reuse_prod,
+        reuse_cons=reuse_cons,
+        patch_bundle=patch_bundle,
+        patch_meta=patch_meta,
+        bandwidth_gbps=bandwidth_gbps,
+        max_new_tokens=max_new_tokens,
+        quant_group_size=quant_group_size,
+        transfer_dtype=transfer_dtype,
+        default_recompute_segment_length=default_recompute_segment_length,
+        override_route_recompute_length=override_route_recompute_length,
+        fail_on_missing_route_fields=fail_on_missing_route_fields,
+        fail_on_missing_patch_fields=fail_on_missing_patch_fields,
+        measure_teacher_forced_metrics=measure_teacher_forced_metrics,
+        align_full_consumer_first_decode=align_full_consumer_first_decode,
+        score_prediction=score_hotpotqa_prediction,
+        postprocess_prediction=postprocess_hotpotqa_prediction,
+    )
+
+
+def evaluate_wikitext2_method(
+    *,
+    method: str,
+    sample: WikiText2Sample,
+    producer_capture: PrefillCapture,
+    consumer_capture: PrefillCapture,
+    producer_session: TransformersRuntimeSession,
+    consumer_session: TransformersRuntimeSession,
+    route: dict[str, list[int]],
+    reuse_prod,
+    reuse_cons,
+    patch_bundle: dict[str, Any] | None,
+    patch_meta: dict[str, object] | None,
+    bandwidth_gbps: float,
+    max_new_tokens: int,
+    quant_group_size: int,
+    transfer_dtype: Any,
+    default_recompute_segment_length: int = 0,
+    override_route_recompute_length: int | None = None,
+    fail_on_missing_route_fields: bool = False,
+    fail_on_missing_patch_fields: bool = False,
+    measure_teacher_forced_metrics: bool = True,
+    align_full_consumer_first_decode: bool = False,
+) -> MethodSampleResult:
+    return _evaluate_answer_set_method(
+        method=method,
+        sample=sample,
+        producer_capture=producer_capture,
+        consumer_capture=consumer_capture,
+        producer_session=producer_session,
+        consumer_session=consumer_session,
+        route=route,
+        reuse_prod=reuse_prod,
+        reuse_cons=reuse_cons,
+        patch_bundle=patch_bundle,
+        patch_meta=patch_meta,
+        bandwidth_gbps=bandwidth_gbps,
+        max_new_tokens=max_new_tokens,
+        quant_group_size=quant_group_size,
+        transfer_dtype=transfer_dtype,
+        default_recompute_segment_length=default_recompute_segment_length,
+        override_route_recompute_length=override_route_recompute_length,
+        fail_on_missing_route_fields=fail_on_missing_route_fields,
+        fail_on_missing_patch_fields=fail_on_missing_patch_fields,
+        measure_teacher_forced_metrics=measure_teacher_forced_metrics,
+        align_full_consumer_first_decode=align_full_consumer_first_decode,
+        score_prediction=score_wikitext2_prediction,
+        postprocess_prediction=None,
+    )
+
+
 def summarize_method_results(results: list[MethodSampleResult]) -> dict[str, Any]:
     if not results:
         raise ValueError("method results 为空")
@@ -3667,6 +3856,7 @@ def summarize_method_results(results: list[MethodSampleResult]) -> dict[str, Any
     total_teacher_logp = float(sum(float(x.teacher_logp_sum) for x in results))
     avg_logp = float(total_teacher_logp / total_teacher_tokens) if total_teacher_tokens > 0 else 0.0
     avg_nll = float(-avg_logp)
+    avg_ppl = float(math.exp(min(50.0, avg_nll)))
     total_raw_bytes = int(sum(int(x.timing.raw_cache_bytes) for x in results))
     total_transfer_bytes = int(sum(int(x.timing.bytes_transferred) for x in results))
     return {
@@ -3677,6 +3867,7 @@ def summarize_method_results(results: list[MethodSampleResult]) -> dict[str, Any
         "em": mean(lambda x: x.em),
         "avg_logp": avg_logp,
         "avg_nll": avg_nll,
+        "avg_ppl": avg_ppl,
         "payload_mb": mean(lambda x: x.payload_mb),
         "ttft_ms": mean(lambda x: x.timing.ttft_ms),
         "producer_prefill_ms": mean(lambda x: x.timing.producer_prefill_ms),

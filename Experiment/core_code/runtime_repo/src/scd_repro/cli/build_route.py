@@ -65,11 +65,11 @@ def _legacy_build_route(profile: dict, eval_cfg: dict[str, Any]) -> dict[str, An
     reuse_errors = [float(row.reuse_error) for row in rows]
 
     if threshold_mode == "adaptive_p20_p80":
-        reuse_threshold, fallback_threshold = compute_adaptive_thresholds(reuse_errors, reuse_percentile=20.0, fallback_percentile=80.0)
+        reuse_threshold, _ = compute_adaptive_thresholds(reuse_errors, reuse_percentile=20.0, fallback_percentile=80.0)
     else:
         reuse_threshold = float(route_cfg["reuse_threshold"])
-        fallback_threshold = float(route_cfg["fallback_threshold"])
 
+    fallback_threshold = 0.0
     route = build_route(rows, reuse_threshold=reuse_threshold, fallback_threshold=fallback_threshold, patch_budget=patch_budget)
     route.update(
         {
@@ -100,7 +100,7 @@ def _resolve_candidate_layers(
     route_input: dict[str, Any] | None,
 ) -> list[int]:
     if route_input:
-        pool = [int(layer) for layer in route_input.get("patch_layers", [])] + [int(layer) for layer in route_input.get("fallback_layers", [])]
+        pool = [int(layer) for layer in route_input.get("patch_layers", [])]
         if pool:
             return sorted(set(pool))
     patch_selected = [int(layer) for layer in patch_meta.get("selected_layers", [])]
