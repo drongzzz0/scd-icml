@@ -231,7 +231,7 @@ def run_eval_method(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="论文口径评测编排脚本（A=7B，B=Lite）")
+    p = argparse.ArgumentParser(description="论文口径评测编排脚本")
     p.add_argument("--models-config", default="configs/models_a800.yaml")
     p.add_argument("--data-config", default="configs/data_a800.yaml")
     p.add_argument("--train-config", default="configs/train.yaml")
@@ -246,7 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--capture-batch-size", type=int, default=1)
     p.add_argument("--max-chunk-tokens", type=int, default=4096)
     p.add_argument("--bandwidths", default="100,150,200,400,800,1000")
-    p.add_argument("--patch-budgets", default="0,1,3,5,8")
+    p.add_argument("--patch-budgets", default="0,1,3,5,6,8")
     p.add_argument("--skip-bandwidth-scan", action="store_true")
     p.add_argument("--skip-patch-budget-scan", action="store_true")
     return p
@@ -267,8 +267,8 @@ def main() -> None:
 
     path_a = str(models_cfg.get("model_a", {}).get("path", ""))
     path_b = str(models_cfg.get("model_b", {}).get("path", ""))
-    if "Mistral-7B" not in path_a or "MistralLite" not in path_b:
-        raise ValueError("model direction mismatch: need model_a=.../Mistral-7B*, model_b=.../MistralLite")
+    if not path_a or not path_b:
+        raise ValueError("models config must provide non-empty model_a.path and model_b.path")
 
     output_root = Path(args.output_root)
     for sub in ["pairs", "ckpt_reuse", "ckpt_patch", "route", "reports"]:
