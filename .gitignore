@@ -1,0 +1,11 @@
+.venv/
+.claude/
+.cursor/
+.gemini/
+memory/
+__pycache__/
+Experiment/analysis/remote_artifacts/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store

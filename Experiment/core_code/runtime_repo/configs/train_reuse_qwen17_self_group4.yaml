@@ -1,0 +1,27 @@
+{
+  "mode": "xkv_group",
+  "translator": {
+    "default_path": "shared_z",
+    "shared_z": {
+      "hidden_dim": 0,
+      "activation": "identity"
+    }
+  },
+  "xkv_group": {
+    "group_size": 4,
+    "rank_k": 128,
+    "rank_v": 128,
+    "center_before_svd": false,
+    "svd_backend": "moments_eigh",
+    "max_groups": 128,
+    "ridge_lambda": 0.0001
+  },
+  "compute": {
+    "train_device": "cuda:1",
+    "accel_mode": "balanced",
+    "group_block_size": 2
+  },
+  "runtime": {
+    "cpu_fallback": true
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "project": "scd-similar-pair-validation",
+  "bucket_policy": {
+    "close_top_k": 1,
+    "far_bottom_k": 1
+  },
+  "candidates": [
+    {
+      "pair_id": "fill_me_pair_a",
+      "producer_model": "project-local-producer-checkpoint-path",
+      "consumer_model": "project-local-consumer-checkpoint-path",
+      "tokenizer_shared": true,
+      "architecture_compatible": true,
+      "metrics": {
+        "median_r2_h": 0.0,
+        "median_r2_kv": 0.0,
+        "median_cos_h": 0.0,
+        "normalized_kl_token": 1.0,
+        "oracle_gap_task": 0.0
+      },
+      "notes": "Replace with measured layerwise screening statistics."
+    }
+  ]
+}

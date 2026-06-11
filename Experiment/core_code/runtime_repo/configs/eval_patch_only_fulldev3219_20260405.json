@@ -1,0 +1,30 @@
+{
+  "network": {
+    "bandwidth_gbps": 200.0
+  },
+  "runtime_eval": {
+    "run_full_consumer_baseline": false,
+    "run_reuse_only": false,
+    "run_reuse_fallback": false,
+    "run_patch_only": true,
+    "run_reuse_patch": false,
+    "run_reuse_patch_recompute": false,
+    "run_oracle_xnorm_suffix": false,
+    "run_oracle_state_suffix": false,
+    "run_oracle_kv_patchonly": false,
+    "measure_ttft": true,
+    "measure_transfer_bytes": true,
+    "measure_teacher_forced_metrics": true,
+    "measure_generation_metrics": true,
+    "max_eval_samples": 999999,
+    "save_per_sample_metrics": true,
+    "save_generation_outputs": true,
+    "output_dir": "",
+    "default_recompute_segment_length": 0,
+    "override_route_recompute_length": null,
+    "strict_mode": true,
+    "fail_on_missing_route_fields": false,
+    "fail_on_missing_patch_fields": true,
+    "align_full_consumer_first_decode": true
+  }
+}

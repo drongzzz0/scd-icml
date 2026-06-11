@@ -1,0 +1,4 @@
+pair_id,producer_model,consumer_model,tokenizer_shared,architecture_compatible,median_r2_h,median_r2_kv,median_cos_h,normalized_kl_token,oracle_gap_task,similarity_score,pair_bucket,selected_for_baseline,notes
+producer_smoke_close__to__consumer_smoke_close,producer_smoke_close,consumer_smoke_close,True,True,0.92,0.89,0.96,0.08,0.01,0.9190000000000002,close,True,domains=close_math->close_reasoning | Synthetic smoke candidate only.
+producer_smoke_medium__to__consumer_smoke_medium,producer_smoke_medium,consumer_smoke_medium,True,True,0.74,0.7,0.87,0.22,0.03,0.762,medium,False,domains=medium_math->medium_code | Synthetic smoke candidate only.
+producer_smoke_far__to__consumer_smoke_far,producer_smoke_far,consumer_smoke_far,True,True,0.41,0.38,0.71,0.58,0.09,0.463,far,False,domains=far_chat->far_law | Synthetic smoke candidate only.

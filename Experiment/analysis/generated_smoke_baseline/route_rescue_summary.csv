@@ -1,0 +1,1 @@
+pair_id,claim_anchor,task,original_method_claim_gap_total,route_method,route_claim_gap_total,gap_reduction_ratio,ttft_delta_vs_original,quality_delta_vs_original,kl_delta_vs_original,ppl_delta_vs_original,rescue_label

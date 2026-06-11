@@ -1,0 +1,727 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Define the SCD claim target on similar Qwen3.5 pairs",
+        "description": "Turn the research question into a falsifiable target with explicit acceptance criteria for whether the original SCD method reaches the paper's claimed effect on similar Qwen3.5 fine-tuned model pairs.",
+        "status": "done",
+        "stage": "experiment",
+        "priority": "high",
+        "dependencies": [],
+        "taskType": "analysis",
+        "inputsNeeded": [
+          "sections.experiment.hypothesis_or_validation_goal",
+          "sections.ideation.success_criteria"
+        ],
+        "suggestedSkills": [
+          "inno-experiment-analysis"
+        ],
+        "sourceBlueprintId": "required_element:sections.experiment.hypothesis_or_validation_goal",
+        "nextActionPrompt": "Task: Define the SCD claim target on similar Qwen3.5 pairs\nStage: experiment\nUser inputs: target venue = ICML; primary goal = test whether the original SCD method reaches the paper's claimed effect on similar Qwen3.5 fine-tuned model pairs; if not, three improved routes will be tested on the same pairs; data = SCD tasks and prefix construction; compute = 4x4090D + 1x5070 Ti with short-burst access to 8xA800-80G.\nSuggested skills: inno-experiment-analysis\nQuality gate: define explicit pass/fail criteria for the original baseline and explicit rescue criteria for route A/B/C.\nStage guidance: Make the claim target falsifiable before implementation begins. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T08:29:03Z",
+        "completionNotes": [
+          "Created /Users/weimingming/dr-claw/scd-new/Experiment/analysis/scd_claim_target_spec.md.",
+          "Locked the evaluation contract around normalized TTFT ratio, task-quality retention, KL ceiling and PPL ratio when active, payload ratio versus raw-KV transfer, aggregate claim gap, and rescue criteria for route A/B/C on the same close pair.",
+          "Backfilled the primary paper claim anchors from Table 1 (Qwen Pair 32B) and Table 2 (MistralLite→Mistral-7B at 200 Gbps) using the extracted local text artifact."
+        ],
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/scd_claim_target_spec.md"
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Refine similar-pair screening and original SCD baseline protocol",
+        "description": "Specify pair-screening rules, faithful baseline implementation details, trace extraction, and compute allocation for testing the original SCD method on similar Qwen3.5 fine-tuned pairs.",
+        "status": "done",
+        "stage": "experiment",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "taskType": "implementation",
+        "inputsNeeded": [
+          "sections.experiment.method_or_protocol",
+          "sections.experiment.dataset_or_data_source"
+        ],
+        "suggestedSkills": [
+          "inno-code-survey",
+          "inno-experiment-dev"
+        ],
+        "sourceBlueprintId": "required_element:sections.experiment.method_or_protocol",
+        "nextActionPrompt": "Task: Refine similar-pair screening and original SCD baseline protocol\nStage: experiment\nUser inputs: models = Qwen3.5 fine-tuned series first; methods = pair screening, then original SCD baseline, then route A/B/C only if baseline misses target; data = SCD setup; compute = short A800 bursts plus stable 4090D resources.\nSuggested skills: inno-code-survey, inno-experiment-dev\nQuality gate: the protocol must separate similar-pair selection, original baseline implementation, and later follow-up routes while keeping a practical compute schedule.\nStage guidance: Convert the current plan into an executable protocol with minimal ambiguity. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T08:53:47Z",
+        "completionNotes": [
+          "Created /Users/weimingming/dr-claw/scd-new/Experiment/analysis/scd_qwen35_pair_screening_original_baseline_protocol.md.",
+          "Locked the original baseline to the main-text Algorithm 1 interpretation of SCD and explicitly excluded suffix recomputation from the baseline path.",
+          "Specified pair admission rules, close/medium/far screening, paper-aligned metrics, patch-layer selection policy, and a compute schedule using 4090D for screening and A800 only for short-burst final runs."
+        ],
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/scd_qwen35_pair_screening_original_baseline_protocol.md"
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Refine the evaluation plan and claim-gap metrics",
+        "description": "Define the exact evaluation outputs needed to judge whether the original SCD method reproduces the paper's effect on similar pairs and whether route A/B/C close any remaining gap.",
+        "status": "done",
+        "stage": "experiment",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "taskType": "analysis",
+        "inputsNeeded": [
+          "sections.experiment.evaluation_plan",
+          "sections.ideation.success_criteria"
+        ],
+        "suggestedSkills": [
+          "inno-experiment-analysis"
+        ],
+        "sourceBlueprintId": "required_element:sections.experiment.evaluation_plan",
+        "nextActionPrompt": "Task: Refine the evaluation plan and claim-gap metrics\nStage: experiment\nUser inputs: primary target = judge whether the original SCD method reproduces the paper's TTFT-quality gains on similar Qwen3.5 fine-tuned pairs; follow-up target = test whether route A/B/C close the gap if the baseline fails; current evaluation ideas include TTFT, KL/PPL, task metrics, and gain-per-budget analyses.\nSuggested skills: inno-experiment-analysis\nQuality gate: all baseline and follow-up comparisons must use matched prefixes and report metrics needed to judge claim reproduction or rescue.\nStage guidance: Lock down the evaluation contract before large-scale runs. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-29T06:38:35Z",
+        "completionNotes": [
+          "Created /Users/weimingming/dr-claw/scd-new/Experiment/analysis/scd_evaluation_contract_and_claim_gap_metrics.md.",
+          "Locked the required output files and schemas for prompt-level, run-level, claim-level, route-rescue, and latency-breakdown analysis.",
+          "Defined the statistical and decision contract for strict pass, soft pass, full rescue, and material gap narrowing using paired-bootstrap confidence intervals and matched operating points."
+        ],
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/scd_evaluation_contract_and_claim_gap_metrics.md"
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Implement similar-pair screening and the original SCD baseline",
+        "description": "Acquire candidate Qwen3.5 fine-tuned checkpoints, build the similarity-screening workflow, and implement the original SCD baseline pipeline on the selected similar pairs.",
+        "status": "in-progress",
+        "stage": "experiment",
+        "priority": "high",
+        "dependencies": [
+          2,
+          3
+        ],
+        "taskType": "implementation",
+        "inputsNeeded": [
+          "sections.experiment.method_or_protocol",
+          "sections.experiment.dataset_or_data_source",
+          "sections.ideation.evidence_plan"
+        ],
+        "suggestedSkills": [
+          "inno-code-survey",
+          "inno-experiment-dev"
+        ],
+        "sourceBlueprintId": "experiment_qwen35_pair_screening",
+        "nextActionPrompt": "Task: Implement similar-pair screening and the original SCD baseline\nStage: experiment\nUser inputs: use SCD data/tasks; prioritize Qwen3.5 fine-tuned model pairs; workflow = pair screening first, original SCD baseline second; compute baseline is 4x4090D + 1x5070 Ti, with short-burst 8xA800-80G when needed.\nSuggested skills: inno-code-survey, inno-experiment-dev\nQuality gate: produce a reproducible original baseline pipeline and define close/medium/far pair regimes with shared tokenizer/cache semantics and H/K/V cosine, linear probe R^2, and token-KL outputs.\nStage guidance: Build the smallest reliable similar-pair baseline before expanding to improved methods. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-04-04T09:09:46Z",
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/README.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/run_pair_screening.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/run_original_scd_baseline.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/build_pair_screening_config.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/build_original_scd_config.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/check_runtime_env.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/plan_trace_capture.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/scd_validation/pair_screening.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/scd_validation/claim_eval.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/scd_validation/inventory.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/scd_validation/measurement_builders.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/scd_validation/runtime_env.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/scd_validation/trace_plan.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/configs/pair_screening_template.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/configs/original_scd_baseline_template.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/configs/model_inventory_template.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/configs/qwen35_4b_true_pair_inventory_template.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/configs/trace_capture_request_template.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/configs/baseline_request_template.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/download_qwen35_4b_base_from_modelscope.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/run_ser_modelscope_qwen35_base_download.sh",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/ser_remote_asset_audit_and_existing_qwen_results.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_clean_rerun_comparison.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen35_true_pair_asset_plan.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen35_modelscope_download_handoff.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen35_hybrid_cache_blocker.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/code_references/model_survey.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/reuse_route_reset_20260403.md"
+        ],
+        "progressNotes": [
+          "Created a project-local Task 4 scaffold for pair screening, patch-layer selection, and original-SCD claim-gap aggregation.",
+          "Added smoke configs that emit pair_screen_summary.csv, run_manifest.jsonl, prompt_level_metrics.csv, run_level_summary.csv, claim_gap_summary.csv, latency_breakdown_summary.csv, route_rescue_summary.csv, and evaluation_readme.md under Experiment/analysis.",
+          "Added model inventory, pair-metric builder, trace-plan builder, runtime environment check, and baseline-config builder so the workspace now supports a full config-driven path from candidate checkpoints to original-SCD claim-gap aggregation.",
+          "Validated the chain on smoke inputs: inventory -> generated pair screening config -> screening summary -> trace capture plan -> generated original baseline config -> baseline claim-gap outputs.",
+          "Audited remote host ser and confirmed that /disk_n/c101-3-1/venvs/A800 can run the existing remote SCD reproduction repo with torch 2.9.0, transformers 5.3.0, datasets 2.21.0, accelerate 1.11.0, and safetensors 0.6.2.",
+          "Recorded that only one explicit Qwen3.5 checkpoint is currently available on ser, so a true Qwen3.5-vs-Qwen3.5 pair is not yet ready from existing assets alone.",
+          "Extracted existing strict CMRC results for Qwen3-1.7B -> Qwen3-1.7B-bf16 and Qwen3-1.7B self-pair runs; these existing near-pair results already suggest that higher similarity alone does not automatically recover the paper-style TTFT-quality claim.",
+          "Resolved the strict-Qwen3.5 asset branch: the clean primary pair is Qwen/Qwen3.5-4B-Base -> local Qwen3.5-4B, while prompt-tuning adapters on top of Qwen3.5-4B provide an immediate fallback diagnostic pair.",
+          "Verified on ser that Qwen3.5-4B loads through AutoModelForCausalLM as Qwen3_5ForCausalLM and that the smoke prompt-tuning adapter loads through PeftModelForCausalLM, so the remaining blocker is checkpoint acquisition rather than model-class support.",
+          "Added a Qwen3.5 true-pair asset plan and a ready-to-fill inventory template that targets /disk_n/c101-3-1/models/Qwen3.5-4B-Base as the main producer checkpoint path.",
+          "Prepared a ModelScope-based download helper and a ser-side wrapper script for Qwen/Qwen3.5-4B-Base, plus a handoff note documenting the exact remote command and success checks.",
+          "Executed the ModelScope acquisition path on ser and confirmed that Qwen/Qwen3.5-4B-Base now exists at /disk_n/c101-3-1/models/Qwen3.5-4B-Base with the expected config, tokenizer, and dual-shard safetensor files.",
+          "Ran real smoke capture for Qwen3.5-4B-Base -> Qwen3.5-4B on ser with the existing remote SCD reproduction repo. The unmodified capture path failed immediately because transformers 5.3.0 returns Qwen3_5DynamicCache rather than an iterable legacy KV cache.",
+          "Inspected the returned Qwen3.5 cache semantics and confirmed a deeper baseline blocker: the model uses a hybrid stack with linear_attention on 24 of 32 layers and full_attention on only 8 layers, so runtime state includes convolution and recurrent caches in addition to ordinary KV tensors. The current original-SCD repo is therefore blocked by cache-semantics mismatch rather than missing checkpoints.",
+          "Completed a cleaner near-pair rerun for Qwen3-1.7B -> Qwen3-1.7B-bf16 on March 29, 2026 with only full_consumer, reuse_only, reuse_fallback, and reuse_patch enabled and no short recompute. The rerun materially improved reuse_fallback and reuse_patch relative to the old stored run, but the headline conclusion did not flip: reuse_fallback reached F1 0.6605 at 70.98 ms TTFT and reuse_patch reached F1 0.5010 at 75.84 ms TTFT, both still slower than full_consumer at 58.81 ms TTFT with F1 0.6945.",
+          "Reset the reuse baseline on April 3, 2026: grouped/shared-z reuse is now explicitly deprecated for claim judgment, and only the repaired clean reuse route remains valid going forward (layerwise group_size=1, batched encode/decode, actual-transfer timing, pure rebuild accounting, and no fallback by default)."
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Run the original SCD method on screened Qwen3.5 pairs",
+        "description": "Evaluate the original SCD method on the selected similar Qwen3.5 fine-tuned pairs and measure the claim gap against the paper's reported effect.",
+        "status": "in-progress",
+        "stage": "experiment",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "taskType": "analysis",
+        "inputsNeeded": [
+          "sections.experiment.hypothesis_or_validation_goal",
+          "sections.experiment.method_or_protocol",
+          "sections.experiment.evaluation_plan"
+        ],
+        "suggestedSkills": [
+          "inno-experiment-analysis",
+          "inno-experiment-dev"
+        ],
+        "sourceBlueprintId": "experiment_original_scd_baseline",
+        "nextActionPrompt": "Task: Run the original SCD method on screened Qwen3.5 pairs\nStage: experiment\nUser inputs: primary target = test whether the original SCD method reaches the paper's claimed effect on similar Qwen3.5 fine-tuned pairs before considering route A/B/C.\nSuggested skills: inno-experiment-analysis, inno-experiment-dev\nQuality gate: the original baseline must be compared on matched prefixes with TTFT, KL/PPL, task metrics, and claim-gap reporting.\nStage guidance: Answer the baseline question cleanly before moving to improved methods. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-04-07T10:56:00Z",
+        "completionNotes": [
+          "Completed a fully fresh Reviewer Q2 rerun for `Mistral-7B -> MistralLite` on `ser` under `/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/scd-q2-m7_to_lite-freshfix-20260407-175900`.",
+          "The rerun used a single self-consistent artifact chain from `capture_pair` through `strict_eval`, with actual GPU assignment `producer=0`, `consumer=1`, `train=2`.",
+          "The previously blocking strict runtime bug for semantic residual-blend patch layers without base KV entries was fixed before the rerun, and `strict_eval` completed successfully.",
+          "Wrote the local experiment report to `/Users/weimingming/dr-claw/scd-new/Experiment/analysis/reviewer_q2_m7_to_mistrallite_freshfix_20260407.md` and mirrored the key remote JSON outputs under `Experiment/analysis/remote_artifacts/reviewer_q2_m7_to_mistrallite_freshfix_20260407`.",
+          "Later route-finalization work explicitly deprecated that fallback-based reverse Q2 chain as a canonical route source and replaced it with the locked strict reverse-pair route note at `/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistral7_to_mistrallite_final_route_lock_20260409.md`.",
+          "On April 9, 2026, project wording was tightened so `SCD method` now refers only to the locked strict family. For `Mistral-7B -> MistralLite`, the accepted pair-specific SCD-method evidence is the locked strict artifact under `Experiment/analysis/remote_artifacts/mistral7_to_mistrallite_cmrc_locked_20260405_gpu23/strict_baseline_reuse_patchonly_all32_limit50_20260404/`, which currently validates only `baseline`, repaired `reuse-only`, and current strict `patch-only`."
+        ],
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/reviewer_q2_m7_to_mistrallite_freshfix_20260407.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistral7_to_mistrallite_final_route_lock_20260409.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistral7_to_mistrallite_cmrc_locked_20260405_gpu23/strict_baseline_reuse_patchonly_all32_limit50_20260404/summary.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistral7_to_mistrallite_cmrc_locked_20260405_gpu23/strict_baseline_reuse_patchonly_all32_limit50_20260404/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/reviewer_q2_m7_to_mistrallite_freshfix_20260407/rebuttal_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/reviewer_q2_m7_to_mistrallite_freshfix_20260407/strict_eval_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/reviewer_q2_m7_to_mistrallite_freshfix_20260407/strict_eval_per_mode_summary.json"
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Run route A/B/C follow-up experiments on the same pairs",
+        "description": "If the original SCD baseline underperforms on similar pairs, evaluate route A/B/C on the same model pairs and matched prefixes to test whether the claimed effect can be recovered.",
+        "status": "in-progress",
+        "stage": "experiment",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "taskType": "analysis",
+        "inputsNeeded": [
+          "sections.experiment.hypothesis_or_validation_goal",
+          "sections.experiment.method_or_protocol",
+          "sections.experiment.evaluation_plan"
+        ],
+        "suggestedSkills": [
+          "inno-experiment-analysis",
+          "inno-experiment-dev"
+        ],
+        "sourceBlueprintId": "experiment_route_validation",
+        "nextActionPrompt": "Task: Run route A/B/C follow-up experiments on the same pairs\nStage: experiment\nUser inputs: original SCD on similar Qwen3.5 pairs is the baseline; routes = A State->State->native Wk/Wv->KV, B State->direct KV, C State->State->suffix recompute are follow-up methods to test if the baseline misses target.\nSuggested skills: inno-experiment-analysis, inno-experiment-dev\nQuality gate: each follow-up route must be compared on the same pairs and matched prefixes with TTFT, KL/PPL, task metrics, and budget-normalized layer analyses.\nStage guidance: Focus on whether any improved route reaches or materially narrows the claim gap left by the original baseline. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+      "updatedAt": "2026-04-07T08:08:03Z",
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_routeb_directkv_comparison.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routeb_directkv_main200/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_routea_state_native_comparison.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routea_state_native_main200/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_routec_state_recompute_comparison.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routec_state_recompute_main200/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_routec_aligned_ttft_breakdown.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routec_state_recompute_aligned_main200/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_aligned_ttft_total_table.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_orig_aligned/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routeb_directkv_aligned_main200/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_nofallback_routeabc_comparison.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routea_state_native_nofallback_main200/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routea_state_native_nofallback_main200/final_comparison.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routeb_directkv_nofallback_main200/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routeb_directkv_nofallback_main200/final_comparison.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routec_state_recompute_nofallback_main200/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_cmrc_clean_routec_state_recompute_nofallback_main200/final_comparison.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_self_allreuse_reuse_route_diagnosis.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_group4_rerun_50_20260331/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_layerwise_rerun_50_20260331/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_layerwise_batched_50_20260401/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_layerwise_batched_aligned_50_20260401/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_layerwise_batched_aligned_nodouble_50_20260401/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_layerwise_actualtransfer_nofallback_50_20260401/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_layerwise_rebuildsplit_50_20260401/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_self_patch_route_diagnosis.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_directkv_all28_50_20260331_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_excl0_directkv_50_20260331_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_directkv_knorm_all28_len1024_50_20260331_v2/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_excl0_directkv_knorm_len1024_50_20260331_v2/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_layer0_directkv_knorm_vs_oracle_50_20260331/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_layer0_directkv_knorm_vs_oracle_50_20260331/layer0_self_patch_tensor_diag_20260331.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_directkv_residual_mlp_all28_len1024_50_20260331_resid_v2/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_directkv_residual_mlp_excl0_len1024_50_20260331_resid_v2/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_directkv_residual_mlp_layer0_len1024_50_20260331_resid_v2/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patch_directkv_residual_mlp_all28_len1024_seed42/meta.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patch_directkv_residual_mlp_all28_len1024_seed42/metrics.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/current_progress_and_blockers_20260331.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_self_patch_alllayers_xnorm_nativekv_probe_20260401.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/run_ser_qwen17_reuse_layerwise.sh",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260331_xnorm_nativekv_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_excl0_len1024_50_20260331_xnorm_nativekv_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_layer0_len1024_50_20260331_xnorm_nativekv_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patch_xnorm_nativekv_residual_mlp_all28_len1024_seed42/meta.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patch_xnorm_nativekv_residual_mlp_all28_len1024_seed42/metrics.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260331_xnorm_nativekv_skipid_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_excl0_len1024_50_20260331_xnorm_nativekv_skipid_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_layer0_len1024_50_20260331_xnorm_nativekv_skipid_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/tmp_patch_remote_xnorm_nativekv_identity_skip.py",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/run_ser_qwen17_self_patch_xnorm_nativekv_residual_eval_only.sh",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_layer0_len1024_50_20260331_xnorm_nativekv_breakdown_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_layer0_len1024_50_20260331_xnorm_nativekv_prewarm_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260331_xnorm_nativekv_prewarm_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_self_patch_sharded_streaming_update_20260402.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260401_a800_stream4_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260401_a800_stream4_v1/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260401_a800_stream4_shardedw4dropid_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260401_a800_stream4_shardedw4dropid_v1/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260402_a800_stream4_shardedw4dropid_cachepersist_rotcache_v1/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260402_a800_stream4_shardedw4dropid_cachepersist_rotcache_v1/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260402_a800_stream4_shardedw4dropid_prewarm_cachepersist_rotcache_v2/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_xnorm_nativekv_residual_mlp_all28_len1024_50_20260402_a800_stream4_shardedw4dropid_prewarm_cachepersist_rotcache_v2/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_self_true_patch_only_on_ser_20260402.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_true_patch_only_diag50_20260402/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_true_patch_only_diag50_20260402/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_self_baseline_reuse_patch_aligned_20260402.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_reuse_aligned_20260402_v2/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_reuse_aligned_20260402_v2/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_self_patchonly_alllayers_identity_sersharded_20260403.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_alllayers_identity_sersharded_20260403/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_alllayers_identity_sersharded_20260403/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_self_patchonly_alllayers_approx_subset12_e2_h2048_b2_20260403.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_alllayers_approx_subset12_e2_h2048_b2_20260403/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patchonly_alllayers_approx_subset12_e2_h2048_b2_20260403/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patch_xnorm_nativekv_residual_mlp_alllayers_identity_len1024_seed42_sharded_w4_dropid/meta.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_patch_xnorm_nativekv_residual_mlp_alllayers_identity_len1024_seed42_sharded_w4_dropid/manifest.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/reuse_route_reset_20260403.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_to_bf16_shared_patchonly_all28_subset12e1_50_20260403.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_shared_patchonly_all28_subset12e1_50_20260403/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_bf16_shared_patchonly_all28_subset12e1_50_20260403/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_to_gray_progress_20260403.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/qwen17_to_gray_shared_patchonly_all28_subset12e1_50_20260403.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_gray_shared_patchonly_all28_subset12e1_50_20260403/summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_to_gray_shared_patchonly_all28_subset12e1_50_20260403/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/core_code/run_ser_qwen17_to_gray_shared_patchonly_resume.sh",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistral_selfself_progress_20260404.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistral_repeat_stability_20260405.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistrallite_patchonly_breakdown_20260405.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistral7_self_strict_baseline_reuse_patchonly_all32_50_20260404/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_self_strict_baseline_reuse_patchonly_all32_50_20260404/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_self_strict_baseline_reuse_patchonly_all32_50_20260404_opt/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_self_strict_baseline_reuse_patchonly_all32_50_20260404_runtime3opt_v3/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_patchonly_full50_breakdown_20260405/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_strict_baseline_reuse_patchonly_20260405_breakdown/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_self_strict_baseline_reuse_patchonly_all32_50_20260405_isolated/per_mode_summary.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_self_strict_baseline_reuse_patchonly_all32_50_20260405_isolated/final_comparison.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistral_self_default_comparison_20260405.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistral_cross_pair_locked_routes_20260405.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistrallite_to_mistral7_fulldev_locked_routes_20260405.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistrallite_to_mistral7_patchonly_train50_20260405.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/transfer_route_lock_20260405.md",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_to_mistral7_cmrc_locked_20260405/strict_baseline_reuse_patchonly_all32_limit50_20260404/final_comparison.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistral7_to_mistrallite_cmrc_locked_20260405_gpu23/strict_baseline_reuse_patchonly_all32_limit50_20260404/final_comparison.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_to_mistral7_cmrc_locked_20260405_parallel/final_comparison.json",
+          "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_to_mistral7_patchonly_train50_20260405/per_mode_summary.json",
+    "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistrallite_to_mistral7_singlelayer_true_rerun_20260406.md",
+    "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_to_mistral7_singlelayer_true_rerun_20260406/summary.json",
+    "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistrallite_to_mistral7_multilayer_strictstop_step15_20260407.md",
+    "/Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_to_mistral7_multilayer_strictstop_step15_20260407/summary.json"
+  ],
+  "progressNotes": [
+          "Completed the first follow-up route run on March 30, 2026 using Route B (State -> direct KV) for Qwen3-1.7B -> Qwen3-1.7B-bf16 on CMRC with 200 samples.",
+          "Route B direct-KV produced F1 0.4951 and TTFT 54.22 ms, versus full-consumer F1 0.6945 and TTFT 45.42 ms in the same run. This corresponds to about 71.3% F1 retention at 1.194x TTFT versus full consumer.",
+          "Relative to the clean original semantic patch rerun, Route B improved the normalized TTFT ratio from 1.290x to 1.194x but did not rescue the claim because quality was slightly worse than the clean semantic patch and much worse than reuse_fallback.",
+          "Completed the second follow-up route run on March 30, 2026 using pure Route A (State -> State -> native Wk/Wv -> KV) for Qwen3-1.7B -> Qwen3-1.7B-bf16 on CMRC with 200 samples. The Route A reuse_patch path produced F1 0.0000 and TTFT 54.55 ms, versus full-consumer F1 0.6945 and TTFT 39.94 ms in the same run. This corresponds to 0.0% F1 retention at 1.366x TTFT versus full consumer, so Route A is clearly worse than both the clean original semantic patch rerun and Route B direct-KV on this pair.",
+          "Completed the third follow-up route run on March 30, 2026 using Route C (State -> State -> suffix recompute on B) for Qwen3-1.7B -> Qwen3-1.7B-bf16 on CMRC with 200 samples. Using the Route A state-only patch checkpoint plus a one-layer default short recompute in strict runtime, reuse_patch_recompute produced F1 0.6195 and TTFT 64.71 ms, versus full-consumer F1 0.6945 and TTFT 37.09 ms in the same run. This corresponds to 89.2% F1 retention at 1.745x TTFT versus full consumer. Route C therefore repaired the pure Route A quality collapse but still failed the claim and was dominated by same-run reuse_fallback, which was both faster and more accurate.",
+          "Completed an aligned first-token timing rerun for the Qwen3-1.7B -> Qwen3-1.7B-bf16 Route C setup on March 30, 2026. When full_consumer is measured with the same cache-based first-token path as transfer methods, full_consumer.decode_first_ms rises to 24.42 ms, matching the 23.2 to 23.4 ms range of the transfer modes. Under this aligned definition, full_consumer records F1 0.6904 at TTFT 69.33 ms, reuse_patch_recompute records F1 0.6195 at TTFT 69.83 ms, and reuse_fallback remains the strongest practical path at F1 0.6605 and TTFT 60.99 ms. This confirms that the earlier full_consumer decode-first advantage was a measurement-boundary artifact rather than a true per-token decode advantage.",
+          "Completed matched first-token timing reruns for the clean original semantic patch setup and the Route B direct-KV setup on March 30, 2026. Across clean original, Route B, and Route C, full_consumer.decode_first_ms moves from near-zero under the old definition to roughly 24.4 to 27.6 ms under the cache-based aligned definition, matching the 23.2 to 23.8 ms range of the transfer paths. This confirms that the earlier full_consumer first-token advantage was a measurement-boundary artifact. Under aligned TTFT, clean original reuse_patch reaches 65.52 ms with F1 0.5010, Route B reuse_patch reaches 55.61 ms with F1 0.4951, and Route C reuse_patch_recompute reaches 69.83 ms with F1 0.6195, while reuse_fallback remains the strongest practical path across all aligned reruns.",
+          "Set aligned TTFT as the default local measurement convention for the Qwen3-1.7B route-evaluation configs by enabling runtime_eval.align_full_consumer_first_decode in the Route A, Route B, and Route C config files. Future local reruns now compare full_consumer and transfer methods under the same cache-based first-decode boundary by default.",
+          "Completed strict no-fallback reruns for Qwen3-1.7B -> Qwen3-1.7B-bf16 on March 31, 2026 using a route with fallback_layers removed and eval configs with run_reuse_fallback=false. Route A reuse_patch reached F1 0.0000 at 33.76 ms TTFT versus same-run full_consumer 73.14 ms; Route B reuse_patch reached F1 0.0000 at 35.69 ms versus full_consumer 86.99 ms; Route C reuse_patch_recompute reached F1 0.0000 at 46.05 ms versus full_consumer 66.76 ms. This confirms that all three routes fail under the user's no-fallback definition on the runnable near-pair.",
+          "Completed fresh strict self-self all-reuse reruns on March 31, 2026 for Qwen3-1.7B -> Qwen3-1.7B with all 28 layers forced to reuse and no patch, fallback, or recompute. The grouped group_size=4 checkpoint again collapsed at F1 0.0019 on 50 CMRC samples, while the layerwise group_size=1 checkpoint reached F1 0.7372 versus same-run full_consumer 0.7375. Additional reconstruction diagnostics showed large grouped relative L2 errors and localized the implementation problem to the grouped shared-z reuse codec rather than route assembly. For current Qwen3-1.7B diagnostics, layerwise reuse is now the recommended default baseline.",
+          "Completed a batched layerwise reuse acceleration rerun on April 1, 2026 for the strict Qwen3-1.7B self-self all-reuse route. The new strict_runtime fast path batches all 28 single-layer reuse groups into one encode/decode path without changing payload size (41.32 MB, compression ratio 1.0). This preserved reuse_only F1 0.7372 while reducing TTFT from 65.48 ms to 40.67 ms and reducing encode_ms from 26.86 ms to 0.88 ms; same-run full_consumer was 45.05 ms. This localizes the previous reuse_only overhead to the serial per-layer encode/decode loop rather than to transfer, which remained about 1.73 ms.",
+          "Completed an aligned self-self layerwise reuse rerun on April 1, 2026 using a dedicated eval config with runtime_eval.align_full_consumer_first_decode=true. This moved full_consumer.decode_first_ms from the old unaligned 1.18 ms to 26.51 ms, close to reuse_only.decode_first_ms 25.26 ms, confirming that the earlier first-token gap was only a measurement-boundary artifact. The same rerun also exposed a remaining timing-accounting issue in the reuse path: transfer_ms is still a modeled bandwidth term, while rebuild_ms still includes the real z.to(consumer_device) cross-device copy inside the decoder-side reconstruction path, so transport is semantically double-counted until rebuild is split into copy time and pure decode/materialization time.",
+          "Completed a timing-accounting cleanup for the strict self-self layerwise reuse path on April 1, 2026. The runtime now records the real in-process z.to(consumer_device) movement as staging_copy_ms, keeps transfer_ms as the modeled bandwidth term, and treats rebuild_ms as pure consumer-side decode/materialization compute only. A corrected aligned rerun then reduced reuse_only TTFT from the old double-counted 34.51 ms to 29.68 ms, with encode_ms 0.42, transfer_ms 1.73, staging_copy_ms 6.34, rebuild_ms 2.02, and decode_first_ms 25.50. This confirms that the previous reuse_only accounting had been overstating TTFT by about 5 to 6 ms.",
+          "Changed the strict self-self layerwise reuse runtime again on April 1, 2026 so that transfer_ms now reports the actual measured local cross-device copy time rather than the modeled bandwidth term, while modeled_transfer_ms preserves the old paper-style reference. Under the user's default no-fallback policy, the latest rerun at /Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_layerwise_actualtransfer_nofallback_50_20260401/summary.json reports full_consumer at F1 0.7462 and TTFT 85.82 ms, versus reuse_only at F1 0.7372 and TTFT 39.78 ms with encode_ms 0.42, transfer_ms 6.46 actual, modeled_transfer_ms 1.73, rebuild_ms 7.17, and decode_first_ms 25.74. This is now the default headline artifact for the self-self layerwise reuse route.",
+          "Updated the local strict runtime on April 1, 2026 to simplify future latency accounting further. New summaries will no longer emit modeled_transfer_ms, and rebuild_ms will be split into rebuild_prep_ms, rebuild_decode_core_ms, rebuild_rerope_ms, and rebuild_materialize_ms so the remaining consumer-side bottleneck can be diagnosed directly on the next rerun. Historical artifacts are kept unchanged.",
+          "Ran a fresh self-self layerwise reuse_only rerun on April 1, 2026 after adding rebuild sub-term accounting. The new artifact at /Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/qwen17_self_allreuse_layerwise_rebuildsplit_50_20260401/summary.json reports reuse_only F1 0.7372 and TTFT 34.06 ms with encode_ms 0.42, transfer_ms 6.32, rebuild_ms 2.30, and decode_first_ms 25.03. The rebuild split shows prep 0.10 ms, decode core 0.41 ms, re_rope 1.05 ms, and materialize 0.74 ms, so the remaining rebuild bottleneck is mainly K re-rope plus final dtype/contiguous materialization rather than the actual z-to-KV matrix decode.",
+          "Switched the local qwen17 route wrappers to default to a layerwise reuse checkpoint path instead of the older grouped ckpt_reuse_seed42 baseline. Added Experiment/core_code/run_ser_qwen17_reuse_layerwise.sh as the explicit near-pair layerwise reuse training entrypoint, and made the Route A/B/C wrapper scripts fail fast if the layerwise checkpoint is missing rather than silently reusing the grouped baseline.",
+          "Completed fresh strict self-self patch diagnostics on March 31, 2026 for Qwen3-1.7B -> Qwen3-1.7B using the healthy layerwise reuse baseline plus a direct-KV patch checkpoint trained on all 28 layers. The strict all-patch route collapsed to F1 0.0049 at 62.38 ms TTFT versus same-run full_consumer 0.7375 at 43.67 ms and same-run reuse_only 0.7372 at 55.34 ms. Excluding layer 0 from the patch route raised F1 only to 0.0508 at 71.02 ms TTFT. Training logs showed a layer-0 patch_kv_error explosion to about 6.8e6, but the excl0 rerun confirms the patch path is broadly unhealthy rather than only suffering from a single-layer bug.",
+          "Completed a Qwen-specific self-self patch repair on March 31, 2026 under strict no-fallback, no-recompute settings. The earlier collapse was traced to two implementation bugs: pair capture silently truncated training prefixes to 256 tokens, and the Qwen direct-KV path fit and replayed the wrong key formulation. After fixing max-length precedence, adding fit mode direct_kv_knorm_v1, and switching runtime to consumer-native rotary, the all-28-layer patch rerun still failed at F1 0.0119 and TTFT 75.35 ms, but the excl0 route (patch layers 1..27) reached F1 0.7425, EM 0.44, and TTFT 88.10 ms on 50 CMRC samples. For current Qwen3-1.7B self-self experiments, the default patch setting is now direct_kv_knorm_v1 with consumer-native rotary and patch_layers 1..27; layer 0 remains the only unresolved blocker.",
+          "Completed a dedicated layer-0 control audit on March 31, 2026 to determine whether the remaining self-self patch failure came from runtime semantics or from the learned layer-0 translator itself. Tensor diagnostics showed xnorm_a.0 and xnorm_b.0 are exactly identical on all 50 samples, while consumer-native k_proj/v_proj plus k_norm and native rotary reconstruct the true layer-0 KV almost exactly (K rel-MSE about 5.59e-6, V rel-MSE about 4.79e-6). In contrast, the learned layer-0 direct_kv_knorm_v1 translator is catastrophically wrong (K rel-MSE about 1.49, V rel-MSE about 2.58e7). A strict route-level control with only layer 0 patched confirmed the same conclusion: oracle_kv_patchonly on layer 0 matched reuse_only at F1 0.7372, while learned reuse_patch on layer 0 alone collapsed to F1 0.0124. This localizes the remaining issue to the trained layer-0 Wk/Wv solution rather than to self-self capture semantics or runtime cache overwrite.",
+          "Completed a strict self-self nonlinear follow-up on March 31, 2026 by switching the patch translator to the existing xnorm_semantic_v1 PatchMLP route (state_target_space=xnorm, patch_apply_mode=overwrite, lambda_h=1, lambda_k=lambda_v=lambda_sem=0). Unlike the repaired direct_kv_knorm_v1 excl0 path, this nonlinear route failed completely: all-28-layer reuse_patch reached F1 0.0000 at 102.16 ms TTFT and the excl0 route also stayed at F1 0.0000 at 126.85 ms on 50 CMRC samples. Checkpoint metrics showed low hidden MSE only for layers 0..2, while deeper layers diverged sharply, so the current MLP formulation is not a viable rescue and the direct_kv_knorm_v1 excl0 path remains the only healthy self-self patch result.",
+          "Completed a stronger direct-KV residual nonlinear follow-up on March 31, 2026 for Qwen3-1.7B -> Qwen3-1.7B self-self. The new fit mode direct_kv_knorm_residual_mlp_v1 kept the repaired linear direct_kv_knorm_v1 path on all layers and added a 4096-wide 4-block residual MLP only on layer 0, which is the sole remaining broken layer. The first remote run exposed a preload device-placement bug (CPU xnorm_b projected with cuda:1 weights); that bug was fixed locally and on ser, and the v2 rerun completed successfully. The result was still negative: all-28-layer reuse_patch reached F1 0.0087 at 193.11 ms TTFT, the dedicated layer-0-only control reached F1 0.0113 at 177.57 ms while oracle_kv_patchonly remained healthy at F1 0.7372, and the excl0 route simply preserved the earlier healthy linear result at F1 0.7425 but slowed to 122.10 ms TTFT. Residual training barely reduced layer-0 error (base_k_rel_mse about 1.213e7 -> 1.199e7, base_v_rel_mse about 2.330e7 -> 2.184e7), so this stronger nonlinear route also fails to rescue layer 0 or improve the usable excl0 operating point.",
+          "Added a consolidated status memo on March 31, 2026 at /Users/weimingming/dr-claw/scd-new/Experiment/analysis/current_progress_and_blockers_20260331.md. The memo now summarizes the current evidence boundary across Qwen3.5 hybrid-cache blocking, runnable Qwen near-pair no-fallback failures, grouped self-self reuse invalidity, the repaired direct_kv_knorm_v1 excl0 self-self patch result, and the failure of both nonlinear follow-ups: the existing PatchMLP route and the stronger direct-KV residual MLP route.",
+          "Completed the route-2 self-self patch repair on March 31, 2026 by switching the broken layer-0 translator from direct KV regression to an identity-anchored hidden residual route, xnorm_nativekv_residual_mlp_v1. This parameterization predicts xb_hat = xa + delta_h only on layer 0 and then lets the consumer derive KV natively through k_proj/v_proj, k_norm, and native rotary. The result resolves the earlier layer-0 quality failure: the strict all-28-layer reuse_patch route reached F1 0.7700, EM 0.46, and TTFT 200.01 ms on 50 CMRC samples, while the dedicated layer-0-only control matched reuse_only and oracle_kv_patchonly at F1 0.7372. Saved training metrics show the selected layer-0 solution stays at identity initialization (base_h_rel_mse 0.0, base_k_rel_mse about 1.43e-11, base_v_rel_mse about 1.55e-11), which confirms the old collapse came from direct-KV parameterization rather than runtime cache overwrite. The remaining bottleneck is efficiency, not correctness: patch_infer_ms dominates TTFT because runtime still executes the residual MLP even though the chosen checkpoint is effectively identity.",
+          "Completed a runtime-only follow-up for the self-self route-2 patch repair on March 31, 2026 by adding an identity fast path for xnorm_nativekv_residual_mlp_v1 on ser. The runtime now checks whether the loaded layer-0 residual module has zero delta_h_head weights and bias and, if so, skips the residual MLP forward while still applying consumer-native k_proj/v_proj, k_norm, and native rotary. This preserves correctness and reduces latency on the routes that actually use layer 0: the strict all-28-layer reuse_patch run stayed at F1 0.7700 and EM 0.46 while TTFT fell from 200.01 ms to 167.74 ms and patch_infer_ms fell from 132.23 ms to 97.44 ms; the dedicated layer-0-only control stayed at F1 0.7372 while TTFT fell from 193.12 ms to 140.55 ms and patch_infer_ms fell from 127.91 ms to 74.26 ms. The remaining bottleneck is no longer the useless residual MLP itself but the consumer-native hidden-to-KV projection path.",
+          "Completed a layer-0-only profiling rerun on March 31, 2026 to break down the xnorm_nativekv_residual_mlp_v1 patch path after the identity-skip optimization. This diagnostic run inserted extra synchronization points and showed that the native projection stack itself is small on average: k_proj/v_proj about 0.20 ms, k_norm about 0.18 ms, and native rotary about 0.68 ms. The dominant measured cost in the profiled layer-0 patch path was the current per-sample identity check at about 73.92 ms, while residual forward remained 0.0 ms. So the next direct optimization target is to turn identity detection into a one-time load-time flag rather than a per-sample runtime inspection.",
+          "Completed a runtime prewarm follow-up on March 31, 2026 for the Qwen3-1.7B self-self xnorm_nativekv_residual_mlp_v1 layer-0 path. After moving runtime patch-module materialization outside timed evaluation while keeping the identity-skip fast path, the strict layer0-only reuse_patch route preserved F1 0.7372 and EM 0.38 but reduced TTFT from 140.55 ms to 73.67 ms and patch_infer_ms from 74.26 ms to 1.42 ms; oracle_kv_patchonly in the same run recorded 63.94 ms TTFT. Per-sample timing logs showed the earlier ~74 ms mean patch cost was dominated by a single first-sample warm-start event, not by steady-state native hidden-to-KV projection. The next direct question is whether the same prewarm treatment materially reduces TTFT on the all-28-layer hidden-residual route.",
+          "Completed a strict all-28-layer runtime prewarm rerun on March 31, 2026 for the Qwen3-1.7B self-self xnorm_nativekv_residual_mlp_v1 route. After moving runtime patch-module materialization outside timed evaluation, the all-28-layer reuse_patch route preserved F1 0.7700 and EM 0.46 while reducing TTFT from 167.74 ms to 99.14 ms and patch_infer_ms from 97.44 ms to 33.26 ms. Per-sample logs showed the earlier mean was strongly inflated by a first-sample warm-start spike; after prewarm, the max patch_infer dropped from 3596.80 ms to 40.06 ms. The remaining optimization target is now the steady-state all-28-layer patch path itself rather than warm-start artifacts.",
+          "Completed an all-layer C-style feasibility probe on April 1, 2026 for Qwen3-1.7B self-self. To test whether xnorm_nativekv_residual_mlp_v1 could simply replace the deeper linear patch path, a synthetic checkpoint was built with identity-initialized residual modules on all 28 selected layers. The probe failed before the first sample under the user's no-fallback setting: the synthetic checkpoint expanded from about 2.15 GB to about 47.45 GB on disk, and strict evaluation on a 24 GB 4090D consumer OOMed while loading the patch bundle, with the process already holding about 23.42 GiB on the consumer GPU. This establishes that the current all-layer residual parameterization is not deployment-feasible on the stable 4090D hardware and explains why the default patch split still uses layer-0 hidden residual plus deeper-layer linear direct_kv_knorm_v1.",
+          "Completed a true disk/sharded streaming retrofit on April 2, 2026 for the A800 all-layer self-self identity checkpoint. The new patch_ckpt_sharded_v1 format split the 45G monolithic checkpoint into seven 4-layer shard files and dropped all identity residual-module state, reducing on-disk size to about 449M. A strict 50-sample rerun on A800 preserved reuse_patch F1 at 0.7376 while reducing reuse_patch TTFT from 174703.75 ms to 18324.25 ms and reducing patch_infer_ms from 174674.07 ms to 18266.31 ms. The new breakdown localizes the remaining bottleneck to shard load/copy plus consumer-native rotary, with patch_shard_load_ms about 5749.33 ms, patch_shard_gpu_copy_ms about 4863.67 ms, and patch_rotary_ms about 3642.88 ms. The catastrophic monolithic-load bottleneck is therefore removed, but the route is still far from the paper target and needs another runtime pass on shard residency and rotary handling.",
+          "Completed the second April 2, 2026 runtime pass on the same A800 self-self identity route by adding persistent shard residency, cached native rotary buffers, and then prewarming sharded patch weights outside timed TTFT. This preserved strict reuse_patch F1 at 0.7376 while moving TTFT through 2002.10 ms with cache residency alone and down to 46.22 ms after prewarm, with patch_infer_ms falling to 19.44 ms and both patch_shard_load_ms and patch_shard_gpu_copy_ms reduced to 0.0 in the timed path. In the final run, same-run full_consumer measured 41.47 ms TTFT and reuse_only measured 116.19 ms, so the optimized reuse_patch route is now only about 4.75 ms slower than full_consumer and substantially faster than reuse_only without using fallback or recompute.",
+          "Completed a true `patch_only` runtime branch on April 2, 2026 and validated it on `ser` for the Qwen3-1.7B self-self all-28 patch route. This branch skips the old reuse scaffold and directly builds consumer KV cache from patch inputs. On 50 CMRC samples, `patch_only` preserved the same all-28 route quality as the earlier healthy `reuse_patch` run, reaching F1 0.7700 and EM 0.46, while TTFT fell from 167.74 ms to 61.04 ms and payload fell from 82.63 MB to 41.32 MB. This confirms that for a full-layer patch route with no fallback and no recompute, the reuse scaffold was redundant overhead rather than part of the effective method.",
+          "Completed a same-run aligned comparison on April 2, 2026 on `ser` for Qwen3-1.7B self-self over 50 CMRC samples with methods `baseline`, `reuse_only`, and strict `patch_only`. After enabling the cache-boundary-aligned first-token definition for the baseline, the aligned baseline measured F1 0.7462 and TTFT 62.38 ms with decode_first 25.22 ms, reuse_only measured F1 0.7372 and TTFT 32.38 ms with encode 0.41 ms, transfer 5.88 ms, rebuild 2.16 ms, and decode_first 23.92 ms, and patch_only measured F1 0.7700 and TTFT 56.25 ms with patch_infer 32.44 ms and decode_first 23.81 ms. This makes the current self-self result ordering clear: reuse_only is still the lowest-TTFT route, but patch_only is the only evaluated transfer route that improves quality over the aligned baseline while still beating the aligned baseline TTFT.",
+          "Completed a synthetic all-layer identity-residual `patch_only` probe on April 3, 2026 on `ser` for Qwen3-1.7B self-self over 50 CMRC samples. Instead of training a 45G all-layer residual checkpoint, the healthy mixed all-28 patch checkpoint was repackaged into a sharded `patch_ckpt_sharded_v1` bundle with `residual_layers=[0..27]`, all-layer identity hints, and dropped identity residual state, yielding a 448 MB shard bundle. After two runtime fixes on `ser`—prewarm skipping identity-hinted residual modules and deferring `direct_wk/direct_wv` access until the non-residual branch—the route ran successfully with F1 0.7462, EM 0.38, TTFT 48.20 ms, patch_infer 23.81 ms, patch_kproj_vproj 3.82 ms, patch_knorm 4.14 ms, patch_rotary 6.18 ms, and zero timed shard load/copy cost.",
+          "Completed a practical all-layer residual approximation on April 3, 2026 on `ser` for Qwen3-1.7B self-self by training `xnorm_nativekv_residual_mlp_v1` on all 28 layers with a smaller residual module (`hidden=2048`, `2` blocks) over a 12-chunk subset for 2 epochs, then reshaping it into a 7-shard runtime bundle. The trained checkpoint reached 6.56 GB and the strict `patch_only` run reached F1 0.7462, EM 0.38, and TTFT 70.52 ms, with patch_infer 38.98 ms, patch_kproj_vproj 4.14 ms, patch_knorm 4.45 ms, and patch_rotary 6.70 ms. Layer metrics show the learned solution collapsed exactly back to identity on every checked layer under self-self supervision, so this run demonstrates that on self-self pairs, forcing a non-identity all-layer residual parameterization only increases checkpoint and runtime cost without improving quality.",
+          "Closed the old reuse branch as a valid comparison family on April 3, 2026. Future route comparisons now use only the repaired clean reuse baseline; grouped/shared-z reuse and fallback-dependent reuse stories are archived as debugging history rather than active methods.",
+          "Completed a strict no-fallback shared all-layer patch-only rerun on April 3, 2026 for Qwen3-1.7B -> Qwen3-1.7B-bf16 over 50 CMRC samples. Baseline reached F1 0.7408 and TTFT 103.26 ms, reuse_only remained broken at F1 0.0055 and TTFT 152.41 ms, and shared patch-only reached F1 0.7457 and EM 0.38 at TTFT 112.05 ms. Relative to the earlier per-layer residual implementation on the same pair, patch-only preserved quality while reducing TTFT from 176.10 ms to 112.05 ms and patch_infer_ms from 147.61 ms to 86.06 ms.",
+          "Started the cleaned new-pair rerun on April 3, 2026 for Qwen3-1.7B -> Qwen3-1.7B-gray under the post-reset protocol (`baseline`, repaired `reuse_only`, and shared `patch_only`, no fallback). The corrected 200-sample capture, repaired layerwise reuse training, and layer profile all completed, and the fixed all-28 shared patch training was relaunched after rebuilding the subset packaging and forcing the explicit route.",
+          "Completed the cleaned Qwen3-1.7B -> Qwen3-1.7B-gray run on April 3, 2026 after SSH access to ser was restored. The remote patch checkpoint, sharded patch bundle, and strict 50-sample eval had all finished successfully. On the final no-fallback comparison, baseline reached F1 0.7358 and TTFT 140.18 ms, repaired reuse_only reached F1 0.7775 and TTFT 45.48 ms, and shared patch_only reached F1 0.7667 and TTFT 159.47 ms. This establishes that on the gray pair the repaired clean reuse route is the dominant method, while shared patch_only keeps reasonable quality but fails the TTFT target because patch_infer remains 132.93 ms, dominated by kproj/vproj 43.83 ms, knorm 41.47 ms, and rotary 43.15 ms.",
+          "Completed strict self-self locked-route comparisons on April 4, 2026 for two Mistral-family self pairs over 50 CMRC samples. For Mistral-7B-v0.1 -> Mistral-7B-v0.1, baseline reached F1 0.6185 / TTFT 129.91 ms, reuse-only reached F1 0.6486 / TTFT 35.01 ms, and patch-only reached F1 0.6385 / TTFT 47.10 ms. For MistralLite -> MistralLite under the original launch, baseline reached F1 0.7829 / TTFT 116.18 ms, reuse-only reached F1 0.7686 / TTFT 52.65 ms, and patch-only reached F1 0.7875 / TTFT 68.96 ms. These self-self runs show that the current strict reuse-only and patch-only routes are healthy on close Mistral-family pairs: reuse-only is the fastest route, while patch-only stays clearly below baseline TTFT and can match or slightly exceed baseline quality.",
+          "Started an optimized MistralLite self-self rerun on April 4, 2026 at /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_self_cmrc_locked_opt_20260404. This rerun reuses the finished pair/reuse/profile artifacts from the original MistralLite run, retrains only the shared patch-only checkpoint, and enables cached block-level consumer-native projection weights together with patch_batch_size=256, layer_block_size=8, and OMP/MKL/OPENBLAS thread settings of 32/32/32. The purpose is to measure whether the dominant patch-training serial/small-op overhead can be reduced without changing the locked baseline/reuse-only/patch-only method definitions.",
+          "Completed the optimized MistralLite self-self rerun on April 4, 2026. The result did not improve the target patch-only path: baseline moved from 116.18 ms to 114.94 ms TTFT at identical F1 0.7829, reuse-only moved from 52.65 ms to 42.48 ms at identical F1 0.7686, but patch-only regressed from 68.96 ms to 75.99 ms at identical F1 0.7875. The regression is concentrated in patch_infer_ms, especially patch_kproj_vproj_ms (35.76 -> 41.70 ms). So the current pair of training-side optimizations does not solve the serving-time patch bottleneck on MistralLite.",
+          "Completed a stable runtime-side three-optimization rerun on April 4, 2026 for MistralLite -> MistralLite at /disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323/runs/mistrallite_self_cmrc_locked_20260404/strict_baseline_reuse_patchonly_all32_limit50_20260404_runtime3opt_v3. This run enabled prepacked consumer-native projection weights, fused/grouped batched k_proj/v_proj, and a single-slot reusable CUDA Graph on the projection path. The new graph strategy eliminated the earlier shape-accumulation OOM and finished all 50 samples. End-to-end, baseline improved to 107.05 ms TTFT and reuse-only improved to 43.34 ms, but patch-only regressed from the healthy original 68.96 ms to 87.34 ms at identical F1 0.7875. The projection core itself became slightly faster (patch_kproj_vproj_ms 35.76 -> 34.12), so the remaining loss is downstream of the fused projection kernel, with patch_rotary_ms expanding from 1.63 ms to 22.43 ms.",
+          "After the failed runtime-side three-opt rerun, the strict shared native-KV patch runtime was switched back to the pre-optimization default on April 4, 2026. The new fastpath remains in code only as an explicit opt-in controlled by `runtime_shared_nativekv_fastpath`; when that flag is absent, the default patch-only route now uses the original healthy per-layer projection path.",
+          "Completed a sample-level diagnosis of the Mistral-7B versus MistralLite self-self speedup gap on April 4, 2026. The main finding is that the smaller MistralLite headline speedup is mostly a mean-statistic artifact caused by a few large runtime spikes rather than a stable per-sample slowdown. Reuse-only median TTFT is essentially unchanged between the two runs (31.71 vs 31.14 ms), and patch-only median TTFT is also close (26.09 vs 26.89 ms). The large mean gap is driven by a few outliers, including MistralLite reuse-only rebuild spikes of roughly 279.55, 276.42, and 195.07 ms and several MistralLite patch-only patch_infer spikes above 120 ms. These spikes show only weak correlation with prefix length and do not consistently hit the same qids across methods, so current evidence does not support treating the MistralLite/Mistral-7B difference as a clean architecture effect.",
+          "Completed a 3x repeat stability check on April 5, 2026 for the locked Mistral self-self routes and wrote /Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistral_repeat_stability_20260405.md. This repeat analysis tightened the earlier diagnosis: reuse-only on MistralLite is mostly a mean-artifact problem, with median speedup essentially unchanged from Mistral-7B (2.74x vs 2.76x), but patch-only on MistralLite shows a clear heavy-tail pattern in the three-method shared-process runs. Several qids such as DEV_2_QUERY_2 and DEV_7_QUERY_2 repeatedly trigger `patch_infer > 100 ms`, so the next debugging target shifted from generic speedup comparison to hot-qid-level patch_infer sub-breakdown.",
+          "Added sample-level timing breakdown logging plus qid subsetting to the strict eval CLI on April 5, 2026 and used it to run two MistralLite patch-only diagnostics on ser. The hot-qid-only rerun showed that, when isolated, the previously recurring hot qids all fall back to normal patch_infer except the first sample DEV_0_QUERY_0, which is dominated by patch_shard_load and patch_shard_gpu_copy. A further full-50 patch-only-only rerun reached F1 0.7829 and TTFT 39.66 ms, with only DEV_0_QUERY_0 remaining hot. This materially weakens the earlier hypothesis that MistralLite patch-only itself has a stable prompt-dependent slow path, and instead points toward shared-process multi-method evaluation interference as the main source of the old heavy tail.",
+          "Completed the decisive shared-process check on April 5, 2026 by rerunning baseline + reuse-only + patch-only together over the same 50 MistralLite samples under the new sample-level breakdown logging. The old heavy tail returned immediately in patch-only, with the hot set again including DEV_1_QUERY_3, DEV_2_QUERY_2, DEV_7_QUERY_1, DEV_7_QUERY_2, and DEV_11_QUERY_2. Relative to the isolated patch-only-only rerun, patch-only TTFT rose from 39.66 ms to 69.35 ms and patch_infer rose from 17.47 ms to 46.59 ms, while the dominant delta came almost entirely from patch_kproj_vproj_ms (6.15 -> 31.56 ms). Non-warmup hot samples such as DEV_13_QUERY_0 and DEV_7_QUERY_2 were dominated by patch_kproj_vproj explosions rather than shard load or rotary. This confirms that the main instability trigger is the shared-process evaluation environment hitting the consumer-native projection stage, not patch-only alone.",
+          "Completed the end-to-end isolated-wrapper validation on April 5, 2026 for the MistralLite locked self-self routes. The wrapper now runs full_consumer + reuse_only together, runs patch_only alone in a fresh process, then merges the outputs back into the canonical comparison directory. The merged local artifact /Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_self_strict_baseline_reuse_patchonly_all32_50_20260405_isolated confirms meta.isolated_patch_only=true and preserves the healthy isolated patch-only result: full_consumer F1 0.7829 / TTFT 122.95 ms, reuse_only F1 0.7686 / TTFT 48.70 ms, patch_only F1 0.7829 / TTFT 39.88 ms. This locks isolated-process patch-only as the default fair benchmark path for the Mistral route.",
+          "Added a consolidated default comparison note on April 5, 2026 at /Users/weimingming/dr-claw/scd-new/Experiment/analysis/mistral_self_default_comparison_20260405.md. This table aligns the current canonical three-method comparison across Mistral-7B and MistralLite, using the corrected isolated-process patch-only artifact for MistralLite. The consolidated view shows that MistralLite patch-only is now the strongest default operating point among the three canonical methods: it preserves baseline F1 exactly while reducing TTFT from 122.95 ms to 39.88 ms.",
+          "Completed the strict no-fallback cross-pair locked-route comparisons on April 5, 2026 for MistralLite -> Mistral-7B and Mistral-7B -> MistralLite, again using the canonical baseline/reuse-only/patch-only table with isolated-process patch-only merging. In both directions, reuse-only collapsed to near-zero F1 despite large TTFT gains: MistralLite -> Mistral-7B reached only F1 0.0117 at 39.68 ms versus baseline 0.6185 at 138.94 ms, and Mistral-7B -> MistralLite reached only F1 0.0212 at 35.43 ms versus baseline 0.7829 at 144.30 ms. Patch-only remained healthy in both directions: MistralLite -> Mistral-7B reached F1 0.8072 / TTFT 49.18 ms, while Mistral-7B -> MistralLite reached F1 0.7528 / TTFT 40.48 ms. This sharply narrows the current Mistral-family conclusion: cross-model reuse-only is not viable here, but strict patch-only is.",
+          "Reran the same Mistral cross-pair comparison on April 5, 2026 after tightening patch-only TTFT accounting so that patch-only now pays explicit encode, transfer, wall-clock patch compute, and decode-first cost. This superseded the earlier 49.18 ms and 40.48 ms patch-only headlines. Under the strict accounting, reuse-only still failed catastrophically in both directions at F1 0.0117 / TTFT 33.39 ms and F1 0.0212 / TTFT 33.60 ms. Patch-only remained semantically healthy, but its latency advantage narrowed sharply: MistralLite -> Mistral-7B moved to F1 0.8072 / TTFT 121.48 ms versus baseline 0.6185 / 127.86 ms, with patch_shard_load dominating patch_compute, while Mistral-7B -> MistralLite moved to F1 0.7528 / TTFT 75.94 ms versus baseline 0.7829 / 122.50 ms. The updated conclusion is that strict patch-only is still the only viable cross-model route on this Mistral branch, but its TTFT gain is direction-dependent rather than uniformly large.",
+          "Locked the current transfer-method defaults again on April 5, 2026 in /Users/weimingming/dr-claw/scd-new/Experiment/analysis/transfer_route_lock_20260405.md. This final lock keeps only baseline, repaired reuse-only, and current strict patch-only as valid default routes; fixes reuse-only TTFT accounting to encode plus measured transfer plus rebuild plus decode-first; fixes patch-only TTFT accounting to encode plus transfer plus wall-clock patch_infer plus decode-first; and makes isolated-process patch-only the default fair benchmark path on Mistral-family runs whenever shared-process evaluation perturbs patch projection time.",
+          "Completed the full-dev strict locked-route rerun on April 5, 2026 for MistralLite -> Mistral-7B over the full CMRC2018 dev split with 3219 QA pairs, using parallel baseline+reuse-only and isolated patch-only execution on ser. The merged local artifact /Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_to_mistral7_cmrc_locked_20260405_parallel/final_comparison.json records baseline F1 0.6911 / TTFT 133.39 ms, reuse-only F1 0.0109 / TTFT 38.49 ms, and patch-only F1 0.7898 / TTFT 67.37 ms. This makes the current MistralLite -> Mistral-7B full-dev reference unambiguous: reuse-only remains broken, while patch-only is the only healthy cross-model route and improves both quality and TTFT over baseline on this direction.",
+          "Completed a train-split online check on April 5, 2026 for the frozen MistralLite -> Mistral-7B strict patch-only route. A temporary train-only data root was created on ser so the evaluator loaded CMRC2018 train instead of dev, and the first 50 train QA pairs were evaluated online. The synced local artifact /Users/weimingming/dr-claw/scd-new/Experiment/analysis/remote_artifacts/mistrallite_to_mistral7_patchonly_train50_20260405/per_mode_summary.json records patch-only F1 0.6676, EM 0.2800, and TTFT 76.44 ms, with encode 0.98 ms, transfer 9.68 ms, patch_infer 39.45 ms, and decode_first 26.34 ms.",
+          "On April 6, 2026, reran the clean `MistralLite -> Mistral-7B` `train200` blockwise search on ser under two policies. The original `block_size=4` search accepted no reuse blocks and collapsed back to all-layer patch-only. Then the runtime was changed from full-layer reuse decode to route-aware selective reuse decode and a `block_size=1` rerun was launched using the same pair/reuse/profile/patch artifacts. The single-layer search accepted only layer `4`. The final strict replay reached hybrid `F1 0.6310 / EM 0.280 / TTFT 68.84 ms` versus patch-only `F1 0.6285 / EM 0.285 / TTFT 68.79 ms`. This establishes that single-layer selective reuse is technically feasible on the Mistral cross-pair branch, but it still does not produce a verified TTFT win over strict patch-only.",
+    "Later on April 6, 2026, completed a true full-rerun single-layer validation on ser under the new replay selector. The full rerun did finish the entire step-1 single-layer scan and replay-top3, but it had been launched with `--max-accepted-blocks 0`, so after the single-layer decision it incorrectly continued into multi-layer greedy step 2. That did not invalidate the single-layer result because the step-1 winner had already been determined before step 2 began. The valid step-1 and replay artifacts were therefore frozen and strictly finalized without repeating the identical 32-candidate scan. The true full-rerun first-pass top-3 were layers 12, 14, and 4; replay-top3 were 14, 12, and 4; all three replayed candidates passed the relative `F1 drop <= 5%` gate versus patch-only; and the selector chose layer 14 by `quality_threshold_ttft_first`. Fresh strict finalization then measured baseline `F1 0.5969 / EM 0.250 / TTFT 103.78 ms`, reuse-only `0.0141 / 0.000 / 33.41 ms`, patch-only `0.6285 / 0.285 / 54.01 ms`, and hybrid with reuse layer 14 at `0.6216 / 0.300 / 51.60 ms`. This supersedes the earlier lightweight selector-locked layer-10 conclusion: the true full-rerun single-layer result is layer 14, and it is a real latency-quality trade-off point rather than a Pareto win over patch-only.",
+    "On April 7, 2026, the multi-layer MistralLite -> Mistral-7B greedy search was re-audited under the user's actual strict-stop objective: replay must keep as many reuse layers as possible under relative `F1 drop <= 5%` versus patch-only, and search must stop immediately when replay has no quality-passing candidate. The searcher was fixed so empty replay quality-pass now records `no_replay_quality_pass` and stops, which invalidates the earlier over-extended route. Auditing the completed ser replay artifacts showed that step 14 still had 2 quality-passing replay candidates but step 15 had 0, so the valid strict-stop final route is the route at the start of step 15: reuse layers `[2, 3, 4, 8, 9, 10, 20, 22, 23, 24, 25, 26, 27, 30]`, patch layers `[0, 1, 5, 6, 7, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 28, 29, 31]`, with `fallback=[]` and `recompute=[]`. Fresh strict finalization measured baseline `F1 0.5969 / EM 0.250 / TTFT 103.62 ms`, reuse-only `0.0141 / 0.000 / 33.52 ms`, patch-only `0.6285 / 0.285 / 53.93 ms`, and hybrid `0.6072 / 0.250 / 46.18 ms`. This gives a valid no-fallback/no-recompute 14-layer reuse route that saves `7.75 ms` TTFT versus patch-only while staying inside the allowed `0.03143` absolute F1-drop budget."
+  ]
+      },
+      {
+        "id": 7,
+        "title": "Review experiment stage quality gate",
+        "description": "Check whether similar-pair selection, original-baseline results, and route-level follow-up analyses are complete enough to support the core experimental claim.",
+        "status": "done",
+        "stage": "experiment",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "taskType": "analysis",
+        "inputsNeeded": [
+          "pipeline.stages.experiment.quality_gate",
+          "sections.experiment.hypothesis_or_validation_goal",
+          "sections.experiment.evaluation_plan"
+        ],
+        "suggestedSkills": [
+          "inno-experiment-analysis"
+        ],
+        "sourceBlueprintId": "quality_gate:experiment",
+        "nextActionPrompt": "Task: Review experiment stage quality gate\nStage: experiment\nUser inputs: the project asks first whether the original SCD method reaches the paper's claim on similar Qwen3.5 fine-tuned pairs, and second whether route A/B/C recover the claim if the baseline misses.\nSuggested skills: inno-experiment-analysis\nQuality gate: at least one close pair must be evaluated with the original baseline, and any route-level follow-up must be evaluated on matched prefixes with TTFT plus quality metrics under matched semantics.\nStage guidance: Treat this as the go/no-go check before paper drafting. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-04-08T16:55:00Z",
+        "completionNotes": [
+          "Refined the deck outline from a generic Qwen3.5 route-A/B/C story into a rebuttal-safe strict Mistral narrative.",
+          "Locked the promotion storyline to the validated forward strict-stop artifact and explicitly excluded unresolved reverse-direction claims until same-contract revalidation.",
+          "Updated the corresponding slide prompts and local deck files under Promotion/slides."
+        ],
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slide-outline.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slide-generation-prompts.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.html",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.pdf"
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Refine the paper outline around the original baseline and improved routes",
+        "description": "Tighten the paper structure so that the narrative is centered on whether the original SCD method works on similar pairs and whether route A/B/C improve on that baseline.",
+        "status": "done",
+        "stage": "publication",
+        "priority": "medium",
+        "dependencies": [
+          7
+        ],
+        "taskType": "writing",
+        "inputsNeeded": [
+          "sections.publication.paper_outline",
+          "sections.experiment.evaluation_plan"
+        ],
+        "suggestedSkills": [
+          "inno-paper-writing"
+        ],
+        "sourceBlueprintId": "required_element:sections.publication.paper_outline",
+        "nextActionPrompt": "Task: Refine the paper outline around the original baseline and improved routes\nStage: publication\nUser inputs: target venue = ICML; story = test the original SCD method on similar Qwen3.5 fine-tuned pairs first, then compare route A/B/C if needed.\nSuggested skills: inno-paper-writing\nQuality gate: the paper outline must keep claims aligned with measured evidence and clearly separate original baseline results from route-level follow-up results.\nStage guidance: Shape the narrative before drafting prose. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-04-08T16:55:00Z",
+        "completionNotes": [
+          "Created a slide-by-slide narration file for the strict Mistral deck.",
+          "Aligned the speaker notes with the validated strict-stop forward result, appendix stop-rule explanation, and exclusion policy for unresolved reverse-direction results.",
+          "Documented the Gemini / nanobanana blocker separately so narration and deck work can proceed independently of image rendering."
+        ],
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.html",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.pdf",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/speaker-notes.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/gemini-render-blocker.md"
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Refine submission checklist for ICML",
+        "description": "Turn the current checklist into a concrete pre-submission contract covering evidence traceability, anonymization, and artifact readiness.",
+        "status": "pending",
+        "stage": "publication",
+        "priority": "medium",
+        "dependencies": [
+          7
+        ],
+        "taskType": "writing",
+        "inputsNeeded": [
+          "sections.publication.submission_checklist"
+        ],
+        "suggestedSkills": [
+          "inno-paper-writing",
+          "inno-reference-audit"
+        ],
+        "sourceBlueprintId": "required_element:sections.publication.submission_checklist",
+        "nextActionPrompt": "Task: Refine submission checklist for ICML\nStage: publication\nUser inputs: the paper is an ICML submission built on experiment evidence from the original SCD baseline on similar pairs and route A/B/C follow-up results.\nSuggested skills: inno-paper-writing, inno-reference-audit\nQuality gate: every figure, table, and claim must be traceable to logged outputs and the artifact plan must be compatible with anonymous submission.\nStage guidance: Make the checklist operational rather than aspirational. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T07:32:14Z"
+      },
+      {
+        "id": 10,
+        "title": "Expand the baseline-plus-improvement outline into draft sections",
+        "description": "Convert the current publication outline into draft sections with explicit claim-evidence links, caveats, and clear separation between the original baseline and route-level follow-up methods.",
+        "status": "pending",
+        "stage": "publication",
+        "priority": "medium",
+        "dependencies": [
+          7,
+          8
+        ],
+        "taskType": "writing",
+        "inputsNeeded": [
+          "sections.publication.paper_outline",
+          "sections.experiment.hypothesis_or_validation_goal",
+          "sections.experiment.evaluation_plan"
+        ],
+        "suggestedSkills": [
+          "inno-paper-writing"
+        ],
+        "sourceBlueprintId": "publication_outline_to_draft",
+        "nextActionPrompt": "Task: Expand the baseline-plus-improvement outline into draft sections\nStage: publication\nUser inputs: paper theme = whether the original SCD method reaches the paper's effect on similar Qwen3.5 pairs and whether route A/B/C improve on that baseline; target venue = ICML.\nSuggested skills: inno-paper-writing\nQuality gate: each section must make measured claims only and preserve the distinction between original baseline and follow-up methods.\nStage guidance: Draft around evidence, not around optimistic interpretation. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T07:32:14Z"
+      },
+      {
+        "id": 11,
+        "title": "Finalize figures, tables, and anonymous artifacts for ICML submission",
+        "description": "Prepare the visual package and artifact inventory needed for a credible ICML submission based on the original baseline and route-level follow-up results.",
+        "status": "pending",
+        "stage": "publication",
+        "priority": "medium",
+        "dependencies": [
+          7,
+          8,
+          9
+        ],
+        "taskType": "writing",
+        "inputsNeeded": [
+          "sections.publication.figures_tables_plan",
+          "sections.publication.artifact_plan"
+        ],
+        "suggestedSkills": [
+          "inno-paper-writing",
+          "inno-reference-audit"
+        ],
+        "sourceBlueprintId": "publication_finalize_figures_and_artifacts",
+        "nextActionPrompt": "Task: Finalize figures, tables, and anonymous artifacts for ICML submission\nStage: publication\nUser inputs: figures should show similar-pair screening, original baseline claim-gap analysis, and original-versus-route-A/B/C TTFT-quality trade-offs.\nSuggested skills: inno-paper-writing, inno-reference-audit\nQuality gate: visuals and artifacts must map directly to logged experiment outputs and remain submission-safe.\nStage guidance: Prepare materials that would survive reviewer scrutiny. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T07:32:14Z"
+      },
+      {
+        "id": 12,
+        "title": "Review publication stage quality gate",
+        "description": "Verify that the paper narrative, visual package, and anonymous artifacts are coherent, evidence-backed, and ready for submission work.",
+        "status": "pending",
+        "stage": "publication",
+        "priority": "medium",
+        "dependencies": [
+          8,
+          9,
+          10,
+          11
+        ],
+        "taskType": "writing",
+        "inputsNeeded": [
+          "pipeline.stages.publication.quality_gate",
+          "sections.publication.paper_outline",
+          "sections.publication.submission_checklist"
+        ],
+        "suggestedSkills": [
+          "inno-paper-writing",
+          "inno-reference-audit"
+        ],
+        "sourceBlueprintId": "quality_gate:publication",
+        "nextActionPrompt": "Task: Review publication stage quality gate\nStage: publication\nUser inputs: the paper aims to make a measured ICML case about the original SCD baseline on similar pairs and the route-level follow-up results if the baseline misses target.\nSuggested skills: inno-paper-writing, inno-reference-audit\nQuality gate: the narrative must make only measured claims and all visuals/artifacts must be traceable to experiment outputs.\nStage guidance: Treat this as the pre-draft audit before final polishing. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T07:32:14Z"
+      },
+      {
+        "id": 13,
+        "title": "Refine slide outline for the final SCD story",
+        "description": "Tighten the talk structure so that the eventual presentation communicates the original baseline question, the route-level follow-up methods, and the measured outcomes cleanly.",
+        "status": "done",
+        "stage": "promotion",
+        "priority": "low",
+        "dependencies": [
+          12
+        ],
+        "taskType": "scripting",
+        "inputsNeeded": [
+          "sections.promotion.slide_outline",
+          "sections.publication.paper_outline"
+        ],
+        "suggestedSkills": [
+          "making-academic-presentations"
+        ],
+        "sourceBlueprintId": "required_element:sections.promotion.slide_outline",
+        "nextActionPrompt": "Task: Refine slide outline for the final SCD story\nStage: promotion\nUser inputs: the talk should center on the original SCD baseline on similar Qwen3.5 fine-tuned pairs first, then route A/B/C as follow-up methods.\nSuggested skills: making-academic-presentations\nQuality gate: the slide outline must communicate the finding and caveats without overstating the original baseline or the follow-up routes.\nStage guidance: Build a talk structure that follows the final paper logic. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-04-08T16:55:00Z",
+        "completionNotes": [
+          "Refined the deck outline from a generic Qwen3.5 route-A/B/C story into a rebuttal-safe strict Mistral narrative.",
+          "Locked the promotion storyline to the validated forward strict-stop artifact and explicitly excluded unresolved reverse-direction claims until same-contract revalidation.",
+          "Updated the corresponding slide prompts and local deck files under Promotion/slides."
+        ],
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slide-outline.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slide-generation-prompts.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.html"
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Draft talk structure and narration for the SCD study",
+        "description": "Create slide-by-slide talking points and narration beats based on the final publication narrative.",
+        "status": "done",
+        "stage": "promotion",
+        "priority": "low",
+        "dependencies": [
+          13
+        ],
+        "taskType": "scripting",
+        "inputsNeeded": [
+          "sections.promotion.slide_outline",
+          "sections.publication.paper_outline"
+        ],
+        "suggestedSkills": [
+          "making-academic-presentations"
+        ],
+        "sourceBlueprintId": "promotion_draft_outline",
+        "nextActionPrompt": "Task: Draft talk structure and narration for the SCD study\nStage: promotion\nUser inputs: the story starts from the original SCD claim, tests it on similar Qwen3.5 fine-tuned pairs, and then evaluates route A/B/C only if the baseline misses target.\nSuggested skills: making-academic-presentations\nQuality gate: each slide should carry one measurable point and preserve the paper's caveats.\nStage guidance: Build the talk around evidence density, not around decorative framing. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-04-08T16:55:00Z",
+        "completionNotes": [
+          "Created a slide-by-slide narration file for the strict Mistral deck.",
+          "Aligned the speaker notes with the validated strict-stop forward result, appendix stop-rule explanation, and exclusion policy for unresolved reverse-direction results.",
+          "Documented the Gemini / nanobanana blocker separately so narration and deck work can proceed independently of image rendering."
+        ],
+        "artifacts": [
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/slides.html",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/speaker-notes.md",
+          "/Users/weimingming/dr-claw/scd-new/Promotion/slides/gemini-render-blocker.md"
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Prepare research homepage content and assets",
+        "description": "Organize the eventual project page around the paper, code, baseline-versus-route visuals, and reproduction instructions.",
+        "status": "pending",
+        "stage": "promotion",
+        "priority": "low",
+        "dependencies": [
+          13
+        ],
+        "taskType": "delivery",
+        "inputsNeeded": [
+          "sections.promotion.homepage_plan",
+          "sections.publication.artifact_plan"
+        ],
+        "suggestedSkills": [
+          "making-academic-presentations"
+        ],
+        "sourceBlueprintId": "promotion_prepare_homepage",
+        "nextActionPrompt": "Task: Prepare research homepage content and assets\nStage: promotion\nUser inputs: homepage should summarize the similar-pair original-baseline question, the main empirical finding, and the route-level follow-up results if applicable.\nSuggested skills: making-academic-presentations\nQuality gate: homepage content must stay consistent with the final paper and artifact package.\nStage guidance: Plan the page so that it can be assembled quickly after submission or acceptance. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T07:32:14Z"
+      },
+      {
+        "id": 16,
+        "title": "Generate slide visuals from the final paper narrative",
+        "description": "Prepare the eventual slide visuals from figures, tables, and original-versus-route-comparison plots once the publication package is stable.",
+        "status": "pending",
+        "stage": "promotion",
+        "priority": "low",
+        "dependencies": [
+          11,
+          14
+        ],
+        "taskType": "rendering",
+        "inputsNeeded": [
+          "sections.promotion.deck_style",
+          "sections.publication.figures_tables_plan"
+        ],
+        "suggestedSkills": [
+          "making-academic-presentations"
+        ],
+        "sourceBlueprintId": "promotion_generate_slides",
+        "nextActionPrompt": "Task: Generate slide visuals from the final paper narrative\nStage: promotion\nUser inputs: use the final pair-screening, original-baseline, and route-A/B/C visuals from the ICML paper package.\nSuggested skills: making-academic-presentations\nQuality gate: slide visuals must remain consistent with paper figures and method color semantics.\nStage guidance: Only render once the publication visuals are stable enough to reuse. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T07:32:14Z"
+      },
+      {
+        "id": 17,
+        "title": "Generate narration assets for the final talk",
+        "description": "Prepare narration-ready scripts and optional audio assets for the presentation or video version of the project.",
+        "status": "pending",
+        "stage": "promotion",
+        "priority": "low",
+        "dependencies": [
+          14
+        ],
+        "taskType": "narration",
+        "inputsNeeded": [
+          "sections.promotion.tts_config",
+          "sections.promotion.video_assembly_plan"
+        ],
+        "suggestedSkills": [
+          "making-academic-presentations"
+        ],
+        "sourceBlueprintId": "promotion_generate_narration",
+        "nextActionPrompt": "Task: Generate narration assets for the final talk\nStage: promotion\nUser inputs: narration should faithfully follow the final SCD story, starting with the original baseline on similar pairs and then the route-level follow-up findings.\nSuggested skills: making-academic-presentations\nQuality gate: narration must preserve measured claims and align with the final slide order.\nStage guidance: Treat narration as a packaging step, not a place to add new claims. Please produce a concrete next-step plan and execution output. If user inputs are provided, polish and make them concrete, then write updates back to .pipeline/docs/research_brief.json.",
+        "createdAt": "2026-03-28T07:32:14Z",
+        "updatedAt": "2026-03-28T07:32:14Z"
+      }
+    ]
+  }
+}
