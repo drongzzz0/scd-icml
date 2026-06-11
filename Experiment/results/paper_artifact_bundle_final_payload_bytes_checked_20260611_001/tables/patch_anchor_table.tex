@@ -1,0 +1,16 @@
+% Patch-only Anchor Table
+\begin{tabular}{lllllll}
+\toprule
+dataset & method & f1 & em & ppl & ttft\_ms & payload\_mb \\
+\midrule
+cmrc2018 & full\_consumer & 0.657307 & 0.365000 & 1.767002 & 100.200 & 0.000 \\
+cmrc2018 & patch\_only & 0.774237 & 0.515000 & 1.724841 & 52.322 & 147.088 \\
+cmrc2018 & reuse\_only & 0.012848 & 0.000000 & 2345.066949 & 36.515 & 73.544 \\
+hotpotqa\_compressed & full\_consumer & 0.330552 & 0.250000 & 5.032427 & 78.942 & 0.000 \\
+hotpotqa\_compressed & patch\_only & 0.372672 & 0.305000 & 5.478172 & 44.774 & 86.448 \\
+hotpotqa\_compressed & reuse\_only & 0.007903 & 0.000000 & 19301.779987 & 28.555 & 43.224 \\
+wikitext2 & full\_consumer & 0.229962 & 0.000000 & 7.584029 & 62.210 & 0.000 \\
+wikitext2 & patch\_only & 0.228705 & 0.000000 & 7.913751 & 40.655 & 32.453 \\
+wikitext2 & reuse\_only & 0.144106 & 0.000000 & 13.631409 & 24.681 & 16.226 \\
+\bottomrule
+\end{tabular}

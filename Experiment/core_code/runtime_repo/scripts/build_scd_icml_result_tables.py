@@ -44,11 +44,25 @@ def maybe_float(value: Any) -> float | None:
         return None
 
 
+def maybe_int(value: Any) -> int | None:
+    number = maybe_float(value)
+    if number is None:
+        return None
+    return int(number)
+
+
 def fmt(value: Any, digits: int = 6) -> str:
     number = maybe_float(value)
     if number is None:
         return ""
     return f"{number:.{digits}f}"
+
+
+def payload_bytes_from_mb(payload_mb: Any) -> str:
+    payload = maybe_float(payload_mb)
+    if payload is None:
+        return ""
+    return str(int(round(payload * 1024.0 * 1024.0)))
 
 
 def safe_ratio(num: Any, den: Any) -> float | None:
@@ -240,6 +254,61 @@ def ttft_reduction_pct(full_ttft: Any, candidate_ttft: Any) -> str:
     return f"{(full - candidate) / full * 100.0:.3f}"
 
 
+def infer_layer_totals(route_rows: list[dict[str, Any]]) -> dict[str, int]:
+    totals: dict[str, int] = {}
+    counts: dict[tuple[str, int], int] = {}
+    for row in route_rows:
+        dataset = str(row.get("dataset"))
+        patch_n = maybe_int(row.get("patch_n"))
+        reuse_n = maybe_int(row.get("reuse_n"))
+        if patch_n is None or reuse_n is None:
+            continue
+        total = patch_n + reuse_n
+        if total <= 0:
+            continue
+        key = (dataset, total)
+        counts[key] = counts.get(key, 0) + 1
+    for (dataset, total), _ in sorted(counts.items(), key=lambda item: (-item[1], item[0][1])):
+        totals.setdefault(dataset, total)
+    return totals
+
+
+def build_payload_anchors(
+    patch_rows: list[dict[str, Any]],
+    route_rows: list[dict[str, Any]],
+) -> dict[str, dict[str, float]]:
+    layer_totals = infer_layer_totals(route_rows)
+    anchors: dict[str, dict[str, float]] = {}
+    for row in patch_rows:
+        dataset = str(row.get("dataset"))
+        method = str(row.get("method"))
+        payload = maybe_float(row.get("payload_mb"))
+        if payload is None or payload < 0.0:
+            continue
+        anchors.setdefault(dataset, {})[method] = payload
+    for dataset, anchor in anchors.items():
+        total_layers = layer_totals.get(dataset)
+        if not total_layers:
+            continue
+        if "patch_only" in anchor:
+            anchor["patch_per_layer_mb"] = anchor["patch_only"] / total_layers
+        if "reuse_only" in anchor:
+            anchor["reuse_per_layer_mb"] = anchor["reuse_only"] / total_layers
+    return anchors
+
+
+def estimate_mixed_payload_mb(row: dict[str, Any], anchors: dict[str, dict[str, float]]) -> float | None:
+    dataset = str(row.get("dataset"))
+    patch_n = maybe_int(row.get("patch_n"))
+    reuse_n = maybe_int(row.get("reuse_n"))
+    anchor = anchors.get(dataset, {})
+    patch_per_layer = anchor.get("patch_per_layer_mb")
+    reuse_per_layer = anchor.get("reuse_per_layer_mb")
+    if patch_n is None or reuse_n is None or patch_per_layer is None or reuse_per_layer is None:
+        return None
+    return patch_n * patch_per_layer + reuse_n * reuse_per_layer
+
+
 def build_latency_quality_rows(
     patch_rows: list[dict[str, Any]],
     route_rows: list[dict[str, Any]],
@@ -248,6 +317,7 @@ def build_latency_quality_rows(
     for row in patch_rows:
         if row.get("method") == "full_consumer":
             full_by_dataset[str(row.get("dataset"))] = row
+    payload_anchors = build_payload_anchors(patch_rows, route_rows)
 
     rows: list[dict[str, Any]] = []
     for row in patch_rows:
@@ -273,6 +343,8 @@ def build_latency_quality_rows(
                 "full_ttft_ms": full.get("ttft_ms", ""),
                 "ttft_reduction_pct": ttft_reduction_pct(full.get("ttft_ms", ""), row.get("ttft_ms", "")),
                 "payload_mb": row.get("payload_mb", ""),
+                "payload_bytes": row.get("payload_bytes", payload_bytes_from_mb(row.get("payload_mb", ""))),
+                "payload_source": "direct_anchor" if row.get("payload_mb", "") != "" else "",
                 "patch_n": "",
                 "reuse_n": "",
                 "source": row.get("source", ""),
@@ -283,6 +355,8 @@ def build_latency_quality_rows(
         metric = quality_metric_for_dataset(dataset)
         quality = row.get("scd_ppl") if metric == "ppl" else row.get("scd_f1")
         full_quality = row.get("full_ppl") if metric == "ppl" else row.get("full_f1")
+        payload_mb = estimate_mixed_payload_mb(row, payload_anchors)
+        payload_mb_text = fmt(payload_mb, 3)
         rows.append(
             {
                 "dataset": dataset,
@@ -303,7 +377,9 @@ def build_latency_quality_rows(
                 "ttft_ms": row.get("scd_ttft_ms", ""),
                 "full_ttft_ms": row.get("full_ttft_ms", ""),
                 "ttft_reduction_pct": ttft_reduction_pct(row.get("full_ttft_ms", ""), row.get("scd_ttft_ms", "")),
-                "payload_mb": "",
+                "payload_mb": payload_mb_text,
+                "payload_bytes": payload_bytes_from_mb(payload_mb_text),
+                "payload_source": "estimated_from_patch_reuse_anchor_per_layer" if payload_mb is not None else "",
                 "patch_n": row.get("patch_n", ""),
                 "reuse_n": row.get("reuse_n", ""),
                 "source": row.get("source", ""),
@@ -329,6 +405,8 @@ def build_ttft_breakdown_rows(latency_rows: list[dict[str, Any]]) -> list[dict[s
                 "ttft_reduction_ms": reduction_ms,
                 "ttft_reduction_pct": row.get("ttft_reduction_pct", ""),
                 "payload_mb": row.get("payload_mb", ""),
+                "payload_bytes": row.get("payload_bytes", ""),
+                "payload_source": row.get("payload_source", ""),
                 "patch_n": row.get("patch_n", ""),
                 "reuse_n": row.get("reuse_n", ""),
                 "source": row.get("source", ""),
@@ -371,6 +449,8 @@ def build_bandwidth_sensitivity_rows(
                     "quality_metric": row.get("quality_metric", ""),
                     "quality_value": row.get("quality_value", ""),
                     "payload_mb": f"{payload:.3f}",
+                    "payload_bytes": payload_bytes_from_mb(payload),
+                    "payload_source": row.get("payload_source", ""),
                     "bandwidth_gbps": f"{bandwidth:.3f}",
                     "reference_bandwidth_gbps": f"{reference_bandwidth_gbps:.3f}",
                     "reference_ttft_ms": row.get("ttft_ms", ""),
@@ -446,7 +526,7 @@ def build_svg_bandwidth_sensitivity(rows: list[dict[str, Any]]) -> str:
         f'<text x="{left + plot_w}" y="{top + plot_h + 19}" text-anchor="middle" font-family="Arial" font-size="11">{x_max:.1f}</text>',
         f'<text x="{left - 10}" y="{top + 4}" text-anchor="end" font-family="Arial" font-size="11">{y_max:.1f}</text>',
         f'<text x="{left - 10}" y="{top + plot_h + 4}" text-anchor="end" font-family="Arial" font-size="11">{y_min:.1f}</text>',
-        f'<text x="{left + 8}" y="{top + 18}" font-family="Arial" font-size="11" fill="#555">Rows without payload_mb are excluded.</text>',
+        f'<text x="{left + 8}" y="{top + 18}" font-family="Arial" font-size="11" fill="#555">Mixed-route payloads use same-dataset anchor bytes per layer.</text>',
     ]
     legend_y = top + 38
     for index, (key, items) in enumerate(sorted(series.items())):
@@ -481,6 +561,8 @@ def write_bandwidth_sensitivity_artifacts(out_dir: Path, rows: list[dict[str, An
         "quality_metric",
         "quality_value",
         "payload_mb",
+        "payload_bytes",
+        "payload_source",
         "bandwidth_gbps",
         "reference_bandwidth_gbps",
         "reference_ttft_ms",
@@ -587,6 +669,8 @@ def write_latency_quality_artifacts(out_dir: Path, rows: list[dict[str, Any]]) -
         "full_ttft_ms",
         "ttft_reduction_pct",
         "payload_mb",
+        "payload_bytes",
+        "payload_source",
         "patch_n",
         "reuse_n",
         "source",
@@ -615,7 +699,7 @@ def collect_patch_anchor(paths: list[str]) -> list[dict[str, Any]]:
                 continue
             rows.append(
                 {
-                    "source": str(path),
+                    "source": str(item.get("source") or path),
                     "dataset": item.get("dataset", ""),
                     "method": item.get("method", ""),
                     "f1": fmt(item.get("f1")),
@@ -624,6 +708,7 @@ def collect_patch_anchor(paths: list[str]) -> list[dict[str, Any]]:
                     "ppl": fmt(item.get("ppl", item.get("avg_ppl"))),
                     "ttft_ms": fmt(item.get("ttft_ms"), 3),
                     "payload_mb": fmt(item.get("payload_mb"), 3),
+                    "payload_bytes": payload_bytes_from_mb(item.get("payload_mb")),
                 }
             )
     rows.sort(key=lambda row: (str(row["dataset"]), str(row["method"]), str(row["source"])))
@@ -633,8 +718,8 @@ def collect_patch_anchor(paths: list[str]) -> list[dict[str, Any]]:
 def route_counts(row: dict[str, Any]) -> tuple[int | None, int | None]:
     patch_layers = row.get("patch_layers")
     reuse_layers = row.get("reuse_layers")
-    patch_n = len(patch_layers) if isinstance(patch_layers, list) else None
-    reuse_n = len(reuse_layers) if isinstance(reuse_layers, list) else None
+    patch_n = len(patch_layers) if isinstance(patch_layers, list) else maybe_int(row.get("patch_n"))
+    reuse_n = len(reuse_layers) if isinstance(reuse_layers, list) else maybe_int(row.get("reuse_n"))
     return patch_n, reuse_n
 
 
@@ -663,7 +748,7 @@ def collect_route_metrics(paths: list[str]) -> list[dict[str, Any]]:
             ppl_rel = safe_ratio(item.get("ppl"), full_ppl)
             rows.append(
                 {
-                    "source": str(path),
+                    "source": str(item.get("source") or path),
                     "dataset": dataset,
                     "route_name": item.get("route_name", ""),
                     "status": item.get("status", ""),
@@ -745,7 +830,7 @@ def main() -> None:
     ttft_rows = build_ttft_breakdown_rows(latency_rows)
     bandwidth_rows = build_bandwidth_sensitivity_rows(latency_rows, [10.0, 25.0, 50.0, 100.0, 200.0])
 
-    patch_fields = ["dataset", "method", "f1", "em", "avg_nll", "ppl", "ttft_ms", "payload_mb", "source"]
+    patch_fields = ["dataset", "method", "f1", "em", "avg_nll", "ppl", "ttft_ms", "payload_mb", "payload_bytes", "source"]
     route_fields = [
         "dataset",
         "route_name",
@@ -810,6 +895,8 @@ def main() -> None:
         "ttft_reduction_ms",
         "ttft_reduction_pct",
         "payload_mb",
+        "payload_bytes",
+        "payload_source",
         "patch_n",
         "reuse_n",
         "source",

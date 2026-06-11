@@ -1,0 +1,30 @@
+% Mixed Reuse+Patch Boundary Table
+\begin{tabular}{llllllllllll}
+\toprule
+dataset & route\_name & patch\_n & reuse\_n & full\_f1 & scd\_f1 & f1\_retention & full\_em & scd\_em & scd\_ppl & ppl\_rel\_increase\_pct & scd\_ttft\_ms \\
+\midrule
+hotpotqa\_compressed & conditional\_reuse\_reuse04\_patch28 & 28 & 4 & 0.330552 & 0.377345 & 1.141562 & 0.250000 & 0.290000 & 6.765110 & 34.430 & 43.264 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse08\_patch24 & 24 & 8 & 0.330552 & 0.305450 & 0.924060 & 0.250000 & 0.235000 & 7.407202 & 47.189 & 41.262 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse12\_patch20 & 20 & 12 & 0.330552 & 0.250531 & 0.757918 & 0.250000 & 0.200000 & 8.018260 & 59.332 & 39.294 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse09\_patch23 & 23 & 9 & 0.330552 & 0.249338 & 0.754307 & 0.250000 & 0.190000 & 7.816221 & 55.317 & 40.444 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse10\_patch22 & 22 & 10 & 0.330552 & 0.250413 & 0.757560 & 0.250000 & 0.200000 & 7.952435 & 58.024 & 40.107 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse11\_patch21 & 21 & 11 & 0.330552 & 0.242163 & 0.732602 & 0.250000 & 0.190000 & 7.946812 & 57.912 & 39.774 \\
+wikitext2 & conditional\_reuse\_reuse16\_patch16 & 16 & 16 & 0.229962 & 0.212141 & 0.922505 & 0.000000 & 0.000000 & 8.236739 & 8.606 & 32.010 \\
+wikitext2 & conditional\_reuse\_reuse19\_patch13 & 13 & 19 & 0.229962 & 0.207521 & 0.902414 & 0.000000 & 0.000000 & 8.335916 & 9.914 & 30.631 \\
+wikitext2 & conditional\_reuse\_reuse20\_patch12 & 12 & 20 & 0.229962 & 0.199536 & 0.867690 & 0.000000 & 0.000000 & 8.329555 & 9.830 & 30.498 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse04\_patch28 & 28 & 4 & 0.291855 & 0.328284 & 1.124820 & 0.206077 & 0.242944 & 6.995797 & 41.516 & 43.317 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse05\_patch27 & 27 & 5 & 0.291855 & 0.322962 & 1.106585 & 0.206077 & 0.237812 & 7.273978 & 47.143 & 43.862 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse06\_patch26 & 26 & 6 & 0.291855 & 0.304212 & 1.042341 & 0.206077 & 0.221742 & 7.881607 & 59.434 & 43.775 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse07\_patch25 & 25 & 7 & 0.291855 & 0.257260 & 0.881465 & 0.206077 & 0.181769 & 8.921489 & 80.470 & 41.775 \\
+hotpotqa\_compressed & conditional\_reuse\_reuse08\_patch24 & 24 & 8 & 0.291855 & 0.242740 & 0.831715 & 0.206077 & 0.169885 & 7.866201 & 59.123 & 41.515 \\
+cmrc2018 & conditional\_reuse\_reuse08\_patch24 & 24 & 8 & 0.657307 & 0.668018 & 1.016295 & 0.365000 & 0.360000 & 1.969394 & 11.454 & 43.053 \\
+cmrc2018 & conditional\_reuse\_reuse12\_patch20 & 20 & 12 & 0.657307 & 0.637175 & 0.969372 & 0.365000 & 0.355000 & 2.137821 & 20.986 & 42.009 \\
+cmrc2018 & conditional\_reuse\_reuse16\_patch16 & 16 & 16 & 0.657307 & 0.697745 & 1.061521 & 0.365000 & 0.425000 & 2.176618 & 23.181 & 43.042 \\
+cmrc2018 & conditional\_reuse\_reuse19\_patch13 & 13 & 19 & 0.657307 & 0.636821 & 0.968833 & 0.365000 & 0.340000 & 2.464036 & 39.447 & 37.931 \\
+cmrc2018 & conditional\_reuse\_reuse20\_patch12 & 12 & 20 & 0.657307 & 0.623676 & 0.948834 & 0.365000 & 0.360000 & 2.694328 & 52.480 & 37.312 \\
+cmrc2018 & conditional\_reuse\_reuse21\_patch11 & 11 & 21 & 0.657307 & 0.571623 & 0.869644 & 0.365000 & 0.335000 & 3.556393 & 101.267 & 40.572 \\
+cmrc2018 & conditional\_reuse\_reuse22\_patch10 & 10 & 22 & 0.657307 & 0.504905 & 0.768141 & 0.365000 & 0.245000 & 6.886768 & 289.743 & 36.732 \\
+cmrc2018 & conditional\_reuse\_reuse23\_patch09 & 9 & 23 & 0.657307 & 0.485349 & 0.738389 & 0.365000 & 0.250000 & 7.793904 & 341.081 & 39.598 \\
+cmrc2018 & conditional\_reuse\_reuse24\_patch08 & 8 & 24 & 0.657307 & 0.387813 & 0.590003 & 0.365000 & 0.185000 & 16.259786 & 820.191 & 36.317 \\
+\bottomrule
+\end{tabular}

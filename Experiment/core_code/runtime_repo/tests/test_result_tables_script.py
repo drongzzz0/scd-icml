@@ -27,6 +27,16 @@ class ResultTablesScriptTest(unittest.TestCase):
                             "ppl": 1.6,
                             "ttft_ms": 42.0,
                             "payload_mb": 12.0,
+                        },
+                        {
+                            "dataset": "cmrc2018",
+                            "method": "reuse_only",
+                            "f1": 0.66,
+                            "em": 0.36,
+                            "avg_nll": 0.7,
+                            "ppl": 2.0,
+                            "ttft_ms": 30.0,
+                            "payload_mb": 6.0,
                         }
                     ]
                 ),
@@ -83,8 +93,13 @@ class ResultTablesScriptTest(unittest.TestCase):
             self.assertIn(r"reuse\_01\_patch\_31", ttft_tex)
             self.assertTrue((out_dir / "latency_quality_pareto.csv").is_file())
             self.assertTrue((out_dir / "latency_quality_pareto_cmrc2018.svg").is_file())
+            latency_csv = (out_dir / "latency_quality_pareto.csv").read_text(encoding="utf-8")
+            self.assertIn("payload_bytes", latency_csv)
+            self.assertIn("estimated_from_patch_reuse_anchor_per_layer", latency_csv)
             bandwidth_csv = (out_dir / "bandwidth_sensitivity.csv").read_text(encoding="utf-8")
             self.assertIn("10.000", bandwidth_csv)
+            self.assertIn("payload_bytes", bandwidth_csv)
+            self.assertIn("reuse_01_patch_31", bandwidth_csv)
             self.assertTrue((out_dir / "bandwidth_sensitivity.svg").is_file())
             manifest = json.loads((out_dir / "scd_icml_result_tables_manifest.json").read_text(encoding="utf-8"))
             self.assertIn("mixed_route_boundary_table.tex", manifest["outputs"])

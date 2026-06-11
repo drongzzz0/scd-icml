@@ -1,0 +1,39 @@
+% TTFT Breakdown Table
+\begin{tabular}{llllllll}
+\toprule
+dataset & source\_type & method\_or\_route & full\_ttft\_ms & candidate\_ttft\_ms & ttft\_reduction\_pct & patch\_n & reuse\_n \\
+\midrule
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse08\_patch24 & 100.367 & 43.053 & 57.104 & 24 & 8 \\
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse12\_patch20 & 101.591 & 42.009 & 58.649 & 20 & 12 \\
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse16\_patch16 & 100.654 & 43.042 & 57.238 & 16 & 16 \\
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse19\_patch13 & 100.528 & 37.931 & 62.268 & 13 & 19 \\
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse20\_patch12 & 100.384 & 37.312 & 62.831 & 12 & 20 \\
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse21\_patch11 & 100.857 & 40.572 & 59.773 & 11 & 21 \\
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse22\_patch10 & 100.223 & 36.732 & 63.350 & 10 & 22 \\
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse23\_patch09 & 100.224 & 39.598 & 60.491 & 9 & 23 \\
+cmrc2018 & mixed\_route & conditional\_reuse\_reuse24\_patch08 & 101.065 & 36.317 & 64.066 & 8 & 24 \\
+cmrc2018 & patch\_anchor & full\_consumer & 100.200 & 100.200 & 0.000 &  &  \\
+cmrc2018 & patch\_anchor & patch\_only & 100.200 & 52.322 & 47.782 &  &  \\
+cmrc2018 & patch\_anchor & reuse\_only & 100.200 & 36.515 & 63.558 &  &  \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse04\_patch28 & 79.499 & 43.264 & 45.579 & 28 & 4 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse04\_patch28 & 79.568 & 43.317 & 45.560 & 28 & 4 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse05\_patch27 & 79.156 & 43.862 & 44.588 & 27 & 5 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse06\_patch26 & 79.913 & 43.775 & 45.222 & 26 & 6 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse07\_patch25 & 79.161 & 41.775 & 47.228 & 25 & 7 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse08\_patch24 & 80.066 & 41.262 & 48.465 & 24 & 8 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse08\_patch24 & 80.349 & 41.515 & 48.332 & 24 & 8 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse09\_patch23 & 79.369 & 40.444 & 49.043 & 23 & 9 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse10\_patch22 & 80.400 & 40.107 & 50.116 & 22 & 10 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse11\_patch21 & 80.061 & 39.774 & 50.320 & 21 & 11 \\
+hotpotqa\_compressed & mixed\_route & conditional\_reuse\_reuse12\_patch20 & 80.165 & 39.294 & 50.984 & 20 & 12 \\
+hotpotqa\_compressed & patch\_anchor & full\_consumer & 78.942 & 78.942 & 0.000 &  &  \\
+hotpotqa\_compressed & patch\_anchor & patch\_only & 78.942 & 44.774 & 43.282 &  &  \\
+hotpotqa\_compressed & patch\_anchor & reuse\_only & 78.942 & 28.555 & 63.828 &  &  \\
+wikitext2 & mixed\_route & conditional\_reuse\_reuse16\_patch16 & 61.787 & 32.010 & 48.193 & 16 & 16 \\
+wikitext2 & mixed\_route & conditional\_reuse\_reuse19\_patch13 & 61.933 & 30.631 & 50.542 & 13 & 19 \\
+wikitext2 & mixed\_route & conditional\_reuse\_reuse20\_patch12 & 62.405 & 30.498 & 51.129 & 12 & 20 \\
+wikitext2 & patch\_anchor & full\_consumer & 62.210 & 62.210 & 0.000 &  &  \\
+wikitext2 & patch\_anchor & patch\_only & 62.210 & 40.655 & 34.649 &  &  \\
+wikitext2 & patch\_anchor & reuse\_only & 62.210 & 24.681 & 60.326 &  &  \\
+\bottomrule
+\end{tabular}
