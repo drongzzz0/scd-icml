@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from dataclasses import dataclass
@@ -31,13 +31,25 @@ def load_bundle(
     dtype: str | None = None,
     as_numpy: bool = False,
     cpu_fallback: bool = True,
+    mmap: bool = False,
 ) -> TensorBundle:
     t = require_torch()
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(p)
 
-    payload = t.load(p, map_location="cpu", weights_only=False)
+    load_kwargs: dict[str, Any] = {"map_location": "cpu", "weights_only": False}
+    if mmap:
+        try:
+            payload = t.load(p, mmap=True, **load_kwargs)
+        except TypeError:
+            payload = t.load(p, **load_kwargs)
+        except RuntimeError as exc:
+            if "mmap" not in str(exc).lower():
+                raise
+            payload = t.load(p, **load_kwargs)
+    else:
+        payload = t.load(p, **load_kwargs)
     if isinstance(payload, dict) and "arrays" in payload:
         arrays = payload.get("arrays", {})
         meta = payload.get("meta", {})

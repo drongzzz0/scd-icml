@@ -284,6 +284,33 @@ def _capture_chunk_with_retry(session_a: TransformersCaptureSession, session_b: 
         return left + right
 
 
+def _capture_single_chunk_with_retry(session: TransformersCaptureSession, prompts: list[str], max_length: int | None, logger, label: str, depth: int = 0):
+    try:
+        return [(prompts, session.capture(prompts, max_length=max_length))]
+    except RuntimeError as exc:
+        if not is_cuda_oom(exc):
+            raise
+        clear_torch_cache()
+        if len(prompts) <= 1:
+            raise RuntimeError(f"{label} single-sample chunk still OOM; prompt length={len(prompts[0])}") from exc
+        mid = len(prompts) // 2
+        logger.warning("%s chunk OOM; retrying split depth=%d, size=%d -> %d + %d", label, depth, len(prompts), mid, len(prompts) - mid)
+        left = _capture_single_chunk_with_retry(session, prompts[:mid], max_length, logger, label, depth + 1)
+        right = _capture_single_chunk_with_retry(session, prompts[mid:], max_length, logger, label, depth + 1)
+        return left + right
+
+
+def _capture_payload_to_cpu(payload: dict[int, dict[str, object]]) -> dict[int, dict[str, object]]:
+    torch = __import__("torch")
+    out: dict[int, dict[str, object]] = {}
+    for layer, row in payload.items():
+        out[int(layer)] = {
+            key: value.detach().to(device="cpu", dtype=torch.float32).contiguous() if hasattr(value, "detach") else value
+            for key, value in row.items()
+        }
+    return out
+
+
 def _write_pairs_manifest(out_dir: Path, base_meta: PairMeta, chunk_entries: list[dict[str, object]], artifact_dtype: str) -> None:
     manifest = base_meta.__dict__.copy()
     manifest.update(
@@ -313,69 +340,110 @@ def capture_with_backend_transformers(models: dict, data: dict, args: argparse.N
         shutil.rmtree(out_dir)
     (out_dir / "chunks").mkdir(parents=True, exist_ok=True)
 
-    session_a = TransformersCaptureSession(str(models["model_a"]["path"]), str(settings["model_a_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
-    session_b = TransformersCaptureSession(str(models["model_b"]["path"]), str(settings["model_b_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
+    prompt_chunks: list[list[str]] = []
+    chunk_entries: list[dict[str, object]] = []
+    base_meta: PairMeta | None = None
+    durations: list[float] = []
+    chunk_id = 0
 
-    try:
-        prompt_chunks = _split_prompt_chunks(
-            prompts,
-            session_a.estimate_prompt_tokens,
-            chunk_samples=int(settings["chunk_samples"]),
-            max_chunk_tokens=int(settings["max_chunk_tokens"]),
-            max_length=max_length,
-        )
-        logger.info("采集开始：总样本=%d，初始 chunk=%d，A=%s，B=%s", len(prompts), len(prompt_chunks), settings["model_a_device"], settings["model_b_device"])
-
-        chunk_entries: list[dict[str, object]] = []
-        base_meta: PairMeta | None = None
-        durations: list[float] = []
-        chunk_id = 0
-
-        for original_chunk in prompt_chunks:
-            sub_chunks = _capture_chunk_with_retry(session_a, session_b, original_chunk, max_length, logger)
-            for prompt_chunk, cap_a, cap_b in sub_chunks:
-                start = time.perf_counter()
-                meta, arrays = _build_pair_chunk(models, capture_cfg, args.seed, len(prompt_chunk), cap_a, cap_b, prompt_chunk, session_b.tokenizer, max_length)
-                if base_meta is None:
-                    base_meta = meta
-                chunk_name = f"chunk_{chunk_id:05d}.pt"
-                save_bundle(out_dir / "chunks" / chunk_name, arrays, meta=meta.__dict__, artifact_dtype=str(settings["artifact_dtype"]))
-                write_ms = (time.perf_counter() - start) * 1000.0
-                token_count = sum(session_a.estimate_prompt_tokens(prompt, max_length=max_length) for prompt in prompt_chunk)
-                durations.append(write_ms)
-                remain = max(0, len(prompt_chunks) - (len(chunk_entries) + 1))
-                avg_ms = sum(durations) / max(1, len(durations))
-                eta_s = (avg_ms * remain) / 1000.0
-                logger.info(
-                    "chunk=%05d samples=%d tokens=%d gpu_a=%.1fMB gpu_b=%.1fMB cpu_rss=%.1fMB write_ms=%.1f eta_s=%.1f",
-                    chunk_id,
-                    len(prompt_chunk),
-                    token_count,
-                    gpu_memory_allocated_mb(str(settings["model_a_device"])),
-                    gpu_memory_allocated_mb(str(settings["model_b_device"])),
-                    current_rss_mb(),
-                    write_ms,
-                    eta_s,
-                )
-                chunk_entries.append(
-                    {
-                        "path": f"chunks/{chunk_name}",
-                        "batch_size": int(meta.batch_size),
-                        "prefix_tokens": int(meta.prefix_tokens),
-                        "eval_samples": int(meta.eval_samples),
-                        "num_layers": int(meta.num_layers),
-                    }
-                )
-                del arrays, cap_a, cap_b
-                clear_torch_cache()
-                chunk_id += 1
-
+    def write_pair_chunk(prompt_chunk: list[str], cap_a: dict, cap_b: dict, tokenizer, token_estimator) -> None:
+        nonlocal base_meta, chunk_id
+        start = time.perf_counter()
+        meta, arrays = _build_pair_chunk(models, capture_cfg, args.seed, len(prompt_chunk), cap_a, cap_b, prompt_chunk, tokenizer, max_length)
         if base_meta is None:
-            raise RuntimeError("没有生成任何 chunk")
-        _write_pairs_manifest(out_dir, base_meta, chunk_entries, str(settings["artifact_dtype"]))
-    finally:
-        session_a.close()
-        session_b.close()
+            base_meta = meta
+        chunk_name = f"chunk_{chunk_id:05d}.pt"
+        save_bundle(out_dir / "chunks" / chunk_name, arrays, meta=meta.__dict__, artifact_dtype=str(settings["artifact_dtype"]))
+        write_ms = (time.perf_counter() - start) * 1000.0
+        token_count = sum(token_estimator(prompt, max_length=max_length) for prompt in prompt_chunk)
+        durations.append(write_ms)
+        remain = max(0, len(prompt_chunks) - (len(chunk_entries) + 1))
+        avg_ms = sum(durations) / max(1, len(durations))
+        eta_s = (avg_ms * remain) / 1000.0
+        logger.info(
+            "chunk=%05d samples=%d tokens=%d gpu_a=%.1fMB gpu_b=%.1fMB cpu_rss=%.1fMB write_ms=%.1f eta_s=%.1f",
+            chunk_id,
+            len(prompt_chunk),
+            token_count,
+            gpu_memory_allocated_mb(str(settings["model_a_device"])),
+            gpu_memory_allocated_mb(str(settings["model_b_device"])),
+            current_rss_mb(),
+            write_ms,
+            eta_s,
+        )
+        chunk_entries.append(
+            {
+                "path": f"chunks/{chunk_name}",
+                "batch_size": int(meta.batch_size),
+                "prefix_tokens": int(meta.prefix_tokens),
+                "eval_samples": int(meta.eval_samples),
+                "num_layers": int(meta.num_layers),
+            }
+        )
+        del arrays
+        clear_torch_cache()
+        chunk_id += 1
+
+    same_device = str(settings["model_a_device"]) == str(settings["model_b_device"])
+    if same_device:
+        session_a = TransformersCaptureSession(str(models["model_a"]["path"]), str(settings["model_a_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
+        try:
+            prompt_chunks = _split_prompt_chunks(
+                prompts,
+                session_a.estimate_prompt_tokens,
+                chunk_samples=int(settings["chunk_samples"]),
+                max_chunk_tokens=int(settings["max_chunk_tokens"]),
+                max_length=max_length,
+            )
+            logger.info("sequential same-device capture: samples=%d chunks=%d device=%s", len(prompts), len(prompt_chunks), settings["model_a_device"])
+            a_chunks: list[tuple[list[str], dict[int, dict[str, object]]]] = []
+            for original_chunk in prompt_chunks:
+                for prompt_chunk, cap_a in _capture_single_chunk_with_retry(session_a, original_chunk, max_length, logger, "A"):
+                    a_chunks.append((prompt_chunk, _capture_payload_to_cpu(cap_a)))
+                    del cap_a
+                    clear_torch_cache()
+        finally:
+            session_a.close()
+            del session_a
+            clear_torch_cache()
+
+        session_b = TransformersCaptureSession(str(models["model_b"]["path"]), str(settings["model_b_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
+        try:
+            for prompt_chunk, cap_a in a_chunks:
+                b_sub_chunks = _capture_single_chunk_with_retry(session_b, prompt_chunk, max_length, logger, "B")
+                if len(b_sub_chunks) != 1 or b_sub_chunks[0][0] != prompt_chunk:
+                    raise RuntimeError("B capture split a chunk after A was captured; lower chunk_samples/max_chunk_tokens and rerun")
+                _, cap_b = b_sub_chunks[0]
+                write_pair_chunk(prompt_chunk, cap_a, cap_b, session_b.tokenizer, session_b.estimate_prompt_tokens)
+                del cap_a, cap_b
+                clear_torch_cache()
+        finally:
+            session_b.close()
+    else:
+        session_a = TransformersCaptureSession(str(models["model_a"]["path"]), str(settings["model_a_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
+        session_b = TransformersCaptureSession(str(models["model_b"]["path"]), str(settings["model_b_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
+        try:
+            prompt_chunks = _split_prompt_chunks(
+                prompts,
+                session_a.estimate_prompt_tokens,
+                chunk_samples=int(settings["chunk_samples"]),
+                max_chunk_tokens=int(settings["max_chunk_tokens"]),
+                max_length=max_length,
+            )
+            logger.info("capture start: samples=%d chunks=%d A=%s B=%s", len(prompts), len(prompt_chunks), settings["model_a_device"], settings["model_b_device"])
+            for original_chunk in prompt_chunks:
+                sub_chunks = _capture_chunk_with_retry(session_a, session_b, original_chunk, max_length, logger)
+                for prompt_chunk, cap_a, cap_b in sub_chunks:
+                    write_pair_chunk(prompt_chunk, cap_a, cap_b, session_b.tokenizer, session_a.estimate_prompt_tokens)
+                    del cap_a, cap_b
+                    clear_torch_cache()
+        finally:
+            session_a.close()
+            session_b.close()
+
+    if base_meta is None:
+        raise RuntimeError("no chunks generated")
+    _write_pairs_manifest(out_dir, base_meta, chunk_entries, str(settings["artifact_dtype"]))
 
 
 def main() -> None:

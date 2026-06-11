@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="450" viewBox="0 0 820 450">
+<rect width="100%" height="100%" fill="white"/>
+<text x="410.0" y="27" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700">Payload-based bandwidth sensitivity</text>
+<line x1="78" y1="380" x2="784" y2="380" stroke="#333" stroke-width="1"/>
+<line x1="78" y1="48" x2="78" y2="380" stroke="#333" stroke-width="1"/>
+<text x="431.0" y="428" text-anchor="middle" font-family="Arial" font-size="13">Bandwidth (Gbps)</text>
+<text x="18" y="214.0" transform="rotate(-90 18 214.0)" text-anchor="middle" font-family="Arial" font-size="13">Estimated TTFT (ms)</text>
+<text x="78" y="399" text-anchor="middle" font-family="Arial" font-size="11">-5.2</text>
+<text x="784" y="399" text-anchor="middle" font-family="Arial" font-size="11">215.2</text>
+<text x="68" y="52" text-anchor="end" font-family="Arial" font-size="11">175.3</text>
+<text x="68" y="384" text-anchor="end" font-family="Arial" font-size="11">13.5</text>
+<text x="86" y="66" font-family="Arial" font-size="11" fill="#555">Rows without payload_mb are excluded.</text>
+<polyline points="126.69,70.90 174.74,215.82 254.82,264.13 414.98,288.29 735.31,300.36" fill="none" stroke="#1f77b4" stroke-width="2.2"/>
+<circle cx="126.69" cy="70.90" r="3.6" fill="#1f77b4"><title>cmrc2018 patch_only @ 10.000Gbps</title></circle>
+<circle cx="174.74" cy="215.82" r="3.6" fill="#1f77b4"><title>cmrc2018 patch_only @ 25.000Gbps</title></circle>
+<circle cx="254.82" cy="264.13" r="3.6" fill="#1f77b4"><title>cmrc2018 patch_only @ 50.000Gbps</title></circle>
+<circle cx="414.98" cy="288.29" r="3.6" fill="#1f77b4"><title>cmrc2018 patch_only @ 100.000Gbps</title></circle>
+<circle cx="735.31" cy="300.36" r="3.6" fill="#1f77b4"><title>cmrc2018 patch_only @ 200.000Gbps</title></circle>
+<line x1="554" y1="86" x2="572" y2="86" stroke="#1f77b4" stroke-width="2.2"/>
+<text x="578" y="90" font-family="Arial" font-size="10">cmrc2018 patch_only</text>
+<polyline points="126.69,218.08 174.74,290.54 254.82,314.70 414.98,326.77 735.31,332.81" fill="none" stroke="#2ca02c" stroke-width="2.2"/>
+<circle cx="126.69" cy="218.08" r="3.6" fill="#2ca02c"><title>cmrc2018 reuse_only @ 10.000Gbps</title></circle>
+<circle cx="174.74" cy="290.54" r="3.6" fill="#2ca02c"><title>cmrc2018 reuse_only @ 25.000Gbps</title></circle>
+<circle cx="254.82" cy="314.70" r="3.6" fill="#2ca02c"><title>cmrc2018 reuse_only @ 50.000Gbps</title></circle>
+<circle cx="414.98" cy="326.77" r="3.6" fill="#2ca02c"><title>cmrc2018 reuse_only @ 100.000Gbps</title></circle>
+<circle cx="735.31" cy="332.81" r="3.6" fill="#2ca02c"><title>cmrc2018 reuse_only @ 200.000Gbps</title></circle>
+<line x1="554" y1="101" x2="572" y2="101" stroke="#2ca02c" stroke-width="2.2"/>
+<text x="578" y="105" font-family="Arial" font-size="10">cmrc2018 reuse_only</text>
+<polyline points="126.69,180.99 174.74,266.17 254.82,294.56 414.98,308.76 735.31,315.86" fill="none" stroke="#d62728" stroke-width="2.2"/>
+<circle cx="126.69" cy="180.99" r="3.6" fill="#d62728"><title>hotpotqa_compressed patch_only @ 10.000Gbps</title></circle>
+<circle cx="174.74" cy="266.17" r="3.6" fill="#d62728"><title>hotpotqa_compressed patch_only @ 25.000Gbps</title></circle>
+<circle cx="254.82" cy="294.56" r="3.6" fill="#d62728"><title>hotpotqa_compressed patch_only @ 50.000Gbps</title></circle>
+<circle cx="414.98" cy="308.76" r="3.6" fill="#d62728"><title>hotpotqa_compressed patch_only @ 100.000Gbps</title></circle>
+<circle cx="735.31" cy="315.86" r="3.6" fill="#d62728"><title>hotpotqa_compressed patch_only @ 200.000Gbps</title></circle>
+<line x1="554" y1="116" x2="572" y2="116" stroke="#d62728" stroke-width="2.2"/>
+<text x="578" y="120" font-family="Arial" font-size="10">hotpotqa_compressed patch_only</text>
+<polyline points="126.69,281.72 174.74,324.31 254.82,338.50 414.98,345.60 735.31,349.15" fill="none" stroke="#9467bd" stroke-width="2.2"/>
+<circle cx="126.69" cy="281.72" r="3.6" fill="#9467bd"><title>hotpotqa_compressed reuse_only @ 10.000Gbps</title></circle>
+<circle cx="174.74" cy="324.31" r="3.6" fill="#9467bd"><title>hotpotqa_compressed reuse_only @ 25.000Gbps</title></circle>
+<circle cx="254.82" cy="338.50" r="3.6" fill="#9467bd"><title>hotpotqa_compressed reuse_only @ 50.000Gbps</title></circle>
+<circle cx="414.98" cy="345.60" r="3.6" fill="#9467bd"><title>hotpotqa_compressed reuse_only @ 100.000Gbps</title></circle>
+<circle cx="735.31" cy="349.15" r="3.6" fill="#9467bd"><title>hotpotqa_compressed reuse_only @ 200.000Gbps</title></circle>
+<line x1="554" y1="131" x2="572" y2="131" stroke="#9467bd" stroke-width="2.2"/>
+<text x="578" y="135" font-family="Arial" font-size="10">hotpotqa_compressed reuse_only</text>
+<polyline points="126.69,273.68 174.74,305.66 254.82,316.32 414.98,321.65 735.31,324.31" fill="none" stroke="#8c564b" stroke-width="2.2"/>
+<circle cx="126.69" cy="273.68" r="3.6" fill="#8c564b"><title>wikitext2 patch_only @ 10.000Gbps</title></circle>
+<circle cx="174.74" cy="305.66" r="3.6" fill="#8c564b"><title>wikitext2 patch_only @ 25.000Gbps</title></circle>
+<circle cx="254.82" cy="316.32" r="3.6" fill="#8c564b"><title>wikitext2 patch_only @ 50.000Gbps</title></circle>
+<circle cx="414.98" cy="321.65" r="3.6" fill="#8c564b"><title>wikitext2 patch_only @ 100.000Gbps</title></circle>
+<circle cx="735.31" cy="324.31" r="3.6" fill="#8c564b"><title>wikitext2 patch_only @ 200.000Gbps</title></circle>
+<line x1="554" y1="146" x2="572" y2="146" stroke="#8c564b" stroke-width="2.2"/>
+<text x="578" y="150" font-family="Arial" font-size="10">wikitext2 patch_only</text>
+<polyline points="126.69,331.79 174.74,347.78 254.82,353.11 414.98,355.77 735.31,357.10" fill="none" stroke="#ff7f0e" stroke-width="2.2"/>
+<circle cx="126.69" cy="331.79" r="3.6" fill="#ff7f0e"><title>wikitext2 reuse_only @ 10.000Gbps</title></circle>
+<circle cx="174.74" cy="347.78" r="3.6" fill="#ff7f0e"><title>wikitext2 reuse_only @ 25.000Gbps</title></circle>
+<circle cx="254.82" cy="353.11" r="3.6" fill="#ff7f0e"><title>wikitext2 reuse_only @ 50.000Gbps</title></circle>
+<circle cx="414.98" cy="355.77" r="3.6" fill="#ff7f0e"><title>wikitext2 reuse_only @ 100.000Gbps</title></circle>
+<circle cx="735.31" cy="357.10" r="3.6" fill="#ff7f0e"><title>wikitext2 reuse_only @ 200.000Gbps</title></circle>
+<line x1="554" y1="161" x2="572" y2="161" stroke="#ff7f0e" stroke-width="2.2"/>
+<text x="578" y="165" font-family="Arial" font-size="10">wikitext2 reuse_only</text>
+</svg>

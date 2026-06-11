@@ -145,11 +145,15 @@ def _runtime_eval_cfg(eval_cfg: dict[str, Any]) -> dict[str, Any]:
 def _select_runtime_methods(runtime_eval_cfg: dict[str, Any]) -> list[str]:
     mapping = [
         ("run_full_consumer_baseline", "full_consumer", True),
+        ("run_raw_kv", "raw_kv", False),
+        ("run_quantized_4bit", "quantized_4bit", False),
+        ("run_selective_recompute", "selective_recompute", False),
         ("run_reuse_only", "reuse_only", True),
         ("run_reuse_fallback", "reuse_fallback", True),
         ("run_patch_only", "patch_only", False),
         ("run_reuse_patch", "reuse_patch", True),
         ("run_reuse_patch_recompute", "reuse_patch_recompute", True),
+        ("run_scd_full", "scd_full", False),
         ("run_oracle_xnorm_suffix", "oracle_xnorm_suffix", False),
         ("run_oracle_state_suffix", "oracle_state_suffix", False),
         ("run_oracle_kv_patchonly", "oracle_kv_patchonly", False),

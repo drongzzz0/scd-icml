@@ -1,0 +1,13 @@
+# Patch-only Anchor Table
+
+| dataset | method | f1 | em | avg_nll | ppl | ttft_ms | payload_mb | source |
+|---|---|---|---|---|---|---|---|---|
+| cmrc2018 | full_consumer | 0.657307 | 0.365000 | 0.569284 | 1.767002 | 100.200 | 0.000 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_cmrc200_20260611_001/patchonly_anchor_summary.json |
+| cmrc2018 | patch_only | 0.774237 | 0.515000 | 0.545135 | 1.724841 | 52.322 | 147.088 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_cmrc200_20260611_001/patchonly_anchor_summary.json |
+| cmrc2018 | reuse_only | 0.012848 | 0.000000 | 7.760069 | 2345.066949 | 36.515 | 73.544 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_cmrc200_20260611_001/patchonly_anchor_summary.json |
+| hotpotqa_compressed | full_consumer | 0.330552 | 0.250000 | 1.615902 | 5.032427 | 78.942 | 0.000 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_hotpot_wiki200_20260611_002/patchonly_anchor_summary.json |
+| hotpotqa_compressed | patch_only | 0.372672 | 0.305000 | 1.700771 | 5.478172 | 44.774 | 86.448 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_hotpot_wiki200_20260611_002/patchonly_anchor_summary.json |
+| hotpotqa_compressed | reuse_only | 0.007903 | 0.000000 | 9.867953 | 19301.779987 | 28.555 | 43.224 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_hotpot_wiki200_20260611_002/patchonly_anchor_summary.json |
+| wikitext2 | full_consumer | 0.229962 | 0.000000 | 2.026045 | 7.584029 | 62.210 | 0.000 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_hotpot_wiki200_20260611_002/patchonly_anchor_summary.json |
+| wikitext2 | patch_only | 0.228705 | 0.000000 | 2.068602 | 7.913751 | 40.655 | 32.453 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_hotpot_wiki200_20260611_002/patchonly_anchor_summary.json |
+| wikitext2 | reuse_only | 0.144106 | 0.000000 | 2.612377 | 13.631409 | 24.681 | 16.226 | /disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_hotpot_wiki200_20260611_002/patchonly_anchor_summary.json |

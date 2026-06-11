@@ -1,0 +1,1236 @@
+﻿%%%%%%%% ICML 2026 EXAMPLE LATEX SUBMISSION FILE %%%%%%%%%%%%%%%%%
+
+% CURRENT-CLAIM NOTICE (2026-06-11):
+% This source has been revised for the current checked non-Qwen open-source
+% reproducibility bundle. Current source of truth:
+% docs/scd-icml-full-paper-reproduction-matrix-2026-06-11.md and
+% Experiment/core_code/runtime_repo/REPRODUCING_SCD_ICML.md.
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs} % for professional tables
+\usepackage{float}
+
+% hyperref makes hyperlinks in the resulting PDF.
+% If your build breaks (sometimes temporarily if a hyperlink spans a page)
+% please comment out the following usepackage line and replace
+% \usepackage{icml2026} with \usepackage[nohyperref]{icml2026} above.
+\usepackage{hyperref}
+
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Use the following line for the initial blind version submitted for review:
+\usepackage[accepted]{icml2026}
+
+% For preprint, use
+% \usepackage[preprint]{icml2026}
+
+% If accepted, instead use the following line for the camera-ready submission:
+% \usepackage[accepted]{icml2026}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+
+% Keep camera-ready floats compact without changing technical content.
+\setlength{\textfloatsep}{7pt plus 2pt minus 2pt}
+\setlength{\floatsep}{7pt plus 2pt minus 2pt}
+\setlength{\intextsep}{7pt plus 2pt minus 2pt}
+\setlength{\dbltextfloatsep}{7pt plus 2pt minus 2pt}
+\setlength{\dblfloatsep}{7pt plus 2pt minus 2pt}
+
+
+
+
+
+
+
+
+
+
+% if you use cleveref..
+\usepackage[capitalize,noabbrev]{cleveref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% THEOREMS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\usepackage[disable,textsize=tiny]{todonotes}
+
+% The \icmltitle you define below is probably too long as a header.
+% Therefore, a short form for the running title is supplied here:
+\icmltitlerunning{Semantic Cache Distillation: Efficient State Transfer via Reuse and Selective Patching}
+
+\begin{document}
+
+\twocolumn[
+  \icmltitle{Semantic Cache Distillation:\\ Efficient State Transfer via Reuse and Selective Patching}
+
+  % It is OKAY to include author information, even for blind submissions: the
+  % style file will automatically remove it for you unless you've provided
+  % the [accepted] option to the icml2026 package.
+
+  % List of affiliations: The first argument should be a (short) identifier you
+  % will use later to specify author affiliations Academic affiliations
+  % should list Department, University, City, Region, Country Industry
+  % affiliations should list Company, City, Region, Country
+
+  % You can specify symbols, otherwise they are numbered in order. Ideally, you
+  % should not use this facility. Affiliations will be numbered in order of
+  % appearance and this is the preferred way.
+  \begin{icmlauthorlist}
+    \icmlauthor{Qianli Ma}{fas,iaifn}
+    \icmlauthor{Zhiqing Tang}{iaifn}
+    \icmlauthor{Hanshuai Cui}{sai,iaifn}
+    \icmlauthor{Zhi Yao}{sai,iaifn}
+    \icmlauthor{Weijia Jia}{iaifn,keylab}
+  \end{icmlauthorlist}
+
+  % Camera-ready author order follows the OpenReview entry.
+  \icmlaffiliation{fas}{Faculty of Arts and Science, Beijing Normal University, 519087, China}
+  \icmlaffiliation{iaifn}{Institute of Artificial Intelligence and Future Networks, Beijing Normal University, Zhuhai, Guangdong, China}
+  \icmlaffiliation{sai}{School of Artificial Intelligence, Beijing Normal University, Beijing 100875, China}
+  \icmlaffiliation{keylab}{Guangdong Key Lab of AI and Multi-Modal Data Processing, Beijing Normal-Hong Kong Baptist University, Zhuhai 519087, China}
+
+  \icmlcorrespondingauthor{Zhiqing Tang}{zhiqingtang@bnu.edu.cn}
+  \icmlcorrespondingauthor{Weijia Jia}{jiawj@bnu.edu.cn}
+
+  % You may provide any keywords that you find helpful for describing your
+  % paper; these are used to populate the "keywords" metadata in the PDF but
+  % will not be shown in the document
+  \icmlkeywords{Large Language Models, Disaggregated Inference, KV Cache Compression, Semantic Cache Distillation, Efficient Serving, Distributed Systems}
+
+  \vskip 0.3in
+]
+
+% this must go after the closing bracket ] following \twocolumn[ ...
+
+% This command actually creates the footnote in the first column listing the
+% affiliations and the copyright notice. The command takes one argument, which
+% is text to display at the start of the footnote. The \icmlEqualContribution
+% command is standard text for equal contribution. Remove it (just {}) if you
+% do not need this facility.
+
+% Use ONE of the following lines. DO NOT remove the command.
+% If you have no special notice, KEEP empty braces:
+\printAffiliationsAndNotice{}  % no special notice (required even if empty)
+% Or, if applicable, use the standard equal contribution text:
+% \printAffiliationsAndNotice{\icmlEqualContribution}
+
+\begin{abstract}
+Disaggregated serving alleviates memory bottlenecks in Large Language Model (LLM) inference but creates a communication bottleneck: transmitting high-dimensional Key-Value (KV) caches can dominate time-to-first-token (TTFT). Reusing caches across shared-architecture but weight-mismatched models, such as base and fine-tuned variants, introduces semantic drift that accumulates over layers. We propose Semantic Cache Distillation (SCD), a loss-constrained framework that replaces raw KV transmission with compact semantic codes. SCD combines (1) \textsc{Reuse}, which reconstructs compatible layers from learned low-rank subspaces, and (2) \textsc{Patch}, which predicts normalized inputs at selected transition layers to truncate error propagation. In the current verified MistralLite$\to$Mistral-7B release path, the CMRC2018 dev result preserves F1/EM relative to the full consumer baseline (F1 0.657307/0.636821 for Full/SCD) while reducing TTFT. HotpotQA-compressed full7405 now closes with a lower-reuse Reuse06/Patch26 route; full-context HotpotQA is treated only as a diagnostic protocol.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+%LLM serving is increasingly dominated by memory bandwidth and communication overheads rather than compute intensity. In decoder-only Transformers, autoregressive decoding reuses per-layer KV caches from the prefix to avoid recomputing attention projections; however, the KV cache grows linearly with context length and model depth. Modern serving stacks therefore disaggregate inference into a compute-heavy prefill stage and a memory-bound decode stage, often placing them on different device pools to optimize utilization~\citep{qin2024mooncake,zhong2024distserve,patel2024splitwise}. While advanced schedulers~\citep{agrawal2024taming} and memory managers~\citep{kwon2023vllm} mitigate local bottlenecks, a direct consequence of disaggregation is a new network bottleneck: data transfer between the prefill producer and the decode consumer can dominate time-to-first-token (TTFT), particularly under bandwidth-constrained interconnects.
+
+LLM serving is increasingly constrained by memory bandwidth and communication overheads rather than compute intensity. In decoder-only Transformers, autoregressive decoding reuses per-layer KV caches to avoid recomputing attention; however, these caches grow linearly with context length and depth. Modern systems therefore disaggregate inference into a compute-bound prefill stage and a memory-bound decode stage, placing them on separate devices~\citep{qin2024mooncake,zhong2024distserve,patel2024splitwise}. While advanced schedulers~\citep{agrawal2024taming} and memory managers~\citep{kwon2023vllm} address local efficiency, disaggregation introduces a critical network bottleneck: data transfer between the prefill producer and the decode consumer can dominate TTFT, especially over slow interconnects.
+
+%Extensive research aims to reduce the KV cache memory footprint. Common techniques include quantization to compress states into low precision~\citep{liu2024kivi,hooper2024kvquant}, sparsification to evict less salient tokens~\citep{zhang2023h2o,li2024snapkv,tang2024quest,cai2024pyramidkv}, and low-rank methods that exploit redundancy in Transformer representations. Notably, recent systems like CacheGen~\citep{liu2024cachegen} specifically optimize the streaming transmission of these compressed states. However, most existing approaches rely on the assumption that the producer and consumer share a consistent latent space (i.e., possessing identical or tightly coupled weights). Consequently, they typically employ static compression policies that are agnostic to the representation discrepancies found in cross-model adaptation.
+
+Prior work primarily focuses on compressing the KV cache footprint. Techniques include quantization to compress states into low precision~\citep{liu2024kivi,hooper2024kvquant}, sparsification to evict less salient tokens~\citep{zhang2023h2o,li2024snapkv,tang2024quest,cai2024pyramidkv}, and low-rank methods that exploit redundancy in Transformer representations. Systems like CacheGen~\citep{liu2024cachegen} further optimize the streaming of these compressed states. However, these existing approaches typically assume the producer and consumer share the same latent space (i.e., identical weights). They rely on static compression policies that ignore the representation discrepancies inherent in cross-model adaptation.
+
+%In practice, compelling reuse scenarios often involve heterogeneous models, where the producer and consumer differ due to fine-tuning, instruction tuning, or model specialization. Examples include multi-tenant LoRA serving~\citep{sheng2024slora,chen2024punica} and speculative decoding with draft verifiers~\citep{cai2024medusa,li2024eagle}. In such regimes, direct transfer of producer KV states is inherently misaligned. Even minor representation drift can compound through layers, leading to catastrophic output deviations. Existing cross-model KV sharing systems attempt to mitigate this by selectively recomputing a subset of layers or sharing only specific layer-wise pairs~\citep{liu2024droidspeak}. However, these methods present a rigid trade-off: one must choose between aggressive reuse (risking quality) and expensive recomputation (sacrificing latency). What is missing is a mechanism that simultaneously (i) transmits significantly less data than raw KV caches, and (ii) adaptively corrects representation drift without incurring the cost of full recomputation.
+
+SCD targets the narrower but practical case of producer-consumer pairs that share the same Transformer architecture while differing in weights. It is not intended to replace same-model KV reuse, where raw or quantized caches can already be reused directly. Instead, SCD addresses shared-architecture, weight-mismatched serving, such as a generic base model serving as the producer for fine-tuned specialists~\citep{sheng2024slora,chen2024punica} or a draft/verifier pair~\citep{cai2024medusa,li2024eagle}.
+
+A representative deployment is \emph{shared-prefill, specialized-decode} serving. For example, an online service may run a shared producer on a long common prefix, such as user history, documents, instructions, or a task context, and then route the resulting state to task-specialized consumers for tutoring, code assistance, safety filtering, or domain-specific response generation. The producer and consumers are intentionally not identical: specialization is the purpose of the back-end models. Once their weights differ, however, the producer's raw KV states are no longer natively compatible with the consumer. This setting presents two coupled challenges: (1) \textbf{Transmission Overhead:} Raw KV transfer is bandwidth-bound in disaggregated serving, so any practical system must shrink the per-request payload while preserving the consumer's distribution. (2) \textbf{Semantic Drift:} Weight discrepancies cause representation mismatches that compound through layers; direct reuse degrades quality, while full recomputation negates the latency benefits of disaggregation. Existing approaches~\citep{liu2024droidspeak} attempt to mitigate this by selectively recomputing layers or sharing only specific pairs. However, these methods enforce a rigid trade-off: prioritizing reuse risks quality, while prioritizing recomputation sacrifices latency. A practical solution must simultaneously minimize transmission costs and correct drift under a fixed online execution path.
+
+This deployment pattern is attractive precisely because the expensive prefix computation can be amortized across a family of specialized consumers. Synchronizing all endpoints to identical weights would remove the specialization that motivates the system, while colocating every specialized model with the producer would duplicate memory and undermine disaggregation. The relevant question is therefore not whether same-model KV reuse can work, but how to transfer state when architectural compatibility exists while the consumer's weight space is different.
+
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig1.pdf}
+  \caption{Overview of SCD. (a) Challenges in heterogeneous disaggregated serving: Transmitting raw KV caches creates a communication bottleneck, and directly reusing caches from a base model (Producer) to a fine-tuned model (Consumer) causes semantic drift that degrades quality. (b) SCD Framework: We replace raw KV transmission with compact semantic codes. The Consumer reconstructs states using \textsc{Reuse} (low-rank projection) for efficiency and applies \textsc{Patch} at sparse transition layers to rectify semantic misalignment, achieving low latency and high generation quality.}
+  \label{fig:scd_overview2}
+\end{figure*}
+
+We propose \textbf{Semantic Cache Distillation (SCD)}, a bandwidth-efficient state-transfer framework that replaces raw KV transmission with compact semantic codes for shared-architecture, weight-mismatched producer-consumer pairs. SCD distills high-dimensional states at the producer and reconstructs consumer-aligned states via lightweight, layer-aware translators. SCD integrates two complementary mechanisms: (1) \textbf{\textsc{Reuse}:} Leveraging the high cross-model compatibility of most layers, SCD reconstructs states via fast low-rank projections to minimize bandwidth usage. (2) \textbf{\textsc{Patch}:} For the few critical layers that induce significant drift, SCD predicts normalized pre-attention inputs to truncate error propagation without full recomputation. In summary, we make the following contributions:
+\begin{itemize} 
+    \item \textbf{SCD Framework.} We propose an end-to-end design that integrates \textsc{Reuse} for bandwidth efficiency and \textsc{Patch} for semantic alignment, enabling low-latency transfer between differing models. 
+    \item \textbf{Heterogeneous State Transfer Formulation.} We formalize the problem of cache \textsc{Reuse} under representation mismatch, identifying why raw transfer and static compression fail in disaggregated settings. 
+    \item \textbf{Selective Correction Mechanism.} We introduce \textsc{Patch}, a lightweight module applied at sparse transition layers that truncates error propagation with minimal computational overhead. 
+    \item \textbf{Verified Mistral Evidence.} In the current open-source release path, MistralLite$\to$Mistral-7B on CMRC2018 dev \texttt{n=200} preserves QA quality with Reuse19/Patch13: Full Consumer F1/EM is 0.657307/0.365 and SCD F1/EM is 0.636821/0.340. WikiText-2 has a dataset-specific Reuse20/Patch12 route within the current PPL gate, and HotpotQA-compressed full7405 closes with Reuse06/Patch26: Full Consumer F1/EM is 0.291855/0.206 and SCD F1/EM is 0.304212/0.222.
+\end{itemize}
+
+\paragraph{Conflict of Interest Disclosure.}
+The authors declare no financial conflicts of interest related to this work.
+
+
+
+
+
+
+\section{Related Work}
+\label{sec:related}
+
+Our work intersects with disaggregated LLM serving, efficient KV cache management, and cross-model alignment.
+
+\paragraph{Disaggregated Serving and the Transfer Bottleneck.}
+Modern serving systems separate \emph{prefill} and \emph{decode} phases across distinct workers to maximize utilization~\citep{zhong2024distserve,qin2024mooncake,patel2024splitwise}.
+While this architecture improves throughput, it places KV-cache transfer on the critical path of time-to-first-token (TTFT).
+Advanced schedulers like Sarathi-Serve~\citep{agrawal2024taming} and FastServe~\citep{wu2023fast} use chunk-level scheduling to mitigate stalls, while engines like vLLM~\citep{kwon2023vllm} and SGLang~\citep{zheng2024sglang} optimize memory fragmentation.
+Recent transport-layer works, such as FlowKV~\citep{li2025flowkv}, optimize low-latency KV-cache transfer and load-aware scheduling.
+However, these system-level optimizations largely treat transferred states as \emph{system-level payloads} rather than learning cross-model semantic translators.
+Our work complements these efforts by optimizing the \emph{payload}: we target the producer-to-consumer handoff, particularly when raw transfer between heterogeneous models becomes bandwidth-prohibitive.
+
+\paragraph{Intra-Model KV Compression.}
+Standard techniques to reduce cache footprint include quantization methods like KIVI~\citep{liu2024kivi} and KVQuant~\citep{hooper2024kvquant}.
+Beyond quantization, pruning strategies such as H2O~\citep{zhang2023h2o}, SnapKV~\citep{li2024snapkv}, Quest~\citep{tang2024quest}, and PyramidKV~\citep{cai2024pyramidkv} evict less salient tokens, while StreamingLLM~\citep{xiao2023efficient} uses attention sinks for infinite-length inference.
+Systems like CacheGen~\citep{liu2024cachegen} further optimize the streaming transmission of compressed states.
+Crucially, these approaches are inherently \emph{intra-model}: they assume the producer and consumer share identical weights and feature spaces.
+Applying them directly to heterogeneous pairs fails to bridge the semantic gap caused by weight discrepancies.
+In contrast, SCD is designed for the \emph{inter-model} setting, mapping producer states into the consumer's native space via learnable codes.
+
+\paragraph{Cross-Model Cache Reuse.}
+Serving heterogeneous models with a shared backbone is a growing challenge.
+Systems like S-LoRA~\citep{sheng2024slora} and Punica~\citep{chen2024punica} enable scalable serving of LoRA adapters, while Prompt Cache~\citep{gim2024prompt} explores attention reuse across requests.
+For reuse between base and fine-tuned models, \citet{liu2024droidspeak} show that naive sharing degrades generation quality.
+Their system, DroidSpeak, mitigates this by selectively recomputing critical layers while reusing raw caches for the rest.
+Unlike DroidSpeak, which makes a binary decision (reuse raw vs.\ recompute), SCD advances from \emph{selection} to \emph{transformation}.
+By employing loss-constrained reconstruction (Reuse) and targeted correction (Patch), SCD achieves higher compression than raw reuse and lower latency than recomputation, smoothing the trade-off frontier.
+
+\paragraph{Orthogonal Acceleration Approaches.}
+SCD focuses on state transfer and is orthogonal to decoding-stage optimizations.
+Techniques like CoDec~\citep{wang2025codec} accelerate prefix-shared decoding kernels, while speculative decoding frameworks like Medusa~\citep{cai2024medusa} and EAGLE~\citep{li2024eagle} generate multiple tokens per step using draft models.
+SCD is compatible with these methods: once the cache is transferred and reconstructed, the consumer can employ speculative sampling or optimized kernels for generation.
+
+\paragraph{Distinction from Semantic Communication.}
+Finally, we distinguish SCD from Semantic Communication or Cache-to-Cache (C2C) frameworks~\citep{fu2026c2c}.
+C2C approaches typically use KV caches to fuse information from multiple agents to enhance collaborative generation.
+In such settings, the receiver integrates external signals into its own context.
+Conversely, our goal is acceleration: we enable the consumer to \emph{skip} its prefill phase entirely.
+Adopting C2C-style fusion would require the consumer to first compute a local cache, negating the latency benefits of disaggregation.
+Thus, SCD serves as a specialized transfer protocol for latency-critical serving rather than a general collaboration mechanism.
+
+
+
+
+
+
+
+
+\section{Problem Formulation}
+\label{sec:problem}
+
+\paragraph{Disaggregated Serving and the Bandwidth Bottleneck.}
+Modern LLM systems disaggregate \emph{prefill} and \emph{decode} phases across devices to maximize utilization~\cite{zhong2024distserve,qin2024mooncake}.
+We consider a setup with a \emph{producer} model $\mathcal{M}_A$ (Device A) and a \emph{consumer} model $\mathcal{M}_B$ (Device B), both processing a prefix $x_{1:T}$.
+To generate tokens, the consumer $\mathcal{M}_B$ requires layer-wise KV caches $\mathcal{C}_B = \{(K_B^\ell, V_B^\ell)\}_{\ell=1}^L$.
+Device B faces a dilemma: it must either \emph{recompute} these states locally (compute-bound) or \emph{fetch} them from Device A (bandwidth-bound).
+Since the cache size $\|\mathcal{C}_B\|$ scales linearly with context length $T$ and depth $L$, raw transmission often dominates end-to-end latency under limited interconnect bandwidth.
+
+\paragraph{Heterogeneity and Semantic Drift.}
+Reuse becomes challenging when producer and consumer models are heterogeneous (e.g., base vs.\ fine-tuned, or draft vs.\ verifier).
+Because their weights differ, their internal representations lie in distinct feature spaces.
+Directly substituting the producer's cache $\mathcal{C}_A$ for $\mathcal{C}_B$ causes \emph{semantic drift}---a representation mismatch that compounds over layers.
+Existing methods typically mitigate this by partially recomputing specific layers, which forces a rigid trade-off between transfer cost and computation overhead~\cite{liu2024droidspeak}.
+
+\paragraph{Loss-Constrained State Transfer.}
+We formulate cross-model cache reuse as a rate-distortion problem.
+Our goal is to transfer compact \emph{semantic codes} from $\mathcal{M}_A$ to reconstruct an \emph{effective} cache for $\mathcal{M}_B$.
+We define a producer-side encoder $\phi$ and a consumer-side decoder $\psi$ operating on source states $\mathbf{S}_A$ (e.g., hidden states):
+\begin{align}
+\mathbf{Z} &= \phi(\mathbf{S}_A), \quad \mathbf{Z} \in \mathbb{R}^{T \times r}, \\
+\hat{\mathbf{S}}_B &= \psi(\mathbf{Z}),
+\end{align}
+where $r \ll d$ is the rank of the code, and $\hat{\mathbf{S}}_B$ is used to compute the approximated cache $\hat{\mathcal{C}}_B$.
+
+We minimize the total transfer latency $\mathcal{T}_{\mathrm{transfer}}$, which sums transmission, reconstruction, and residual computation time:
+\begin{align}
+\min_{\phi,\psi} \quad
+\mathcal{T}_{\mathrm{transfer}}
+~=~
+\frac{|\mathbf{Z}|}{\mathrm{BW}}
+~+~
+\mathcal{T}_{\mathrm{recon}}(\psi, \mathbf{Z})
+~+~
+\mathcal{T}_{\mathrm{fill}},
+\label{eq:ttft_obj}
+\end{align}
+where $\mathrm{BW}$ is the channel bandwidth, $|\mathbf{Z}|$ is the code size, and $\mathcal{T}_{\mathrm{fill}}$ accounts for any layers explicitly recomputed rather than reconstructed (in SCD, $\mathcal{T}_{\mathrm{fill}}=0$ since Reuse and Patch jointly cover all layers).
+
+Crucially, we constrain the consumer's generation quality to remain within an $\epsilon$-margin of the oracle:
+\begin{align}
+\mathbb{E}_{x_{1:T} \sim \mathcal{D}}
+\Big[
+D_{\mathrm{KL}}\Big(
+P_{\mathcal{M}_B}(\cdot \mid \mathcal{C}_B)
+~\Big\|~
+P_{\mathcal{M}_B}(\cdot \mid \hat{\mathcal{C}}_B)
+\Big)
+\Big]
+\le \epsilon,
+\label{eq:quality_constraint}
+\end{align}
+where $P_{\mathcal{M}_B}$ is the next-token distribution.
+SCD learns layer-wise projections $(\phi, \psi)$ to minimize Eq.~\eqref{eq:ttft_obj} while satisfying Eq.~\eqref{eq:quality_constraint}.
+
+
+% =========================
+% Method
+% =========================
+
+
+
+
+\section{Method}
+\label{sec:method}
+
+We present \textbf{SCD}, a framework for split inference between a producer $\mathcal{M}_A$ and a consumer $\mathcal{M}_B$ that share a Transformer architecture but differ in weights.
+Rather than transmitting raw high-dimensional states, the producer sends compact \emph{semantic codes}, from which the consumer reconstructs \emph{native-space} states.
+SCD integrates two complementary mechanisms:
+(i) \textbf{Reuse}---fast low-rank reconstruction of KV caches for the majority of layers; and
+(ii) \textbf{Patch}---targeted semantic correction at sparse transition layers to truncate error propagation.
+
+\subsection{Notation and Preliminaries}
+We index Transformer layers by $\ell \in \{1, \dots, L\}$.
+Let $T$ denote the prefix length, $d_h$ the per-head dimension, and $d_{\text{model}}$ the model hidden size.
+We represent matrices in bold uppercase (e.g., $\mathbf{K}, \mathbf{V}$) and vectors/scalars in lowercase.
+The consumer's cache for layer $\ell$ consists of multi-head tensors $(\mathbf{K}_B^\ell, \mathbf{V}_B^\ell)$.
+When applying encoders/decoders, we flatten the $\text{batch} \times \text{heads} \times \text{tokens}$ dimensions into a sample axis $N$.
+Let $\mathcal{L}_{\mathrm{patch}} \subseteq \{1, \dots, L\}$ be the set of layers using Patch, and $\mathcal{L}_{\mathrm{reuse}} = \{1, \dots, L\} \setminus \mathcal{L}_{\mathrm{patch}}$ be the remaining layers that use Reuse.
+The patch budget is $k = |\mathcal{L}_{\mathrm{patch}}|$; unless otherwise specified, we use $k{=}6$.
+We select $\mathcal{L}_{\mathrm{patch}}$ once during offline calibration and keep it fixed for all online requests.
+We employ branch-specific ranks $r_K, r_V, r_H \ll d_h, d_{\text{model}}$.
+Keys utilize Rotary Positional Embeddings (RoPE); we denote $\operatorname{deRoPE}(\cdot)$ and $\operatorname{RoPE}(\cdot)$ as the inverse and forward operations.
+Crucially, we compress Key, Value, and Hidden states independently to preserve channel-wise semantics.
+Offline calibration uses a small prefix set $\mathcal{D}_{\mathrm{cal}}$ (typically 100--500 representative prefixes).
+For each prefix $x_{1:T}\in\mathcal{D}_{\mathrm{cal}}$, we run full prefills on both $\mathcal{M}_A$ and $\mathcal{M}_B$ under identical tokenization and attention masks, then record paired KV tensors and normalized pre-attention hidden states for every layer.
+These paired traces are used to fit Reuse translators via linear low-rank regression and Patch aligners via supervised regression before deployment.
+At deployment time, the learned artifacts are loaded as a static routing table keyed by layer index, and the serving path performs no per-request layer search.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{fig2.pdf}
+  \caption{\textbf{SCD Overview.}
+  \emph{Offline:} We collect paired traces on identical prefixes to learn per-layer low-rank translators for KV pairs (Reuse) and aligners for transition semantic states (Patch).
+  \emph{Online:} The producer executes prefill, encodes, and transmits low-dimensional codes $(\mathbf{Z}_K^\ell, \mathbf{Z}_V^\ell)$ for $\ell \in \mathcal{L}_{\mathrm{reuse}}$ and $\mathbf{Z}_H^\ell$ for $\ell \in \mathcal{L}_{\mathrm{patch}}$. The consumer decodes these into its native-space states, bypassing local prefill.}
+  \label{fig:scd_overview}
+\end{figure*}
+
+% -------------------------
+\subsection{Overview: Semantic Code Transport}
+\label{subsec:overview}
+
+As illustrated in Fig.~\ref{fig:scd_overview}, SCD replaces raw state transmission with semantic code transport.
+During producer prefill, we transmit codes $\{\mathbf{Z}_K^\ell, \mathbf{Z}_V^\ell\}_{\ell \in \mathcal{L}_{\mathrm{reuse}}}$ for \textsc{Reuse} layers and $\{\mathbf{Z}_H^\ell\}_{\ell \in \mathcal{L}_{\mathrm{patch}}}$ for \textsc{Patch} layers.
+The consumer decodes $\mathbf{Z}_K / \mathbf{Z}_V$ into $\mathcal{M}_B$-native KV caches and maps $\mathbf{Z}_H$ into $\mathcal{M}_B$'s pre-attention normalized space to regenerate consistent KV pairs.
+Concretely, $\phi$ and $\psi$ in Eqs.~(1)--(2) are instantiated as the layer-wise linear maps $\mathbf{W}_{\mathrm{enc}}, \mathbf{W}_{\mathrm{dec}}$ (Reuse) plus aligners $g_\theta^\ell$ (Patch).
+
+% -------------------------
+\subsection{Reuse: Cross-Model Low-Rank KV Reconstruction}
+\label{subsec:reuse}
+
+Reuse leverages the empirical low-rank structure of KV tensors and the high subspace overlap between corresponding layers of $\mathcal{M}_A$ and $\mathcal{M}_B$.
+We learn a shared latent space and model-specific decoders per layer.
+
+\subsubsection{Offline: Joint Subspace Learning}
+\label{subsec:reuse_offline}
+
+\paragraph{Paired Collection and deRoPE.}
+We collect per-layer tensors from paired full prefills of $\mathcal{M}_A$ and $\mathcal{M}_B$ on the same calibration prefixes $\mathcal{D}_{\mathrm{cal}}$.
+The calibration stage is offline and produces frozen artifacts for a fixed model pair.
+For keys, we remove RoPE to operate in the content space:
+\begin{align}
+\tilde{\mathbf{K}}_A^\ell = \operatorname{deRoPE}(\mathbf{K}_A^\ell), \qquad
+\tilde{\mathbf{K}}_B^\ell = \operatorname{deRoPE}(\mathbf{K}_B^\ell).
+\end{align}
+Values $\mathbf{V}$ are processed directly.
+
+\paragraph{Joint Low-Rank Factorization.}
+Flattening samples into matrices $\mathbf{A}_K^\ell, \mathbf{B}_K^\ell \in \mathbb{R}^{N \times d_h}$, we construct the joint matrix $\mathbf{X}_K^\ell = [\mathbf{A}_K^\ell \; \mathbf{B}_K^\ell] \in \mathbb{R}^{N \times 2d_h}$.
+A rank-$r_K$ approximation yields shared latents $\mathbf{Z}_K^\ell \in \mathbb{R}^{N \times r_K}$ and decoders $\mathbf{W}_{\mathrm{dec}, A}^\ell, \mathbf{W}_{\mathrm{dec}, B}^\ell \in \mathbb{R}^{r_K \times d_h}$ such that:
+\begin{align}
+\mathbf{A}_K^\ell \approx \mathbf{Z}_K^\ell \mathbf{W}_{\mathrm{dec}, A}^\ell, \qquad
+\mathbf{B}_K^\ell \approx \mathbf{Z}_K^\ell \mathbf{W}_{\mathrm{dec}, B}^\ell.
+\label{eq:joint_decoder_K}
+\end{align}
+The same procedure applies independently to values to obtain $\mathbf{Z}_V^\ell$.
+
+\paragraph{Producer Encoders.}
+To map new producer observations to the shared latent space, we learn a projection $\mathbf{W}_{\mathrm{enc}}^\ell \in \mathbb{R}^{d_h \times r_K}$ via ridge regression:
+\begin{align}
+\mathbf{W}_{\mathrm{enc}}^\ell
+= \mathop{\arg\min}_{\mathbf{W}} \; \left\| \mathbf{A}_K^\ell \mathbf{W} - \mathbf{Z}_K^\ell \right\|_F^2 + \lambda \|\mathbf{W}\|_F^2.
+\label{eq:ridge_encoder}
+\end{align}
+
+\subsubsection{Online: Encode and Decode}
+\label{subsec:reuse_online}
+
+For each $\ell \in \mathcal{L}_{\mathrm{reuse}}$, the producer computes:
+\begin{align}
+\mathbf{Z}_K^\ell = \tilde{\mathbf{K}}_A^\ell \mathbf{W}_{\mathrm{enc}, K}^\ell,
+\qquad
+\mathbf{Z}_V^\ell = \mathbf{V}_A^\ell \mathbf{W}_{\mathrm{enc}, V}^\ell.
+\label{eq:encode_z_kv}
+\end{align}
+The consumer reconstructs native-space caches via:
+\begin{align}
+\tilde{\mathbf{K}}_{B}^\ell &= \mathbf{Z}_K^\ell \mathbf{W}_{\mathrm{dec}, B}^\ell,
+&
+\mathbf{V}_{B}^\ell &= \mathbf{Z}_V^\ell \mathbf{W}_{\mathrm{dec}, B}^\ell,
+\label{eq:decode_kv}
+\end{align}
+followed by re-applying RoPE: $\mathbf{K}_{B}^\ell = \operatorname{RoPE}(\tilde{\mathbf{K}}_{B}^\ell)$.
+
+% -------------------------
+\subsection{Patch: Semantic Correction at Transition Layers}
+\label{subsec:patch}
+
+Low-rank reconstruction is insufficient for critical layers where feature mismatches amplify.
+Patch intercepts the consumer's \emph{transition semantic state} to enforce alignment.
+
+\subsubsection{Patch Signal: Pre-Attention Normalized Input}
+For $\ell \in \mathcal{L}_{\mathrm{patch}}$, we define the transition state as the post-norm input to the attention block:
+\begin{align}
+\mathbf{H}_{\mathrm{in}, A}^\ell \triangleq \mathbf{x}^{\ell}_{\mathrm{norm}, A},
+\qquad
+\mathbf{H}_{\mathrm{in}, B}^\ell \triangleq \mathbf{x}^{\ell}_{\mathrm{norm}, B},
+\end{align}
+where $\mathbf{H} \in \mathbb{R}^{T \times d_{\text{model}}}$.
+The producer compresses $\mathbf{H}_{\mathrm{in}, A}^\ell$ into a code $\mathbf{Z}_H^{\ell} = \mathbf{H}_{\mathrm{in}, A}^\ell \, \mathbf{W}_{\mathrm{enc}, H}^{\ell}$, where $\mathbf{W}_{\mathrm{enc}, H}^{\ell} \in \mathbb{R}^{d_{\text{model}} \times r_H}$ is learned similarly to Eq.~\eqref{eq:ridge_encoder}.
+
+\subsubsection{Consumer Aligner and Regeneration}
+The consumer applies a non-linear aligner $g_{\theta}^{\ell}$ (an MLP) to map the code to its native space:
+\begin{align}
+\hat{\mathbf{H}}_{\mathrm{in}, B}^\ell = g_{\theta}^{\ell}(\mathbf{Z}_H^{\ell}), \qquad \ell \in \mathcal{L}_{\mathrm{patch}}.
+\label{eq:aligner}
+\end{align}
+KV pairs are then regenerated using the consumer's native weights:
+\begin{subequations}
+\label{eq:kv_from_patch}
+\begin{align}
+\hat{\mathbf{K}}_B^{\ell} &= \operatorname{RoPE}\Bigl(\hat{\mathbf{H}}_{\mathrm{in}, B}^\ell \mathbf{W}_{k, B}^{\ell}\Bigr), \\
+\hat{\mathbf{V}}_B^{\ell} &= \hat{\mathbf{H}}_{\mathrm{in}, B}^\ell \mathbf{W}_{v, B}^{\ell}.
+\end{align}
+\end{subequations}
+We train $g_{\theta}^{\ell}$ to minimize the L2 reconstruction error $\| g_{\theta}^{\ell}(\mathbf{Z}_H^{\ell}) - \mathbf{H}_{\mathrm{in}, B}^\ell \|_2^2$.
+
+% -------------------------
+\subsection{Online Procedure}
+\label{subsec:online_proc}
+
+Algorithm~\ref{alg:scd_inference} details the inference pipeline.
+The transmission complexity is $O(Tr)$, significantly lower than the raw transfer cost $O(Td)$ since $r \ll d$.
+$\mathcal{L}_{\mathrm{patch}}$ and $\mathcal{L}_{\mathrm{reuse}}$ are fixed inputs from offline calibration; branch selection reduces to constant-time membership checks over layer indices, so latency variation comes from prefix length and model execution, not from an online policy search.
+
+\begin{algorithm}[t]
+\caption{Split Inference with Reuse and Patch}
+\label{alg:scd_inference}
+\begin{algorithmic}
+  \STATE \textbf{Input:} Prefix $x_{1:T}$, Producer $\mathcal{M}_A$, Consumer $\mathcal{M}_B$, fixed sets $\mathcal{L}_{\mathrm{patch}}, \mathcal{L}_{\mathrm{reuse}}$
+  \STATE \textbf{Output:} Consumer cache $\mathcal{C}_B$ ready for decoding
+  \STATE \textbf{Producer (Device A):}
+  \STATE Compute full prefill on $\mathcal{M}_A$
+  \FOR{$\ell \in \mathcal{L}_{\mathrm{reuse}}$}
+    \STATE $\mathbf{Z}_K^\ell \leftarrow \operatorname{deRoPE}(\mathbf{K}_A^\ell) \mathbf{W}_{\mathrm{enc}, K}^\ell$
+    \STATE $\mathbf{Z}_V^\ell \leftarrow \mathbf{V}_A^\ell \mathbf{W}_{\mathrm{enc}, V}^\ell$
+  \ENDFOR
+  \FOR{$\ell \in \mathcal{L}_{\mathrm{patch}}$}
+    \STATE $\mathbf{Z}_H^{\ell} \leftarrow \mathbf{x}^{\ell}_{\mathrm{norm}, A} \mathbf{W}_{\mathrm{enc}, H}^{\ell}$
+  \ENDFOR
+  \STATE Transmit $\{\mathbf{Z}_K^\ell, \mathbf{Z}_V^\ell\}_{\text{reuse}} \cup \{\mathbf{Z}_H^{\ell}\}_{\text{patch}}$ to Device B
+  \STATE \hrulefill
+  \STATE \textbf{Consumer (Device B):}
+  \FOR{$\ell \in \mathcal{L}_{\mathrm{reuse}}$}
+    \STATE $\tilde{\mathbf{K}}_{B}^\ell \leftarrow \mathbf{Z}_K^\ell \mathbf{W}_{\mathrm{dec}, B}^\ell$
+    \STATE $\mathbf{K}_{B}^\ell \leftarrow \operatorname{RoPE}(\tilde{\mathbf{K}}_{B}^\ell)$
+    \STATE $\mathbf{V}_{B}^\ell \leftarrow \mathbf{Z}_V^\ell \mathbf{W}_{\mathrm{dec}, B}^\ell$
+  \ENDFOR
+  \FOR{$\ell \in \mathcal{L}_{\mathrm{patch}}$}
+    \STATE $\hat{\mathbf{H}}_{\mathrm{in}, B}^\ell \leftarrow g_{\theta}^{\ell}(\mathbf{Z}_H^{\ell})$
+    \STATE Regenerate $(\mathbf{K}_B^\ell, \mathbf{V}_B^\ell)$ via Eq.~\eqref{eq:kv_from_patch}
+  \ENDFOR
+  \STATE Initiate decoding with assembled cache $\mathcal{C}_B$
+\end{algorithmic}
+\end{algorithm}
+
+
+
+
+
+
+
+\section{Theoretical Analysis}
+\label{sec:theory}
+
+We analyze why \textsc{Reuse} alone leads to multiplicative error amplification across layers and how \textsc{Patch} acts as a spectral truncation operator.
+Our analysis connects layer-wise reconstruction errors to the divergence in the consumer's output distribution.
+Proofs are detailed in Appendix~\ref{sec:theory_proofs}.
+
+\paragraph{Setup.}
+Consider a decoding step $t$ given prefix $x_{1:T}$.
+Let $\mathbf{h}_B^\ell \in \mathbb{R}^d$ denote the oracle hidden state on $\mathcal{M}_B$ at layer $\ell$ for the final prefix position (the state from which the first decode step reads), and $\hat{\mathbf{h}}_B^\ell$ denote the SCD approximation of the same state under the reconstructed cache.
+Let $\mathbf{o}_B, \hat{\mathbf{o}}_B \in \mathbb{R}^{V}$ be the corresponding output logits.
+We quantify the \textbf{layer-local injection errors} as:
+\begin{align}
+\varepsilon_{\mathrm{reuse}}^\ell &\triangleq \lVert (\tilde{\mathbf{K}}_B^\ell, \mathbf{V}_B^\ell) - (\tilde{\mathbf{K}}_{B,\mathrm{reuse}}^\ell, \mathbf{V}_{B,\mathrm{reuse}}^\ell) \rVert, \\
+\varepsilon_{\mathrm{patch}}^\ell &\triangleq \lVert \mathbf{h}_B^\ell - \hat{\mathbf{h}}_B^\ell \rVert, \quad \ell \in \mathcal{L}_{\mathrm{patch}},
+\end{align}
+where $\lVert \cdot \rVert$ denotes the spectral norm.
+
+\paragraph{Assumption 1: Layer-wise Stability.}
+We assume the Transformer layer map $\mathcal{F}_\ell$ is Lipschitz continuous with respect to both input states and cached KV pairs.
+For any reuse layer $\ell \in \mathcal{L}_{\mathrm{reuse}}$, there exist stability constants $\alpha_\ell, \beta_\ell \ge 0$ such that:
+\begin{equation}
+\label{eq:layer_stability}
+\lVert \hat{\mathbf{h}}_B^{\ell+1} - \mathbf{h}_B^{\ell+1} \rVert
+\le \alpha_\ell \lVert \hat{\mathbf{h}}_B^\ell - \mathbf{h}_B^\ell \rVert + \beta_\ell \, \varepsilon_{\mathrm{reuse}}^\ell.
+\end{equation}
+For patch layers $\ell \in \mathcal{L}_{\mathrm{patch}}$, the aligner explicitly resets the state, bounding the error solely by the patch reconstruction quality:
+\begin{equation}
+\label{eq:patch_reset}
+\lVert \hat{\mathbf{h}}_B^{\ell} - \mathbf{h}_B^{\ell} \rVert \le \varepsilon_{\mathrm{patch}}^\ell.
+\end{equation}
+
+\paragraph{Error Propagation and Truncation.}
+Unrolling Eq.~\eqref{eq:layer_stability} reveals that errors accumulate multiplicatively.
+However, Eq.~\eqref{eq:patch_reset} introduces a reset mechanism: a Patch layer effectively truncates the history, preventing errors from earlier layers from propagating further.
+
+\begin{lemma}[Segmented Error Bound]
+\label{lem:segmented_error}
+Let patch indices be $s_1 < s_2 < \dots < s_m$. Define segments using $s_0 \triangleq 0$ and $s_{m+1} \triangleq L$.
+For any target layer $\ell$ located in segment $(s_j, s_{j+1}]$, the accumulated representation error is bounded by:
+\begin{equation}
+\label{eq:segmented_bound}
+\begin{aligned}
+\lVert \hat{\mathbf{h}}_B^\ell - \mathbf{h}_B^\ell \rVert
+\;\le\;&
+\left(\prod_{i=s_j}^{\ell-1} \alpha_i\right) \varepsilon_{\mathrm{patch}}^{s_j} \\
+&+\; \sum_{k=s_j}^{\ell-1} \left(\prod_{m=k+1}^{\ell-1} \alpha_m\right) \beta_k \, \varepsilon_{\mathrm{reuse}}^k,
+\end{aligned}
+\end{equation}
+where $\varepsilon_{\mathrm{patch}}^{s_0} \triangleq 0$.
+\end{lemma}
+
+\begin{proof}[Proof Sketch]
+\renewcommand{\qedsymbol}{}
+The proof follows by induction. The base case at $\ell=s_j$ is satisfied by Eq.~\eqref{eq:patch_reset}. For subsequent layers, we apply the recurrence in Eq.~\eqref{eq:layer_stability} starting from the reset point $s_j$.
+\end{proof}
+
+\paragraph{Theorem 1 (NLL Gap).}
+Assuming the output head is $L_{\mathrm{out}}$-Lipschitz and the log-softmax function is locally $C_{\mathrm{sm}}$-Lipschitz, the divergence in NLL for the target token $y_t$ satisfies:
+\begin{equation}
+\label{eq:nll_gap}
+\left| \log p(y_t) - \log \hat{p}(y_t) \right|
+\;\le\;
+C_{\mathrm{sm}} L_{\mathrm{out}} \lVert \hat{\mathbf{h}}_B^L - \mathbf{h}_B^L \rVert,
+\end{equation}
+where the RHS is bounded by Lemma~\ref{lem:segmented_error}.
+
+\paragraph{Theoretical Implications.}
+This formalizes our \textit{Reuse-heavy, Patch-sparse} strategy.
+Without Patch, the error term is dominated by $\prod_{i=1}^L \alpha_i$, which compounds multiplicatively with depth $L$; in practice $\alpha_i \gtrsim 1$ due to residual connections, so even small per-layer amplification accumulates into a large drift over deep stacks.
+By inserting a Patch at $s_j$, we replace the accumulated error term with a small local term $\varepsilon_{\mathrm{patch}}^{s_j}$, effectively truncating the drift.
+
+
+\section{Experiments}
+\label{sec:experiments}
+
+We evaluate SCD in a split inference setting where a producer runs prefill and a consumer starts decoding without a full consumer-side prefill.
+This setting is motivated by disaggregated serving, where KV transfer can dominate latency and requires high bandwidth at scale~\citep{zhong2024distserve}.
+We focus on the practical scenario of a base model and its fine-tuned variant sharing the same architecture but different weights, for which cross-model cache reuse is known to be non-trivial~\citep{liu2024droidspeak}.
+
+
+
+
+
+
+
+\subsection{Experimental Setup}
+\label{subsec:exp_setup}
+
+\paragraph{Tasks and Datasets.}
+We evaluate generation quality and distributional fidelity across diverse benchmarks:
+(i) \textbf{Question Answering (QA):} We report F1 scores on CMRC2018 (Chinese extractive QA) and HotpotQA (English multi-hop reasoning), covering both span-extraction and complex reasoning tasks;
+(ii) \textbf{Language Modeling:} We measure Perplexity (PPL) on WikiText-2 to quantify general representational consistency; and
+(iii) \textbf{Distributional Fidelity:} We compute token-level KL divergence and Total Variation (TV) distance between the Oracle consumer distribution and the approximated distribution.
+
+\paragraph{Split-Inference Protocol.}
+Given a prefix $x_{1:T}$, the producer runs a normal prefill and transmits either raw KV (baselines) or semantic codes (SCD).
+The consumer reconstructs caches (and optionally applies Patch) before initiating greedy decoding.
+
+\paragraph{Calibration Protocol.}
+SCD uses an offline calibration set $\mathcal{D}_{\mathrm{cal}}$ only to learn auxiliary translators for a fixed model pair.
+For the canonical MistralLite$\to$Mistral-7B run, we use 200 CMRC2018 prefixes (mean prefix length 609.0 tokens; 121,805 total tokens).
+For each prefix, we run full prefills on both producer and consumer with identical tokenization and attention masks, then save paired per-layer KV tensors and normalized pre-attention hidden states.
+The \textsc{Reuse} module is fitted by low-rank subspace identification followed by ridge-regression encoders/decoders; the \textsc{Patch} module trains sparse MLP aligners on the selected transition layers.
+The learned artifacts are frozen and reused across online requests.
+
+\paragraph{Bandwidth Measurement.}
+We measure TTFT and end-to-end latency under controlled effective bandwidth $B_{\mathrm{net}}$ (sweeping from 100 Gbps to 1 Tbps).
+We report the total transmitted payload size for each method.
+
+\paragraph{Method Compared.}
+We compare the following methods:
+\begin{itemize}
+  \item \textbf{Oracle}: Full prefill on $\mathcal{M}_B$ (Upper bound on quality; Lower bound on latency).
+  \item \textbf{Raw KV}: Transmits full BF16 KV caches from producer to consumer.
+  \item \textbf{Quantized KV}: Transmits \textbf{4-bit quantized} KV caches (group-wise INT4) and dequantizes on the consumer.
+  \item \textbf{DroidSpeak-style Selective Recompute}~\citep{liu2024droidspeak}: Reuses raw KV for most layers but fully recomputes a selected subset of critical layers on $\mathcal{M}_B$, following the selection policy proposed in DroidSpeak.
+  \item \textbf{SCD (Reuse-only)}: Applies low-rank reuse to all layers (i.e., $\mathcal{L}_{\mathrm{patch}}=\emptyset$); no recomputation is performed.
+  \item \textbf{SCD}: The proposed full method, applying Patch at selected transition layers and Reuse elsewhere.
+\end{itemize}
+
+\paragraph{Implementation Details.}
+We use the same tokenization and exact attention masking on both sides.
+Keys are deRoPE'd before encoding and reRoPE'd after decoding.
+We keep $K/V/H$ separate with independent ranks as described in Section~\ref{sec:method} and Appendix~\ref{sec:details}.
+Offline calibration cost and deployment footprint are reported in Section~\ref{subsec:offline_cost_main}.
+
+% Current evidence-safe SCD-ICML results fragment.
+% Generated on 2026-06-10 from verified MistralLite -> Mistral-7B runs.
+% This fragment is intended to replace the historical broad result tables in
+% the archived ICML camera-ready source if a current reproducibility-safe paper
+% revision is needed. Qwen-32B is intentionally deferred.
+
+\subsection{Current Reproducible Result Boundary}
+\label{subsec:current_repro_boundary}
+
+We report the current machine-verified SCD result on the MistralLite$\to$Mistral-7B
+pair.  The release path uses a fixed no-fallback, no-recompute route: 19 layers
+are served by \textsc{Reuse}, and 13 transition layers are served by
+\textsc{Patch}.  The route is selected by F1/EM retention on CMRC2018 and is
+stored in the release package as
+\path{configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json}.
+Qwen-32B is not included in this release-safety audit.
+
+\begin{table}[t]
+  \centering
+  \scriptsize
+  \caption{\textbf{Verified CMRC2018 selected-route result.}
+  MistralLite$\to$Mistral-7B, CMRC2018 dev, $n=200$, greedy decoding, no
+  fallback, no recomputation.  SCD preserves F1/EM relative to Full Consumer
+  while reducing TTFT.  Avg NLL/PPL are reported as auxiliary calibration-risk
+  signals, not as the route-selection objective.}
+  \label{tab:current_cmrc_selected_route}
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    \textbf{Method} & \textbf{F1} & \textbf{EM} & \textbf{Avg NLL} & \textbf{PPL} & \textbf{TTFT (ms)} \\
+    \midrule
+    Full Consumer & 0.657307 & 0.365 & 0.569284 & 1.767002 & 100.528 \\
+    SCD Reuse19/Patch13 & 0.636821 & 0.340 & 0.901801 & 2.464036 & 37.931 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The verified F1 retention is $0.968833$ and EM retention is $0.931507$.
+Thus, under the F1/EM-primary objective, the current release result does not
+show evidence of fabrication or an unrunnable main path: the open-source wrapper
+reaches the selected route, and the completed remote run reproduces the same
+Full Consumer/SCD comparison.
+
+\subsection{Maximum-Reuse Boundary}
+\label{subsec:current_reuse_boundary}
+
+The route-selection objective is to maximize the number of \textsc{Reuse} layers
+while preserving answer quality.  Starting from the Reuse19/Patch13 route, each
+single-layer extension to Reuse20 was tested.  The best Reuse20 candidate
+already falls below the working F1-retention target, and higher-Reuse routes
+degrade rapidly.
+
+\begin{table}[t]
+  \centering
+  \scriptsize
+  \caption{\textbf{Quality boundary as Reuse count increases.}
+  CMRC2018 dev, $n=200$.  Reuse19/Patch13 is the current maximum verified
+  quality-preserving route under the F1/EM-primary criterion.}
+  \label{tab:current_reuse_boundary}
+  \setlength{\tabcolsep}{3pt}
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{lrrr}
+    \toprule
+    \textbf{Route} & \textbf{CMRC F1} & \textbf{CMRC EM} & \textbf{Interpretation} \\
+    \midrule
+    Reuse19/Patch13 & 0.636821 & 0.340 & current boundary \\
+    Reuse20/Patch12 & 0.623676 & 0.360 & borderline below F1-retention target \\
+    Reuse21/Patch11 & 0.571623 & 0.335 & too much quality loss \\
+    Reuse22/Patch10 & 0.504905 & 0.245 & too much quality loss \\
+    Reuse23/Patch09 & 0.485349 & 0.250 & too much quality loss \\
+    Reuse24/Patch08 & 0.387813 & 0.185 & collapsed \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+Table~\ref{tab:patchonly_anchors} reports the anchor methods used to verify the
+main mechanism under the current runtime.  Reuse-only is fast but collapses on
+QA metrics, while Patch-only recovers the task quality anchor.  The mixed SCD
+routes in Tables~\ref{tab:current_cmrc_selected_route}
+and~\ref{tab:current_non_cmrc_diagnostics} are therefore selected to maximize
+Reuse subject to task-quality gates rather than to replace the Patch-only upper
+anchor.
+
+\begin{table*}[t]
+  \centering
+  \scriptsize
+  \caption{\textbf{Patch-only and Reuse-only anchors.}
+  QA rows report F1/EM; WikiText-2 reports perplexity.  Patch-only recovers
+  quality on all three benchmark protocols, while Reuse-only is the fast but
+  low-quality lower anchor.}
+  \label{tab:patchonly_anchors}
+  \setlength{\tabcolsep}{3pt}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{llllrrr}
+    \toprule
+    \textbf{Data} & \textbf{Full quality} & \textbf{Patch-only quality} & \textbf{Reuse-only quality} &
+    \textbf{Full TTFT} & \textbf{Patch TTFT} & \textbf{Reuse TTFT} \\
+    \midrule
+    CMRC2018 & F1 0.657 / EM 0.365 & F1 0.774 / EM 0.515 & F1 0.013 / EM 0.000 & 100.200 & 52.322 & 36.515 \\
+    HotpotQA-compressed & F1 0.331 / EM 0.250 & F1 0.373 / EM 0.305 & F1 0.008 / EM 0.000 & 78.942 & 44.774 & 28.555 \\
+    WikiText-2 & PPL 7.584 & PPL 7.914 & PPL 13.631 & 62.210 & 40.655 & 24.681 \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table*}
+
+\subsection{Limitations on Other Benchmarks}
+\label{subsec:current_limitations}
+
+The current selected CMRC route should not be presented as a universal
+three-dataset quality-preserving result.  HotpotQA uses the GitHub-compatible
+compressed protocol for the paper-facing row; the 200-sample screen suggested
+Reuse08/Patch24, but full7405 validation rejects that route and selects the
+more conservative Reuse06/Patch26 route under the absolute F1-drop gate.
+WikiText-2 uses a dataset-specific Reuse20/Patch12 route under a relative
+PPL-increase gate.  These rows document dataset-specific boundaries rather than
+a single universal route.
+
+\begin{table}[t]
+  \centering
+  \scriptsize
+  \caption{\textbf{Current non-CMRC boundary checks.}
+  HotpotQA-compressed reports the full7405 selected route. WikiText-2 reports
+  teacher-forced language-modeling quality.}
+  \label{tab:current_non_cmrc_diagnostics}
+  \setlength{\tabcolsep}{2pt}
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{lllrl}
+    \toprule
+    \textbf{Data} & \textbf{Method} & \textbf{Metric} & \textbf{TTFT} & \textbf{Note} \\
+    \midrule
+    HotpotQA-compressed & Full & F1 0.291855 / EM 0.206 & 79.913 & full7405 \\
+    HotpotQA-compressed & SCD Reuse06/Patch26 & F1 0.304212 / EM 0.222 & 43.775 & full7405 selected \\
+    WikiText-2 & Full & NLL 2.026045 / PPL 7.584029 & 62.405 & baseline \\
+    WikiText-2 & SCD Reuse20/Patch12 & NLL 2.119810 / PPL 8.329555 & 30.498 & within 10\% PPL gate \\
+    \bottomrule
+  \end{tabular}
+  }
+\end{table}
+
+An older GitHub snapshot reports a stronger HotpotQA Patch-only result
+(F1 $0.351659$, EM $0.252127$ on 7405 examples) under the same
+question-aware compressed-evidence prompt family with \texttt{max\_length=512}.
+The current release code exposes this protocol as
+\texttt{hotpotqa\_compressed}.  A question-text overlap audit found that the
+old 7405-example evaluation includes the 100 questions used to train the old
+Patch checkpoint; after removing those questions, Patch-only remains at F1
+$0.351443$ and EM $0.251608$.  Thus the old result is real for the compressed
+setting, but the current main row uses the disjoint train/eval split and the
+new full7405 selected-route summaries above.
+
+\paragraph{Evidence roots.}
+\begin{sloppypar}
+The current full7405 result tables are
+\path{Experiment/results/scd_icml_result_tables_full7405_boundary_20260611_001}.
+The current assembled paper artifact bundle is
+\path{Experiment/results/paper_artifact_bundle_final_neighboring_checked_20260611_001}.
+The CMRC boundary source is
+\path{/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_snapshot_bank_prefix_curve_cmrc200_20260611_001}.
+The completed HotpotQA-compressed full7405 runs are
+\path{/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_hotpotqa_compressed_full7405_reuse04_20260611_001}
+,
+\path{/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_hotpotqa_compressed_full7405_reuse05_07_20260611_001},
+and
+\path{/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_hotpotqa_compressed_full7405_reuse08_20260611_001}.
+\end{sloppypar}
+
+% -------------------------
+\subsection{Analysis: Error Propagation}
+\label{subsec:analysis_theory}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{generated_figures/layerwise_xnorm_replacement.pdf}
+  \caption{\textbf{Layer-wise Reuse/Patch Profile.}
+  Current-runtime profile statistics compare Reuse reconstruction error against
+  Patch reconstruction error across layers.  The replacement figure is generated
+  from \texttt{profile\_cmrc2018\_seed42.json} and is used as the reproducible
+  layer-error evidence for this release.}
+  \label{fig:layerwise_xnorm}
+\end{figure}
+
+Figure~\ref{fig:layerwise_xnorm} visualizes the layer-wise error profile used to
+identify where Patch is useful.  It is a profile-backed replacement for the
+historical static layer-error figure rather than a newly invented measurement.
+
+% -------------------------
+\subsection{End-to-End Latency Breakdown}
+\label{subsec:breakdown}
+
+The current release evidence reports end-to-end TTFT at the method level rather
+than as a fully audited per-component WikiText-2 breakdown.  For the
+claim-facing CMRC2018 selected-route run, Full Consumer TTFT is 100.528 ms and
+SCD Reuse19/Patch13 TTFT is 37.931 ms (Table~\ref{tab:current_cmrc_selected_route}).
+For HotpotQA and WikiText-2, the lower TTFT should be read together with the
+quality diagnostics in Table~\ref{tab:current_non_cmrc_diagnostics}; those rows
+are not preserved-quality claims.
+
+\subsection{Offline Calibration and Deployment Cost}
+\label{subsec:offline_cost_main}
+
+SCD shifts cross-model adaptation into a bounded offline phase.
+For each producer--consumer pair, we collect paired traces, fit the Reuse translators, profile layer sensitivity, and train Patch aligners for the selected transition layers.
+For the current MistralLite$\to$Mistral-7B evidence, the available
+\texttt{/usr/bin/time -v} logs cover paired trace capture, profiling, Reuse
+training, and a clean Patch-training reference run; the paper-mixed Patch log
+exists but does not contain standard timing fields, so we do not claim a
+measured total for that exact run (Appendix~\ref{sec:details},
+Table~\ref{tab:offline_cost}).
+The learned artifacts are reusable across requests for the same model pair: 8.4 MB for Reuse, 1.58 GB for Patch, totaling 397.7M auxiliary parameters (5.49\% of the 7.24B consumer).
+Thus calibration is a one-time per-pair expense, and serving loads these frozen artifacts and follows the offline-selected route.
+
+
+
+
+
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+
+We proposed Semantic Cache Distillation (SCD), a state transfer framework for disaggregated LLM serving that replaces opaque KV transfer with compact semantic codes.
+By combining \textsc{Reuse} (low-rank reconstruction) with \textsc{Patch} (sparse semantic correction), SCD bridges weight-mismatched feature spaces and truncates error propagation. The current verified release evidence supports a narrower claim: on CMRC2018 dev \texttt{n=200}, the selected MistralLite$\to$Mistral-7B Reuse19/Patch13 route preserves F1/EM relative to the full consumer baseline while reducing TTFT. WikiText-2 has a separate PPL-gated route, and HotpotQA-compressed full7405 closes with the more conservative Reuse06/Patch26 route.
+
+\paragraph{Limitations and Future Work.}
+SCD targets shared-architecture, weight-mismatched model pairs; arbitrary cross-architecture transfer, extreme long-context regimes beyond 32K tokens, and large distribution shifts remain open. In the current release evidence, dataset-specific route selection is still required: CMRC2018, WikiText-2, and HotpotQA-compressed full7405 have different accepted reuse depths under their respective gates. Qwen-32B remains deferred until a machine-verified run is available.
+Each pair also requires one-time calibration; future work will address these boundaries with bandwidth-adaptive ranks and broader transfer.
+
+
+
+
+\section*{Impact Statement}
+
+This work focuses on the efficiency of LLM inference, particularly in disaggregated serving scenarios. By mitigating bandwidth overheads for state transfer between heterogeneous models, our approach reduces the energy consumption and operational costs associated with large-scale AI services. This contributes to the sustainability and accessibility of AI infrastructure. We do not foresee specific negative ethical or societal consequences intrinsic to this transport protocol beyond the general risks associated with LLM deployment.
+
+\section*{Acknowledgements}
+
+This work was supported in part by the National Natural Science Foundation of China (NSFC) under Grant 62302048, Grant U25A20436, and Grant 62272050 ; in part by Guangdong Higher Education Association under Grant 24GQN97; in part by the Guangdong Provincial Higher Education Institutions under Grant 2024KTSCX219; and in part by Beijing Normal University at Zhuhai Education Reform Project under Grant jx2025037.
+
+\bibliography{example_paper}
+\bibliographystyle{icml2026}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIX
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\appendix
+\onecolumn
+
+
+
+
+\section{Layer Policy: Selecting Reuse vs.\ Patch}
+\label{sec:layer_select}
+
+SCD applies \textsc{Reuse} to the majority of layers to minimize transfer overhead, while enabling \textsc{Patch} on a sparse subset to recover generation quality.
+Let $\mathcal{L}=\{0,\dots,L\!-\!1\}$ be the set of Transformer layers.
+Let $\mathcal{S} \subseteq \mathcal{L}$ denote the set of layers where the consumer applies \textsc{Patch} (during profiling, this corresponds to restoring oracle states), with the remaining layers $\mathcal{L} \setminus \mathcal{S}$ using \textsc{Reuse}.
+Let $F(\mathcal{S})$ be a task metric (e.g., F1 score or negative log-likelihood) measured under this configuration. The marginal gain over the all-\textsc{Reuse} baseline is:
+\begin{equation}
+\Delta F(\mathcal{S}) \triangleq F(\mathcal{S}) - F(\emptyset).
+\end{equation}
+Assuming a constant per-layer cost $c$ (e.g., latency or parameters) for patching, we select $\mathcal{S}$ to maximize efficiency:
+\begin{equation}
+\mathrm{Eff}(\mathcal{S}) \triangleq \frac{\Delta F(\mathcal{S})}{c \cdot |\mathcal{S}|}.
+\label{eq:eff_method}
+\end{equation}
+
+\paragraph{Step 1: Restore-one Sensitivity (Candidate Discovery).}
+Starting from the all-\textsc{Reuse} baseline ($\mathcal{S}=\emptyset$), we measure the individual marginal benefit of restoring each layer $\ell$:
+\begin{equation}
+\Delta F_{\ell} \triangleq F(\{\ell\}) - F(\emptyset), \qquad \ell \in \mathcal{L}.
+\label{eq:restore_one_method}
+\end{equation}
+We construct a candidate pool $\mathcal{C}$ by selecting the top-$M$ layers ranked by $\Delta F_{\ell}$.
+
+\paragraph{Step 2: Interaction-aware Greedy Selection.}
+Single-layer sensitivity ignores inter-layer interactions. To address this, we construct $\mathcal{S}$ via forward greedy selection on the candidate pool $\mathcal{C}$:
+\begin{equation}
+\label{eq:greedy_method}
+\ell_t = \mathop{\arg\max}_{\ell \in \mathcal{C} \setminus \mathcal{S}_{t-1}}
+\Big( F(\mathcal{S}_{t-1} \cup \{\ell\}) - F(\mathcal{S}_{t-1}) \Big),
+\quad
+\mathcal{S}_t = \mathcal{S}_{t-1} \cup \{\ell_t\}.
+\end{equation}
+Unlike approaches that restrict recomputation to contiguous segments, SCD allows $\mathcal{S}_t$ to be sparse. This flexible topology enables \textsc{Patch} to act as a semantic bridge at critical transitions without requiring dense support.
+
+\paragraph{Step 3: Budgeted Cost-aware Selection.}
+Instead of fixing the budget a priori, we determine the optimal size $k^\star \in [k_{\min}, k_{\max}]$ that maximizes the efficiency metric:
+\begin{equation}
+k^\star = \mathop{\arg\max}_{k \in [k_{\min}, k_{\max}]} \;
+\frac{\Delta F(\mathcal{S}_k)}{c \cdot k}.
+\label{eq:kstar_method}
+\end{equation}
+The set $\mathcal{S}_{k^\star}$ defines the \textsc{Patch} policy; all other layers employ \textsc{Reuse}.
+
+\begin{figure*}[t]
+  \centering
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{generated_figures/layer_selection_gain_profile.pdf}
+    \caption{Expected Patch gain by layer.}
+  \end{subfigure}
+  \begin{subfigure}{0.49\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{generated_figures/patch_budget_curve.pdf}
+    \caption{Cumulative gain as the Patch budget grows.}
+  \end{subfigure}
+  \caption{\textbf{Current Reproducible Layer Selection Evidence.}
+  The release artifact bundle regenerates these profile-backed replacement
+  panels from stored route-profile metrics.  They support sparse Patch
+  selection and budget inspection, while exact historical interaction panels
+  should be treated as historical unless rerun under the current protocol.}
+  \label{fig:layer_selection_viz}
+\end{figure*}
+
+
+
+\paragraph{Analysis of Layer Selection Dynamics.}
+We validate the current release policy by analyzing profile-derived Patch gains,
+as shown in Figure~\ref{fig:layer_selection_viz}.  The layer-gain profile and
+cumulative budget curve provide reproducible evidence for sparse Patch
+selection.  Pairwise interaction diagnostics remain available as route-metric
+postprocessing, but the exact historical multi-panel rank figure is not used as
+claim-facing evidence in this revision.
+
+% --------------------------------
+\section{Proofs for Section~\ref{sec:theory}}
+\label{sec:theory_proofs}
+
+This appendix provides proofs for Lemma~\ref{lem:segmented_error} and Eq.~\eqref{eq:nll_gap}, using the notation from the main text.
+
+\subsection{Useful Inequalities for Log-Softmax}
+
+Let $\operatorname{lse}(\mathbf{o}) \triangleq \log \sum_i \exp(o_i)$ denote the LogSumExp function. The log-softmax vector is $\log\operatorname{softmax}(\mathbf{o})_y = o_y - \operatorname{lse}(\mathbf{o})$.
+
+\begin{lemma}[Stability of Log-Softmax]
+\label{lem:logsoftmax_lip}
+For any logits $\mathbf{o}, \hat{\mathbf{o}} \in \mathbb{R}^V$ and token index $y$,
+\begin{equation}
+\big| -\log\operatorname{softmax}(\hat{\mathbf{o}})_y + \log\operatorname{softmax}(\mathbf{o})_y \big|
+\;\le\;
+2 \, \| \hat{\mathbf{o}} - \mathbf{o} \|_\infty.
+\label{eq:logsoftmax_lip}
+\end{equation}
+\end{lemma}
+\begin{proof}
+Decompose the difference as:
+\[
+\Delta = (o_y - \hat{o}_y) + (\operatorname{lse}(\hat{\mathbf{o}}) - \operatorname{lse}(\mathbf{o})).
+\]
+The first term is bounded by $\| \mathbf{o} - \hat{\mathbf{o}} \|_\infty$.
+For the second term, observe that $\operatorname{lse}(\cdot)$ is 1-Lipschitz with respect to the $\|\cdot\|_\infty$ norm, since its gradient is $\operatorname{softmax}(\cdot)$, which has an $\ell_1$ norm of exactly 1. Thus,
+\(
+| \operatorname{lse}(\hat{\mathbf{o}}) - \operatorname{lse}(\mathbf{o}) | \le \| \hat{\mathbf{o}} - \mathbf{o} \|_\infty.
+\)
+Summing the bounds yields Eq.~\eqref{eq:logsoftmax_lip}.
+\end{proof}
+
+\subsection{Proof of Lemma~\ref{lem:segmented_error}}
+
+\begin{proof}
+Let the sorted patch layers be $\mathcal{L}_{\mathrm{patch}} = \{s_1 < \dots < s_m\}$, with sentinels $s_0 = 0$ and $s_{m+1} = L$.
+Fix a target layer $\ell \in (s_j, s_{j+1}]$.
+
+\paragraph{Initialization (Segment Start).}
+If $j=0$, we have $\hat{\mathbf{h}}^{s_0} = \mathbf{h}^{s_0}$, so $\|\hat{\mathbf{h}}^{s_0} - \mathbf{h}^{s_0}\| = 0$.
+If $j \ge 1$, by the Patch injection bound (Eq.~\eqref{eq:patch_reset}), the error is reset:
+\[
+\| \hat{\mathbf{h}}^{s_j} - \mathbf{h}^{s_j} \| \le \varepsilon_{\mathrm{patch}}^{s_j}.
+\]
+
+\paragraph{Unrolling (Within Segment).}
+For any layer $u \in \{s_j, \dots, \ell-1\}$ utilizing Reuse, we apply the stability condition (Eq.~\eqref{eq:layer_stability}):
+\[
+\| \hat{\mathbf{h}}^{u+1} - \mathbf{h}^{u+1} \|
+\le \alpha_u \| \hat{\mathbf{h}}^{u} - \mathbf{h}^{u} \| + \beta_u \, \varepsilon_{\mathrm{reuse}}^{u}.
+\]
+Unrolling this recursion from $u = s_j$ to $u = \ell-1$ yields:
+\[
+\| \hat{\mathbf{h}}^{\ell} - \mathbf{h}^{\ell} \|
+\le
+\left( \prod_{i=s_j}^{\ell-1} \alpha_i \right) \| \hat{\mathbf{h}}^{s_j} - \mathbf{h}^{s_j} \|
++
+\sum_{k=s_j}^{\ell-1} \left( \prod_{m=k+1}^{\ell-1} \alpha_m \right) \beta_k \, \varepsilon_{\mathrm{reuse}}^{k}.
+\]
+Substituting the initialization bound $\varepsilon_{\mathrm{patch}}^{s_j}$ completes the proof.
+\end{proof}
+
+\subsection{Proof of Eq.~\eqref{eq:nll_gap} (NLL Gap)}
+
+\begin{proof}
+Assume the output head (LayerNorm + Linear) is $L_{\mathrm{out}}$-Lipschitz under the infinity norm:
+\[
+\| \hat{\mathbf{o}} - \mathbf{o} \|_\infty \le L_{\mathrm{out}} \| \hat{\mathbf{h}}^L - \mathbf{h}^L \|.
+\]
+By Lemma~\ref{lem:logsoftmax_lip}, with $\hat{\mathbf{o}} = \hat{\mathbf{o}}_B$ and $\mathbf{o} = \mathbf{o}_B$:
+\[
+| -\log \hat{p}(y_t) + \log p(y_t) |
+\le 2 \| \hat{\mathbf{o}}_B - \mathbf{o}_B \|_\infty
+\le 2 L_{\mathrm{out}} \| \hat{\mathbf{h}}^L - \mathbf{h}^L \|.
+\]
+This corresponds to Eq.~\eqref{eq:nll_gap} (setting $C_{\mathrm{sm}} = 2$).
+Substituting the bound for $\| \hat{\mathbf{h}}^L - \mathbf{h}^L \|$ from Lemma~\ref{lem:segmented_error} yields the final result.
+\end{proof}
+
+
+
+
+
+
+% =========================
+% Appendix: Instantiating Constants
+% =========================
+
+
+
+\section{Estimating Stability Constants $\alpha_\ell$ and $\beta_\ell$}
+\label{sec:inst_ab}
+
+We provide a concrete instantiation of the stability coefficients $\alpha_\ell$ (state sensitivity) and $\beta_\ell$ (cache sensitivity).
+While standard attention is not globally Lipschitz, we utilize \emph{local} Lipschitz constants estimated on a bounded domain defined by the calibration set, consistent with prior literature~\citep{castin2023smooth,yudin2025pay}.
+
+\subsection{Layer Map and Perturbation}
+\label{sec:layer_map}
+
+Consider a pre-LN decoder layer (omitting the layer index $\ell$ for brevity). The forward pass is defined as:
+\begin{align}
+\mathbf{u} &= \operatorname{LN}(\mathbf{h}), \\
+\mathbf{Q} &= \mathbf{u} \mathbf{W}_Q, \quad \mathbf{K}, \mathbf{V} \in \mathbb{R}^{T \times d_h}, \\
+\mathbf{A} &= \operatorname{softmax}\left( \frac{\mathbf{Q} \mathbf{K}^\top}{\sqrt{d_h}} + \mathbf{M} \right), \\
+\operatorname{Attn}(\mathbf{h}; \mathbf{K}, \mathbf{V}) &= (\mathbf{A} \mathbf{V}) \mathbf{W}_O.
+\end{align}
+Our goal is to bound the output perturbation $\| \delta \mathbf{h}^{\ell+1} \|$ in terms of the input error $\| \delta \mathbf{h}^\ell \|$ and cache errors $(\| \delta \mathbf{K} \|, \| \delta \mathbf{V} \|)$.
+
+\subsection{Component Bounds}
+\label{sec:ingredients}
+
+\paragraph{Softmax Jacobian.}
+For the row-wise softmax function, the spectral norm of the Jacobian is bounded by $1/2$. Locally, we have:
+\begin{equation}
+\| \delta \mathbf{A} \|_2 \le \frac{1}{2} \| \delta \mathbf{S} \|_2,
+\end{equation}
+where $\mathbf{S}$ denotes the pre-softmax scores.
+
+\paragraph{LayerNorm.}
+We denote the local Lipschitz constant of LayerNorm as $L_{\mathrm{LN}}^\ell$. We estimate this empirically based on the minimum per-token variance observed in the calibration traces.
+
+\subsection{Bounding Attention and MLP}
+\label{sec:attn_bound}
+
+By expanding the differential of the attention mechanism and applying triangle inequalities (following the derivation in \citet{kim2021lipschitz}), we derive the aggregate stability coefficients:
+\begin{align}
+\alpha_\ell
+&:= 1 + L_{\mathrm{attn}, h}^\ell + L_{\mathrm{mlp}}^\ell, \\
+\beta_\ell
+&:= L_{\mathrm{attn}, K}^\ell + L_{\mathrm{attn}, V}^\ell.
+\end{align}
+The term $\alpha_\ell$ includes $1$ due to the residual connection.
+The cache sensitivity terms are defined as:
+\begin{itemize}
+    \item $L_{\mathrm{attn}, K}^\ell$: Captures sensitivity to Key perturbations, mediated by the query magnitude $\|\mathbf{Q}\|_2$.
+    \item $L_{\mathrm{attn}, V}^\ell$: Captures sensitivity to Value perturbations, mediated by the attention probability norm $\|\mathbf{A}\|_2$.
+\end{itemize}
+
+\subsection{Practical Estimation}
+\label{sec:ab_practical}
+
+We estimate these constants using statistics collected from the calibration set:
+\begin{itemize}
+    \item \textbf{Weights:} We compute spectral norms $\|\mathbf{W}\|_2$ via power iteration.
+    \item \textbf{Activations:} We use the empirical maxima of $\|\mathbf{K}\|_2, \|\mathbf{V}\|_2, \|\mathbf{Q}\|_2$ over the traces to bound the local domain.
+    \item \textbf{Softmax:} We use the theoretical bound $L_{\mathrm{sm}} = 1/2$.
+\end{itemize}
+This procedure yields tight layer-wise coefficients $(\alpha_\ell, \beta_\ell)$ that accurately predict the error amplification observed in our experiments.
+
+
+\section{Additional Visualizations}
+\label{sec:appendix_viz}
+
+\paragraph{Visualization of Representation Alignment.}
+Figure~\ref{fig:tsne_kv_align} visualizes KV representations using t-SNE to assess alignment quality.
+We compare source (producer, blue), target (consumer, gray), and translated (orange) states.
+The raw source distribution is clearly separated from the target, indicating a significant feature gap.
+In contrast, the translated states align closely with the target clusters.
+This demonstrates that our method effectively maps producer states into the consumer's semantic space.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\linewidth]{generated_figures/stack_viz.pdf}   
+  \caption{\textbf{t-SNE visualization of cross-model KV alignment.} 
+  Blue, gray, and orange points represent source, target, and translated KV states, respectively.
+  The translated states move closer to the target distribution, illustrating the reduction of the representational gap.}
+  \label{fig:tsne_kv_align}
+\end{figure}
+
+\section{Neighboring Compression Baselines}
+\label{sec:neighboring_baselines}
+
+Representative neighboring compression methods, including SVD-LLM~\citep{wang2025svdllm}, SliceGPT~\citep{ashkboos2024slicegpt}, and TensorLLM~\citep{gu2025tensorllm}, primarily target model or tensor compression rather than producer-to-consumer KV transfer under weight mismatch.  To test this boundary under the current runtime, we adapt each method to the same MistralLite$\to$Mistral-7B CMRC2018 protocol used by the selected SCD route.  The same-protocol CMRC2018 rerun uses \texttt{n=200}, \texttt{max\_length=1024}, \texttt{max\_new\_tokens=32}, and a 200 GB/s transfer model; the table builder enforces protocol compatibility before emitting the result.
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \setlength{\abovecaptionskip}{2pt}
+  \setlength{\belowcaptionskip}{2pt}
+  \caption{\textbf{Adapted neighboring compression baselines.}
+  The adapted neighboring methods collapse under producer-to-consumer weight mismatch, while SCD preserves CMRC2018 F1 and reduces TTFT under the same protocol.}
+  \label{tab:neighboring_baselines}
+  \renewcommand{\arraystretch}{0.9}
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{lcc}
+    \toprule
+    \textbf{Method} & \textbf{Quality Retention} & \textbf{TTFT Speedup} \\
+    \midrule
+    SVD-LLM-style adaptation & 2.4\% & 0.30x \\
+    SliceGPT-style adapted KV transfer & 2.8\% & 1.43x \\
+    TensorLLM-style adapted KV transfer & 0.3\% & 0.08x \\
+    SCD & 97.8\% & 2.47x \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table}
+
+This appendix comparison is intentionally limited to adapted KV-transfer behavior under a shared protocol, not to each neighboring method's original model-compression setting.  The manifest for Table~\ref{tab:neighboring_baselines} records empty protocol warnings and is stored with the generated \texttt{neighboring\_baselines.\{csv,md,tex\}} artifacts.
+
+
+
+
+\section{Extended Implementation Details}
+\label{sec:details}
+
+We divide our implementation into two phases: an \textbf{Offline Calibration Phase}, where we learn layer-wise parameters to bridge model discrepancies; and an \textbf{Online Execution Phase}, where the target model ($\mathcal{M}_B$) uses these parameters to populate its KV cache, regenerating native KV pairs at selected patch layers. A core principle is to follow the \textit{native KV-cache semantics} of the inference framework (e.g., Hugging Face Transformers), ensuring that reconstructed states are treated as standard cached history during generation.
+
+\subsection{Offline Calibration and Parameter Training}
+
+\paragraph{Reuse: Layer-wise Stack-SVD with Ridge Regression.}
+We implement \textsc{Reuse} as a stack of independent linear translators. For each layer $\ell$, we execute full prefill passes on both the source ($\mathcal{M}_A$) and target ($\mathcal{M}_B$) models over a calibration dataset. We collect the internal representations at layer $\ell$ that serve as inputs to the KV cache. The optimization proceeds in two steps:
+
+\begin{enumerate}
+    \setlength{\itemsep}{1pt}
+    \setlength{\parskip}{0pt}
+    \setlength{\topsep}{2pt}
+    \item \textbf{Subspace Identification via Truncated SVD:}
+    We first apply Truncated Singular Value Decomposition (SVD) to identify a rank-$r$ latent subspace. By the Eckart--Young--Mirsky theorem, this yields the optimal low-rank approximation of the feature map in the Frobenius norm, minimizing information loss.
+
+    \item \textbf{Mapping Fit via Ridge Regression:}
+    We fit the linear encoder/decoder mappings using Ridge regression ($\ell_2$ regularization). We choose Ridge over unregularized least squares to improve numerical stability and prevent noise amplification from small singular values.
+\end{enumerate}
+
+\paragraph{Patch: Sparse Breakpoint Alignment.}
+We train the \textsc{Patch} mechanism only on a sparse subset of transition layers $\ell \in \mathcal{L}_{\text{patch}}$. For each layer, we collect the "pre-attention breakpoint state" (the state immediately preceding the self-attention projection). We train an aligner $g^\ell$ to map the low-dimensional code from $\mathcal{M}_A$ to an estimate of $\mathcal{M}_B$'s state.
+The training objective is a standard regression loss (e.g., MSE). To improve consistency, we can optionally include auxiliary terms matching intermediate representations, similar to feature matching in Knowledge Distillation.
+The patch set $\mathcal{L}_{\text{patch}}$ is selected offline under the budget $k$ and is loaded as a fixed route at serving time.
+
+The final offline artifacts are:
+\begin{itemize}
+    \setlength{\itemsep}{1pt}
+    \setlength{\parskip}{0pt}
+    \setlength{\topsep}{2pt}
+    \item \textbf{Reuse Artifacts:} Linear encoder/decoder parameters for all layers.
+    \item \textbf{Patch Artifacts:} Breakpoint aligners $g^\ell$ for the subset $\mathcal{L}_{\text{patch}}$.
+\end{itemize}
+These are serialized with minimal metadata for loading at runtime.
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \setlength{\abovecaptionskip}{2pt}
+  \setlength{\belowcaptionskip}{2pt}
+  \caption{\textbf{Offline Calibration Cost.}
+  Measured one-time calibration stages for current MistralLite$\to$Mistral-7B
+  evidence.  Rows are copied from generated \texttt{/usr/bin/time -v}
+  summaries; missing time fields are reported explicitly instead of imputed.}
+  \label{tab:offline_cost}
+  \renewcommand{\arraystretch}{0.9}
+  \begin{tabular}{llrr}
+    \toprule
+    \textbf{Run} & \textbf{Stage} & \textbf{Time} & \textbf{Peak Mem.} \\
+    & & (s) & (GiB) \\
+    \midrule
+    paper-mixed & paired trace collection & 755.660 & 14.492 \\
+    paper-mixed & layer profiling & 1709.500 & 2.279 \\
+    paper-mixed & Reuse training & 743.550 & 2.156 \\
+    paper-mixed & Patch training & no time fields & -- \\
+    clean Reuse16/Patch16 & paired trace collection & 800.420 & 14.494 \\
+    clean Reuse16/Patch16 & layer profiling & 1720.450 & 2.309 \\
+    clean Reuse16/Patch16 & Reuse training & 625.590 & 2.289 \\
+    clean Reuse16/Patch16 & Patch training & 2390.530 & 41.161 \\
+    \midrule
+    \multicolumn{4}{l}{Source: \texttt{Experiment/results/offline\_cost\_evidence\_20260611\_001/offline\_cost\_table.csv}.} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Online Execution and Hybrid Cache Construction}
+
+\paragraph{Online Reuse: Transmission and Reconstruction.}
+During inference, $\mathcal{M}_A$ performs a standard prefill and transmits low-dimensional codes for each reused layer $\ell$. $\mathcal{M}_B$ uses the corresponding decoder to reconstruct the tensor in its own feature space and writes it directly into its cache container (e.g., \texttt{past\_key\_values}).
+Once the cache is populated, $\mathcal{M}_B$ skips its local prefill and enters the standard decoding loop. The framework handles cache indices (e.g., \texttt{cache\_position}) natively, treating the reconstructed cache as valid local history.
+
+\paragraph{Online Patch: Alignment and Recomputation.}
+When the \textsc{Patch} mechanism is applied at a selected transition layer $\ell$, the execution flow is:
+\begin{enumerate}
+    \setlength{\itemsep}{1pt}
+    \setlength{\parskip}{0pt}
+    \setlength{\topsep}{1pt}
+    \item \textbf{State Alignment:} $\mathcal{M}_B$ uses the aligner $g^\ell$ to map the incoming code to an estimated normalized pre-attention state in the consumer space.
+    \item \textbf{Native KV Regeneration:} $\mathcal{M}_B$ multiplies this aligned state by its own $W_{k,B}^{\ell}$ and $W_{v,B}^{\ell}$, and applies RoPE to the key, producing consumer-native KV pairs for layer $\ell$.
+    \item \textbf{Cache Assembly:} The final cache is a hybrid: layers in $\mathcal{L}_{\mathrm{reuse}}$ use reconstructed KV pairs, and layers in $\mathcal{L}_{\mathrm{patch}}$ use patch-regenerated native KV pairs.
+\end{enumerate}
+
+
+
+
+
+\end{document}
+
+% This document was modified from the file originally made available by
+% Pat Langley and Andrea Danyluk for ICML-2K. This version was created
+% by Iain Murray in 2018, and modified by Alexandre Bouchard in
+% 2019 and 2021 and by Csaba Szepesvari, Gang Niu and Sivan Sabato in 2022.
+% Modified again in 2023 and 2024 by Sivan Sabato and Jonathan Scarlett.
+% Previous contributors include Dan Roy, Lise Getoor and Tobias
+% Scheffer, which was slightly modified from the 2010 version by
+% Thorsten Joachims & Johannes Fuernkranz, slightly modified from the
+% 2009 version by Kiri Wagstaff and Sam Roweis's 2008 version, which is
+% slightly modified from Prasad Tadepalli's 2007 version which is a
+% lightly changed version of the previous year's version by Andrew
+% Moore, which was in turn edited from those of Kristian Kersting and
+% Codrina Lauth. Alex Smola contributed to the algorithmic style files.

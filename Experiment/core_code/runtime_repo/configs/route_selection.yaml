@@ -1,0 +1,66 @@
+model:
+  producer_path: ""
+  consumer_path: ""
+  producer_num_layers: 32
+  consumer_num_layers: 32
+  architecture: "mistral"
+  tokenizer_path: ""
+
+data:
+  calibration_path: ""
+  eval_path: ""
+  max_examples: 50
+  max_seq_len: 1024
+  rollout_tokens: 0
+
+mapping:
+  strategy: "same_index"
+  mapping_path: "outputs/route_selection/layer_mapping.json"
+
+baseline:
+  routes_manifest: ""
+  direction: "lite_to_7b"
+  dataset: "cmrc2018"
+
+metrics:
+  use_kv_drift: true
+  use_hidden_drift: true
+  use_logit_kl: true
+  use_ppl_delta: true
+  use_rollout_kl: false
+  weights:
+    kv: 1.0
+    hidden: 1.0
+    kl: 1.0
+    ppl: 1.0
+    cost: 0.0
+
+selector:
+  name: "conditional_pruning"
+  init_route: "all_patch"
+  metrics_path: ""
+  max_total_drift: ""
+  max_delta_per_step: ""
+  max_logit_kl: ""
+  max_ppl_delta: ""
+  max_avg_nll_delta: ""
+  max_kv_drift: ""
+  max_hidden_drift: ""
+  min_f1_retention: ""
+  max_estimated_ttft_ms: ""
+  beam_size: 8
+  top_k_routes: 5
+  pairwise_top_n: 12
+
+cost:
+  bandwidth_gbps: 200.0
+  dtype_bytes: 2
+  include_patch_compute: true
+  include_aux_params: true
+
+evaluation:
+  source_run_root: ""
+  run_root: ""
+
+output:
+  dir: "outputs/route_selection"

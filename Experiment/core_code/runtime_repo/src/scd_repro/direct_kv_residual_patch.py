@@ -353,10 +353,25 @@ def _select_layers(profile: dict[str, Any], patch_budget: int, route: dict[str, 
         route_layers = [int(layer) for layer in route.get("patch_layers", [])]
         if route_layers:
             return route_layers[:patch_budget]
-    if "recommended_patch_layers" in profile:
-        return list(profile["recommended_patch_layers"][:patch_budget])
     scored = sorted(profile["layers"], key=lambda item: float(item["expected_gain"]), reverse=True)
-    return [int(row["layer"]) for row in scored[:patch_budget]]
+    selected: list[int] = []
+    seen: set[int] = set()
+    for layer in profile.get("recommended_patch_layers", []):
+        layer_id = int(layer)
+        if layer_id not in seen:
+            selected.append(layer_id)
+            seen.add(layer_id)
+        if len(selected) >= patch_budget:
+            return selected
+    for row in scored:
+        layer_id = int(row["layer"])
+        if layer_id in seen:
+            continue
+        selected.append(layer_id)
+        seen.add(layer_id)
+        if len(selected) >= patch_budget:
+            break
+    return selected
 
 
 def _resolve_decoder_layers(model):
@@ -509,7 +524,7 @@ def _preload_residual_dataset_for_layer(
         bundle = load_bundle(chunk_path, device="cpu", dtype="float32")
         arrays = bundle.arrays
         xa = arrays[f"xnorm_a.{int(layer)}"].reshape(-1, hidden_dim).to(device="cpu", dtype=torch.float32).contiguous()
-        kb_raw, vb = _project_consumer_native_kv_from_xnorm_b(arrays, layer, hidden_dim, torch.device("cpu"), native_components)
+        kb_raw, vb = _project_consumer_native_kv_from_xnorm_b(arrays, layer, hidden_dim, device, native_components)
         xa_parts.append(xa)
         k_parts.append(kb_raw.to(device="cpu", dtype=torch.float32).contiguous())
         v_parts.append(vb.to(device="cpu", dtype=torch.float32).contiguous())
@@ -535,7 +550,7 @@ def _preload_xnorm_nativekv_residual_dataset_for_layer(
         arrays = bundle.arrays
         xa = arrays[f"xnorm_a.{int(layer)}"].reshape(-1, hidden_dim).to(device="cpu", dtype=torch.float32).contiguous()
         xb = arrays[f"xnorm_b.{int(layer)}"].reshape(-1, hidden_dim).to(device="cpu", dtype=torch.float32).contiguous()
-        kb_raw, vb = _project_consumer_native_kv_from_hidden_tensor(xb, torch.device("cpu"), native_components)
+        kb_raw, vb = _project_consumer_native_kv_from_hidden_tensor(xb, device, native_components)
         xa_parts.append(xa)
         xb_parts.append(xb)
         k_parts.append(kb_raw.to(device="cpu", dtype=torch.float32).contiguous())
@@ -590,7 +605,7 @@ def _train_residual_layer(
 
     best_state: dict[str, torch.Tensor] | None = None
     best_metrics: dict[str, float] | None = None
-    best_loss = float("inf")
+    best_quality_loss = float("inf")
 
     base_xa = xa.to(device=device, dtype=torch.float32)
     base_k = torch.cat(
@@ -626,7 +641,8 @@ def _train_residual_layer(
             loss_k = _relative_mse(pred_k, batch_k)
             loss_v = _relative_mse(pred_v, batch_v)
             delta_reg = _relative_mse(aux["delta_k"], torch.zeros_like(aux["delta_k"])) + _relative_mse(aux["delta_v"], torch.zeros_like(aux["delta_v"]))
-            total_loss = (lambda_k * loss_k) + (lambda_v * loss_v) + (lambda_delta * delta_reg)
+            quality_loss = (lambda_k * loss_k) + (lambda_v * loss_v)
+            total_loss = quality_loss + (lambda_delta * delta_reg)
             total_loss.backward()
             torch.nn.utils.clip_grad_norm_(module.parameters(), max_norm=1.0)
             optimizer.step()
@@ -636,6 +652,7 @@ def _train_residual_layer(
             running["k_rel_mse"] += float(loss_k.item()) * rows
             running["v_rel_mse"] += float(loss_v.item()) * rows
             running["delta_reg"] += float(delta_reg.item()) * rows
+            running["quality_loss"] = running.get("quality_loss", 0.0) + float(quality_loss.item()) * rows
             running["total_loss"] += float(total_loss.item()) * rows
 
         denom = max(1.0, running["rows"])
@@ -643,6 +660,7 @@ def _train_residual_layer(
             "k_rel_mse": running["k_rel_mse"] / denom,
             "v_rel_mse": running["v_rel_mse"] / denom,
             "delta_reg": running["delta_reg"] / denom,
+            "quality_loss": running.get("quality_loss", 0.0) / denom,
             "total_loss": running["total_loss"] / denom,
         }
         logger.info(
@@ -655,8 +673,8 @@ def _train_residual_layer(
             epoch_metrics["delta_reg"],
             epoch_metrics["total_loss"],
         )
-        if epoch_metrics["total_loss"] < best_loss:
-            best_loss = epoch_metrics["total_loss"]
+        if epoch_metrics["quality_loss"] < best_quality_loss:
+            best_quality_loss = epoch_metrics["quality_loss"]
             best_metrics = dict(epoch_metrics)
             best_state = {k: v.detach().to(device="cpu", dtype=torch.float32).clone() for k, v in module.state_dict().items()}
 
@@ -670,6 +688,7 @@ def _train_residual_layer(
         "k_rel_mse": best_metrics["k_rel_mse"],
         "v_rel_mse": best_metrics["v_rel_mse"],
         "delta_reg": best_metrics["delta_reg"],
+        "quality_loss": best_metrics["quality_loss"],
         "total_loss": best_metrics["total_loss"],
     }
     return pack_direct_kv_residual_patch_layer(layer, module), final_metrics
@@ -711,7 +730,7 @@ def _train_xnorm_nativekv_residual_layer(
 
     best_state = {k: v.detach().to(device="cpu", dtype=torch.float32).clone() for k, v in module.state_dict().items()}
     best_metrics: dict[str, float] | None = None
-    best_loss = float("inf")
+    best_quality_loss = float("inf")
 
     init_metrics: dict[str, float] | None = None
     with torch.no_grad():
@@ -723,16 +742,18 @@ def _train_xnorm_nativekv_residual_layer(
         init_k_rel = float(_relative_mse(pred_k, k_target.to(device=device, dtype=torch.float32)).item())
         init_v_rel = float(_relative_mse(pred_v, v_target.to(device=device, dtype=torch.float32)).item())
         init_delta_reg = float(_relative_mse(aux["delta_h"], torch.zeros_like(aux["delta_h"])).item())
-        init_total = (lambda_h * init_h_rel) + (lambda_k * init_k_rel) + (lambda_v * init_v_rel) + (lambda_delta * init_delta_reg)
+        init_quality = (lambda_h * init_h_rel) + (lambda_k * init_k_rel) + (lambda_v * init_v_rel)
+        init_total = init_quality + (lambda_delta * init_delta_reg)
         init_metrics = {
             "h_rel_mse": init_h_rel,
             "k_rel_mse": init_k_rel,
             "v_rel_mse": init_v_rel,
             "delta_reg": init_delta_reg,
+            "quality_loss": init_quality,
             "total_loss": init_total,
         }
         best_metrics = dict(init_metrics)
-        best_loss = init_total
+        best_quality_loss = init_quality
         logger.info(
             "xnorm native-kv residual init: layer=%d h_rel_mse=%.6f k_rel_mse=%.6f v_rel_mse=%.6f delta_reg=%.6f total_loss=%.6f",
             layer,
@@ -769,7 +790,8 @@ def _train_xnorm_nativekv_residual_layer(
             loss_k = _relative_mse(pred_k, batch_k)
             loss_v = _relative_mse(pred_v, batch_v)
             delta_reg = _relative_mse(aux["delta_h"], torch.zeros_like(aux["delta_h"]))
-            total_loss = (lambda_h * loss_h) + (lambda_k * loss_k) + (lambda_v * loss_v) + (lambda_delta * delta_reg)
+            quality_loss = (lambda_h * loss_h) + (lambda_k * loss_k) + (lambda_v * loss_v)
+            total_loss = quality_loss + (lambda_delta * delta_reg)
             total_loss.backward()
             torch.nn.utils.clip_grad_norm_(module.parameters(), max_norm=1.0)
             optimizer.step()
@@ -780,6 +802,7 @@ def _train_xnorm_nativekv_residual_layer(
             running["k_rel_mse"] += float(loss_k.item()) * rows
             running["v_rel_mse"] += float(loss_v.item()) * rows
             running["delta_reg"] += float(delta_reg.item()) * rows
+            running["quality_loss"] = running.get("quality_loss", 0.0) + float(quality_loss.item()) * rows
             running["total_loss"] += float(total_loss.item()) * rows
 
         denom = max(1.0, running["rows"])
@@ -788,6 +811,7 @@ def _train_xnorm_nativekv_residual_layer(
             "k_rel_mse": running["k_rel_mse"] / denom,
             "v_rel_mse": running["v_rel_mse"] / denom,
             "delta_reg": running["delta_reg"] / denom,
+            "quality_loss": running.get("quality_loss", 0.0) / denom,
             "total_loss": running["total_loss"] / denom,
         }
         logger.info(
@@ -801,8 +825,8 @@ def _train_xnorm_nativekv_residual_layer(
             epoch_metrics["delta_reg"],
             epoch_metrics["total_loss"],
         )
-        if epoch_metrics["total_loss"] < best_loss:
-            best_loss = epoch_metrics["total_loss"]
+        if epoch_metrics["quality_loss"] < best_quality_loss:
+            best_quality_loss = epoch_metrics["quality_loss"]
             best_metrics = dict(epoch_metrics)
             best_state = {k: v.detach().to(device="cpu", dtype=torch.float32).clone() for k, v in module.state_dict().items()}
 
@@ -818,6 +842,7 @@ def _train_xnorm_nativekv_residual_layer(
         "k_rel_mse": best_metrics["k_rel_mse"],
         "v_rel_mse": best_metrics["v_rel_mse"],
         "delta_reg": best_metrics["delta_reg"],
+        "quality_loss": best_metrics["quality_loss"],
         "total_loss": best_metrics["total_loss"],
     }
     return pack_xnorm_nativekv_residual_patch_layer(layer, module), final_metrics
@@ -1022,6 +1047,313 @@ def _train_xnorm_nativekv_shared_residual_patch(
     return pack_xnorm_nativekv_shared_residual_patch(module), metrics_by_layer
 
 
+def _train_xnorm_nativekv_shared_residual_patch_streaming(
+    *,
+    chunk_paths: list[Path],
+    linear_layers: list[int],
+    residual_layers: list[int],
+    num_layers: int,
+    hidden_dim: int,
+    kv_dim: int,
+    patch_cfg: dict[str, Any],
+    device: torch.device,
+    native_components_by_layer: dict[int, ConsumerNativeComponents],
+    wk_by_layer: dict[int, torch.Tensor],
+    wv_by_layer: dict[int, torch.Tensor],
+    accel: dict[str, Any],
+    logger,
+) -> tuple[dict[str, Any], dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+    linear_layers = [int(layer) for layer in linear_layers]
+    residual_layers = [int(layer) for layer in residual_layers]
+    residual_set = set(residual_layers)
+    if not residual_layers:
+        raise ValueError("shared residual patch requires at least one residual layer")
+    if int(num_layers) <= max(residual_layers):
+        raise ValueError(f"num_layers={num_layers} does not cover residual_layers={residual_layers}")
+
+    trunk_dim = int(patch_cfg.get("patch_residual_hidden_dim") or 2048)
+    bottleneck_dim = int(patch_cfg.get("patch_shared_bottleneck_dim") or min(trunk_dim, 512))
+    num_blocks = int(patch_cfg.get("patch_residual_num_blocks") or 2)
+    ffn_multiplier = float(patch_cfg.get("patch_residual_ffn_multiplier") or 2.0)
+    batch_size = max(1, int(patch_cfg.get("patch_batch_size") or 512))
+    num_epochs = int(patch_cfg.get("patch_num_epochs") or 1)
+    lr = float(patch_cfg.get("lr") or 3e-4)
+    weight_decay = float(patch_cfg.get("weight_decay") or 0.01)
+    lambda_h = float(patch_cfg.get("lambda_h") or 1.0)
+    lambda_k = float(patch_cfg.get("lambda_k") or 1.0)
+    lambda_v = float(patch_cfg.get("lambda_v") or 1.0)
+    lambda_delta = float(patch_cfg.get("lambda_delta") or 1e-3)
+    layer_block_size = max(1, int(accel.get("layer_block_size") or 4))
+    use_mmap = bool(patch_cfg.get("pair_artifact_mmap", True))
+
+    module = XNormNativeKVSharedResidualPatch(
+        num_layers=int(num_layers),
+        hidden_dim=hidden_dim,
+        trunk_dim=trunk_dim,
+        bottleneck_dim=bottleneck_dim,
+        num_blocks=num_blocks,
+        ffn_multiplier=ffn_multiplier,
+    ).to(device=device, dtype=torch.float32)
+    optimizer = torch.optim.AdamW(module.parameters(), lr=lr, weight_decay=weight_decay)
+    initial_state = {key: value.detach().to(device="cpu", dtype=torch.float32).clone() for key, value in module.state_dict().items()}
+    layer_id_cache: dict[tuple[int, ...], torch.Tensor] = {}
+    linear_error_stats_by_layer: dict[int, dict[str, torch.Tensor]] = {
+        int(layer): create_direct_kv_error_stats_torch(device) for layer in linear_layers
+    }
+
+    def _layer_ids(block_layers: list[int]) -> torch.Tensor:
+        key = tuple(int(layer) for layer in block_layers)
+        cached = layer_id_cache.get(key)
+        if cached is None:
+            cached = torch.tensor(block_layers, device=device, dtype=torch.long)
+            layer_id_cache[key] = cached
+        return cached
+
+    def _empty_running() -> dict[int, dict[str, float]]:
+        return {
+            int(layer): {
+                "rows": 0.0,
+                "base_h_rel_mse": 0.0,
+                "base_k_rel_mse": 0.0,
+                "base_v_rel_mse": 0.0,
+                "h_rel_mse": 0.0,
+                "k_rel_mse": 0.0,
+                "v_rel_mse": 0.0,
+                "delta_reg": 0.0,
+                "total_loss": 0.0,
+            }
+            for layer in residual_layers
+        }
+
+    def _finalize_running(running: dict[int, dict[str, float]]) -> tuple[float, dict[str, dict[str, float]]]:
+        total_rows = 0.0
+        total_loss = 0.0
+        out: dict[str, dict[str, float]] = {}
+        for layer in residual_layers:
+            stats = running[int(layer)]
+            denom = max(1.0, float(stats["rows"]))
+            out[str(int(layer))] = {
+                "base_h_rel_mse": float(stats["base_h_rel_mse"] / denom),
+                "base_k_rel_mse": float(stats["base_k_rel_mse"] / denom),
+                "base_v_rel_mse": float(stats["base_v_rel_mse"] / denom),
+                "h_rel_mse": float(stats["h_rel_mse"] / denom),
+                "k_rel_mse": float(stats["k_rel_mse"] / denom),
+                "v_rel_mse": float(stats["v_rel_mse"] / denom),
+                "delta_reg": float(stats["delta_reg"] / denom),
+                "total_loss": float(stats["total_loss"] / denom),
+            }
+            total_rows += float(stats["rows"])
+            total_loss += float(stats["total_loss"])
+        return float(total_loss / max(1.0, total_rows)), out
+
+    def _finalize_identity_running(running: dict[int, dict[str, float]]) -> tuple[float, dict[str, dict[str, float]]]:
+        total_rows = 0.0
+        total_loss = 0.0
+        out: dict[str, dict[str, float]] = {}
+        for layer in residual_layers:
+            stats = running[int(layer)]
+            denom = max(1.0, float(stats["rows"]))
+            base_h = float(stats["base_h_rel_mse"] / denom)
+            base_k = float(stats["base_k_rel_mse"] / denom)
+            base_v = float(stats["base_v_rel_mse"] / denom)
+            layer_loss = (lambda_h * base_h) + (lambda_k * base_k) + (lambda_v * base_v)
+            out[str(int(layer))] = {
+                "base_h_rel_mse": base_h,
+                "base_k_rel_mse": base_k,
+                "base_v_rel_mse": base_v,
+                "h_rel_mse": base_h,
+                "k_rel_mse": base_k,
+                "v_rel_mse": base_v,
+                "delta_reg": 0.0,
+                "total_loss": float(layer_loss),
+            }
+            total_rows += float(stats["rows"])
+            total_loss += float(layer_loss) * float(stats["rows"])
+        return float(total_loss / max(1.0, total_rows)), out
+
+    best_loss = float("inf")
+    best_metrics: dict[str, dict[str, float]] | None = None
+    best_state = initial_state
+    num_passes = max(1, num_epochs)
+    start_time = time.perf_counter()
+
+    for epoch in range(1, num_passes + 1):
+        train = num_epochs > 0
+        if train:
+            module.train()
+        else:
+            module.eval()
+        running = _empty_running()
+        context = torch.enable_grad if train else torch.no_grad
+        accumulate_linear_errors = epoch == 1
+
+        for chunk_idx, chunk_path in enumerate(chunk_paths, start=1):
+            bundle = load_bundle(chunk_path, device="cpu", dtype="float32", mmap=use_mmap)
+            arrays = bundle.arrays
+            for start_idx in range(0, len(linear_layers), layer_block_size):
+                block_layers = linear_layers[start_idx : start_idx + layer_block_size]
+                residual_block_layers = [int(layer) for layer in block_layers if int(layer) in residual_set]
+                if not accumulate_linear_errors and not residual_block_layers:
+                    continue
+
+                xa_block = torch.stack(
+                    [
+                        arrays[f"xnorm_a.{int(layer)}"].reshape(-1, hidden_dim).to(device="cpu", dtype=torch.float32)
+                        for layer in block_layers
+                    ],
+                    dim=0,
+                ).contiguous()
+                xb_block = torch.stack(
+                    [
+                        arrays[f"xnorm_b.{int(layer)}"].reshape(-1, hidden_dim).to(device="cpu", dtype=torch.float32)
+                        for layer in block_layers
+                    ],
+                    dim=0,
+                ).contiguous()
+                residual_indices = [idx for idx, layer in enumerate(block_layers) if int(layer) in residual_set]
+                num_rows = int(xa_block.shape[1])
+
+                for row_start in range(0, num_rows, batch_size):
+                    row_stop = min(row_start + batch_size, num_rows)
+                    batch_xa = xa_block[:, row_start:row_stop].to(device=device, dtype=torch.float32, non_blocking=True)
+                    batch_xb = xb_block[:, row_start:row_stop].to(device=device, dtype=torch.float32, non_blocking=True)
+                    batch_rows = int(batch_xa.shape[1])
+
+                    with torch.no_grad():
+                        target_k, target_v = _project_consumer_native_kv_from_hidden_tensor_batched(
+                            batch_xb,
+                            block_layers,
+                            device,
+                            native_components_by_layer,
+                        )
+                        if accumulate_linear_errors:
+                            for block_idx, layer in enumerate(block_layers):
+                                accumulate_direct_kv_error_stats_torch(
+                                    batch_xa[block_idx],
+                                    target_k[block_idx],
+                                    target_v[block_idx],
+                                    wk_by_layer[int(layer)],
+                                    wv_by_layer[int(layer)],
+                                    linear_error_stats_by_layer[int(layer)],
+                                )
+
+                    if residual_indices:
+                        residual_xa = batch_xa[residual_indices]
+                        residual_xb = batch_xb[residual_indices]
+                        residual_target_k = target_k[residual_indices]
+                        residual_target_v = target_v[residual_indices]
+                        with torch.no_grad():
+                            base_k, base_v = _project_consumer_native_kv_from_hidden_tensor_batched(
+                                residual_xa,
+                                residual_block_layers,
+                                device,
+                                native_components_by_layer,
+                            )
+                            base_h_losses = [
+                                _relative_mse(residual_xa[block_idx], residual_xb[block_idx])
+                                for block_idx in range(len(residual_block_layers))
+                            ]
+                            base_k_losses = [
+                                _relative_mse(base_k[block_idx], residual_target_k[block_idx])
+                                for block_idx in range(len(residual_block_layers))
+                            ]
+                            base_v_losses = [
+                                _relative_mse(base_v[block_idx], residual_target_v[block_idx])
+                                for block_idx in range(len(residual_block_layers))
+                            ]
+
+                        with context():
+                            if train:
+                                optimizer.zero_grad(set_to_none=True)
+                            pred_xb, aux = module.forward_batched(residual_xa, _layer_ids(residual_block_layers))
+                            pred_k, pred_v = _project_consumer_native_kv_from_hidden_tensor_batched(
+                                pred_xb,
+                                residual_block_layers,
+                                device,
+                                native_components_by_layer,
+                            )
+                            total_loss = torch.zeros((), device=device, dtype=torch.float32)
+                            for block_idx, layer in enumerate(residual_block_layers):
+                                loss_h = _relative_mse(pred_xb[block_idx], residual_xb[block_idx])
+                                loss_k = _relative_mse(pred_k[block_idx], residual_target_k[block_idx])
+                                loss_v = _relative_mse(pred_v[block_idx], residual_target_v[block_idx])
+                                delta_reg = _relative_mse(aux["delta_h"][block_idx], torch.zeros_like(aux["delta_h"][block_idx]))
+                                layer_loss = (lambda_h * loss_h) + (lambda_k * loss_k) + (lambda_v * loss_v) + (lambda_delta * delta_reg)
+                                total_loss = total_loss + layer_loss
+                                layer_stats = running[int(layer)]
+                                layer_stats["rows"] += float(batch_rows)
+                                layer_stats["base_h_rel_mse"] += float(base_h_losses[block_idx].item()) * batch_rows
+                                layer_stats["base_k_rel_mse"] += float(base_k_losses[block_idx].item()) * batch_rows
+                                layer_stats["base_v_rel_mse"] += float(base_v_losses[block_idx].item()) * batch_rows
+                                layer_stats["h_rel_mse"] += float(loss_h.item()) * batch_rows
+                                layer_stats["k_rel_mse"] += float(loss_k.item()) * batch_rows
+                                layer_stats["v_rel_mse"] += float(loss_v.item()) * batch_rows
+                                layer_stats["delta_reg"] += float(delta_reg.item()) * batch_rows
+                                layer_stats["total_loss"] += float(layer_loss.item()) * batch_rows
+                            total_loss = total_loss / max(1, len(residual_block_layers))
+                            if train:
+                                total_loss.backward()
+                                torch.nn.utils.clip_grad_norm_(module.parameters(), max_norm=1.0)
+                                optimizer.step()
+
+                del xa_block, xb_block
+                clear_torch_cache()
+            del arrays, bundle
+            clear_torch_cache()
+            if chunk_idx == 1 or chunk_idx % 5 == 0 or chunk_idx == len(chunk_paths):
+                elapsed = time.perf_counter() - start_time
+                logger.info(
+                    "xnorm native-kv shared residual streaming progress: epoch=%d/%d chunk=%d/%d elapsed=%.1fs",
+                    epoch,
+                    num_passes,
+                    chunk_idx,
+                    len(chunk_paths),
+                    elapsed,
+                )
+
+        epoch_loss, epoch_metrics = _finalize_running(running)
+        if epoch == 1:
+            init_loss, init_metrics = _finalize_identity_running(running)
+            best_loss = float(init_loss)
+            best_metrics = init_metrics
+            best_state = initial_state
+            logger.info(
+                "xnorm native-kv shared residual streaming identity: mean_total_loss=%.6f trunk_dim=%d bottleneck_dim=%d layers=%s",
+                init_loss,
+                trunk_dim,
+                bottleneck_dim,
+                residual_layers,
+            )
+        logger.info(
+            "xnorm native-kv shared residual streaming epoch: epoch=%d/%d mean_total_loss=%.6f",
+            epoch,
+            num_passes,
+            epoch_loss,
+        )
+        if train and epoch_loss < best_loss:
+            best_loss = float(epoch_loss)
+            best_metrics = epoch_metrics
+            best_state = {key: value.detach().to(device="cpu", dtype=torch.float32).clone() for key, value in module.state_dict().items()}
+
+    if best_metrics is None:
+        raise RuntimeError("xnorm native-kv shared residual streaming produced no checkpoint")
+    module.load_state_dict(best_state)
+
+    linear_metrics_by_layer: dict[str, dict[str, float]] = {}
+    for layer in linear_layers:
+        patch_k_error, patch_v_error, patch_kv_error = finalize_direct_kv_error_stats_torch(
+            linear_error_stats_by_layer[int(layer)],
+            kv_dim=kv_dim,
+        )
+        linear_metrics_by_layer[str(int(layer))] = {
+            "linear_base_k_rel_mse": float(patch_k_error),
+            "linear_base_v_rel_mse": float(patch_v_error),
+            "linear_base_kv_rel_mse": float(patch_kv_error),
+        }
+
+    return pack_xnorm_nativekv_shared_residual_patch(module), best_metrics, linear_metrics_by_layer
+
+
 def train_direct_kv_knorm_residual_patch(
     *,
     args,
@@ -1037,14 +1369,18 @@ def train_direct_kv_knorm_residual_patch(
     patch_cfg = cfg.get("patch", {})
     patch_budget = int(patch_cfg["patch_budget"])
     ridge_lambda = float(patch_cfg["ridge_lambda"])
-    selected = _select_layers(profile, patch_budget, route=route)
+    residual_layers_cfg = patch_cfg.get("residual_layers")
+    configured_residual_layers = [int(layer) for layer in residual_layers_cfg] if isinstance(residual_layers_cfg, list) else []
+    if bool(patch_cfg.get("force_residual_layers_as_selected", False)) and configured_residual_layers:
+        selected = configured_residual_layers[:patch_budget]
+    else:
+        selected = _select_layers(profile, patch_budget, route=route)
     hidden_dim = int(meta["hidden_dim"])
     kv_dim = int(meta["num_key_value_heads"]) * int(meta["head_dim"])
     layer_block_size = int(accel["layer_block_size"])
 
-    residual_layers_cfg = patch_cfg.get("residual_layers")
-    if isinstance(residual_layers_cfg, list) and residual_layers_cfg:
-        residual_layers = [int(layer) for layer in residual_layers_cfg]
+    if configured_residual_layers:
+        residual_layers = list(configured_residual_layers)
     else:
         residual_layers = list(selected)
     residual_layers = [layer for layer in residual_layers if layer in selected]
@@ -1072,10 +1408,11 @@ def train_direct_kv_knorm_residual_patch(
         layer: create_direct_kv_stats_torch(hidden_dim, kv_dim, device) for layer in selected
     }
     chunk_paths = list(_iter_chunk_paths(args.pairs))
+    use_mmap = bool(patch_cfg.get("pair_artifact_mmap", True))
 
     start = time.perf_counter()
     for idx, chunk_path in enumerate(chunk_paths, start=1):
-        bundle = load_bundle(chunk_path, device=str(device), dtype="float32")
+        bundle = load_bundle(chunk_path, device="cpu", dtype="float32", mmap=use_mmap)
         arrays = bundle.arrays
         for start_idx in range(0, len(selected), layer_block_size):
             block_layers = selected[start_idx : start_idx + layer_block_size]
@@ -1201,18 +1538,26 @@ def train_xnorm_nativekv_residual_patch(
     patch_cfg = cfg.get("patch", {})
     patch_budget = int(patch_cfg["patch_budget"])
     ridge_lambda = float(patch_cfg["ridge_lambda"])
-    selected = _select_layers(profile, patch_budget, route=route)
+    linear_only = bool(patch_cfg.get("xnorm_nativekv_linear_only", False))
+    skip_linear_base_error_stats = bool(patch_cfg.get("skip_linear_base_error_stats", False))
+    residual_layers_cfg = patch_cfg.get("residual_layers")
+    configured_residual_layers = [int(layer) for layer in residual_layers_cfg] if isinstance(residual_layers_cfg, list) else []
+    if bool(patch_cfg.get("force_residual_layers_as_selected", False)) and configured_residual_layers:
+        selected = configured_residual_layers[:patch_budget]
+    else:
+        selected = _select_layers(profile, patch_budget, route=route)
     hidden_dim = int(meta["hidden_dim"])
     kv_dim = int(meta["num_key_value_heads"]) * int(meta["head_dim"])
     layer_block_size = int(accel["layer_block_size"])
 
-    residual_layers_cfg = patch_cfg.get("residual_layers")
-    if isinstance(residual_layers_cfg, list) and residual_layers_cfg:
-        residual_layers = [int(layer) for layer in residual_layers_cfg]
+    if configured_residual_layers:
+        residual_layers = list(configured_residual_layers)
     else:
         residual_layers = list(selected)
     residual_layers = [layer for layer in residual_layers if layer in selected]
-    if not residual_layers:
+    if linear_only:
+        residual_layers = []
+    if not residual_layers and not linear_only:
         raise ValueError("residual_layers resolved to empty set")
 
     logger.info(
@@ -1236,10 +1581,11 @@ def train_xnorm_nativekv_residual_patch(
         layer: create_direct_kv_stats_torch(hidden_dim, kv_dim, device) for layer in selected
     }
     chunk_paths = list(_iter_chunk_paths(args.pairs))
+    use_mmap = bool(patch_cfg.get("pair_artifact_mmap", True))
 
     start = time.perf_counter()
     for idx, chunk_path in enumerate(chunk_paths, start=1):
-        bundle = load_bundle(chunk_path, device=str(device), dtype="float32")
+        bundle = load_bundle(chunk_path, device="cpu", dtype="float32", mmap=use_mmap)
         arrays = bundle.arrays
         for start_idx in range(0, len(selected), layer_block_size):
             block_layers = selected[start_idx : start_idx + layer_block_size]
@@ -1269,29 +1615,61 @@ def train_xnorm_nativekv_residual_patch(
     del direct_stats_by_layer
     clear_torch_cache()
 
-    for layer in selected:
-        error_stats = create_direct_kv_error_stats_torch(device)
-        for chunk_path in chunk_paths:
-            bundle = load_bundle(chunk_path, device=str(device), dtype="float32")
-            arrays = bundle.arrays
-            xa = arrays[f"xnorm_a.{int(layer)}"].reshape(-1, hidden_dim).to(device=device, dtype=torch.float32)
-            kb_raw, vb = _project_consumer_native_kv_from_xnorm_b(arrays, layer, hidden_dim, device, native_components_by_layer[int(layer)])
-            accumulate_direct_kv_error_stats_torch(xa, kb_raw, vb, wk_by_layer[int(layer)], wv_by_layer[int(layer)], error_stats)
-            del arrays, bundle
-            clear_torch_cache()
-        patch_k_error, patch_v_error, patch_kv_error = finalize_direct_kv_error_stats_torch(error_stats, kv_dim=kv_dim)
-        metrics[str(int(layer))] = {
-            "linear_base_k_rel_mse": float(patch_k_error),
-            "linear_base_v_rel_mse": float(patch_v_error),
-            "linear_base_kv_rel_mse": float(patch_kv_error),
+    if linear_only:
+        for layer in selected:
+            metrics[str(int(layer))] = {"linear_only": True}
+        meta_payload = {
+            "selected_layers": selected,
+            "residual_layers": [],
+            "hidden_dim": hidden_dim,
+            "code_dim": hidden_dim,
+            "num_key_value_heads": int(meta["num_key_value_heads"]),
+            "head_dim": int(meta["head_dim"]),
+            "k_space": "consumer_prenorm_k_native_v",
+            "rope": {"model_b": rope_b.to_dict()},
+            "fit_mode": PATCH_FIT_MODE_XNORM_NATIVEKV_RESIDUAL_MLP_V1,
+            "route_layers": [] if route is None else [int(layer) for layer in route.get("patch_layers", [])],
+            "xnorm_nativekv_linear_only": True,
+            "loss_weights": {
+                "lambda_h": 0.0,
+                "lambda_k": 1.0,
+                "lambda_v": 1.0,
+                "lambda_delta": 0.0,
+            },
         }
-        logger.info(
-            "linear base solved: layer=%d linear_base_k_rel_mse=%.6f linear_base_v_rel_mse=%.6f linear_base_kv_rel_mse=%.6f",
-            int(layer),
-            patch_k_error,
-            patch_v_error,
-            patch_kv_error,
-        )
+        save_patch_ckpt(args.out, out_arrays, meta_payload)
+        save_json(Path(args.out) / "metrics.json", {"fit_mode": PATCH_FIT_MODE_XNORM_NATIVEKV_RESIDUAL_MLP_V1, "layers": metrics})
+        logger.info("xnorm native-kv linear-only patch checkpoint saved to %s", args.out)
+        return
+
+    if skip_linear_base_error_stats:
+        for layer in selected:
+            metrics[str(int(layer))] = {}
+        logger.info("skipping xnorm native-kv linear-base error statistics: selected=%s", selected)
+    else:
+        for layer in selected:
+            error_stats = create_direct_kv_error_stats_torch(device)
+            for chunk_path in chunk_paths:
+                bundle = load_bundle(chunk_path, device=str(device), dtype="float32")
+                arrays = bundle.arrays
+                xa = arrays[f"xnorm_a.{int(layer)}"].reshape(-1, hidden_dim).to(device=device, dtype=torch.float32)
+                kb_raw, vb = _project_consumer_native_kv_from_xnorm_b(arrays, layer, hidden_dim, device, native_components_by_layer[int(layer)])
+                accumulate_direct_kv_error_stats_torch(xa, kb_raw, vb, wk_by_layer[int(layer)], wv_by_layer[int(layer)], error_stats)
+                del arrays, bundle
+                clear_torch_cache()
+            patch_k_error, patch_v_error, patch_kv_error = finalize_direct_kv_error_stats_torch(error_stats, kv_dim=kv_dim)
+            metrics[str(int(layer))] = {
+                "linear_base_k_rel_mse": float(patch_k_error),
+                "linear_base_v_rel_mse": float(patch_v_error),
+                "linear_base_kv_rel_mse": float(patch_kv_error),
+            }
+            logger.info(
+                "linear base solved: layer=%d linear_base_k_rel_mse=%.6f linear_base_v_rel_mse=%.6f linear_base_kv_rel_mse=%.6f",
+                int(layer),
+                patch_k_error,
+                patch_v_error,
+                patch_kv_error,
+            )
 
     for layer in residual_layers:
         xa_all, xb_all, k_all, v_all = _preload_xnorm_nativekv_residual_dataset_for_layer(
@@ -1347,6 +1725,7 @@ def train_xnorm_nativekv_residual_patch(
             "lambda_v": float(patch_cfg.get("lambda_v") or 1.0),
             "lambda_delta": float(patch_cfg.get("lambda_delta") or 1e-3),
         },
+        "skip_linear_base_error_stats": skip_linear_base_error_stats,
     }
     save_patch_ckpt(args.out, out_arrays, meta_payload)
     save_json(Path(args.out) / "metrics.json", {"fit_mode": PATCH_FIT_MODE_XNORM_NATIVEKV_RESIDUAL_MLP_V1, "layers": metrics})
@@ -1368,14 +1747,18 @@ def train_xnorm_nativekv_shared_residual_patch(
     patch_cfg = cfg.get("patch", {})
     patch_budget = int(patch_cfg["patch_budget"])
     ridge_lambda = float(patch_cfg["ridge_lambda"])
-    selected = _select_layers(profile, patch_budget, route=route)
+    residual_layers_cfg = patch_cfg.get("residual_layers")
+    configured_residual_layers = [int(layer) for layer in residual_layers_cfg] if isinstance(residual_layers_cfg, list) else []
+    if bool(patch_cfg.get("force_residual_layers_as_selected", False)) and configured_residual_layers:
+        selected = configured_residual_layers[:patch_budget]
+    else:
+        selected = _select_layers(profile, patch_budget, route=route)
     hidden_dim = int(meta["hidden_dim"])
     kv_dim = int(meta["num_key_value_heads"]) * int(meta["head_dim"])
     layer_block_size = int(accel["layer_block_size"])
 
-    residual_layers_cfg = patch_cfg.get("residual_layers")
-    if isinstance(residual_layers_cfg, list) and residual_layers_cfg:
-        residual_layers = [int(layer) for layer in residual_layers_cfg]
+    if configured_residual_layers:
+        residual_layers = list(configured_residual_layers)
     else:
         residual_layers = list(selected)
     residual_layers = [layer for layer in residual_layers if layer in selected]
@@ -1436,41 +1819,32 @@ def train_xnorm_nativekv_shared_residual_patch(
     del direct_stats_by_layer
     clear_torch_cache()
 
-    for layer in selected:
-        error_stats = create_direct_kv_error_stats_torch(device)
-        for chunk_path in chunk_paths:
-            bundle = load_bundle(chunk_path, device=str(device), dtype="float32")
-            arrays = bundle.arrays
-            xa = arrays[f"xnorm_a.{int(layer)}"].reshape(-1, hidden_dim).to(device=device, dtype=torch.float32)
-            kb_raw, vb = _project_consumer_native_kv_from_xnorm_b(arrays, layer, hidden_dim, device, native_components_by_layer[int(layer)])
-            accumulate_direct_kv_error_stats_torch(xa, kb_raw, vb, wk_by_layer[int(layer)], wv_by_layer[int(layer)], error_stats)
-            del arrays, bundle
-            clear_torch_cache()
-        patch_k_error, patch_v_error, patch_kv_error = finalize_direct_kv_error_stats_torch(error_stats, kv_dim=kv_dim)
-        metrics[str(int(layer))] = {
-            "linear_base_k_rel_mse": float(patch_k_error),
-            "linear_base_v_rel_mse": float(patch_v_error),
-            "linear_base_kv_rel_mse": float(patch_kv_error),
-        }
-        logger.info(
-            "linear base solved: layer=%d linear_base_k_rel_mse=%.6f linear_base_v_rel_mse=%.6f linear_base_kv_rel_mse=%.6f",
-            int(layer),
-            patch_k_error,
-            patch_v_error,
-            patch_kv_error,
-        )
-
-    shared_arrays, shared_metrics = _train_xnorm_nativekv_shared_residual_patch(
+    shared_arrays, shared_metrics, linear_metrics = _train_xnorm_nativekv_shared_residual_patch_streaming(
         chunk_paths=chunk_paths,
+        linear_layers=selected,
         residual_layers=residual_layers,
+        num_layers=max(selected) + 1 if selected else 0,
         hidden_dim=hidden_dim,
+        kv_dim=kv_dim,
         patch_cfg=patch_cfg,
         device=device,
         native_components_by_layer=native_components_by_layer,
+        wk_by_layer=wk_by_layer,
+        wv_by_layer=wv_by_layer,
         accel=accel,
         logger=logger,
     )
     out_arrays.update(shared_arrays)
+    metrics.update(linear_metrics)
+    for layer in selected:
+        layer_key = str(int(layer))
+        logger.info(
+            "linear base solved: layer=%d linear_base_k_rel_mse=%.6f linear_base_v_rel_mse=%.6f linear_base_kv_rel_mse=%.6f",
+            int(layer),
+            metrics[layer_key]["linear_base_k_rel_mse"],
+            metrics[layer_key]["linear_base_v_rel_mse"],
+            metrics[layer_key]["linear_base_kv_rel_mse"],
+        )
     for layer in residual_layers:
         layer_key = str(int(layer))
         metrics.setdefault(layer_key, {}).update(shared_metrics[layer_key])

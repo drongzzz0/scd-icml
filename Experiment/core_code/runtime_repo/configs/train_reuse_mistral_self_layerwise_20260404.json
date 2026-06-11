@@ -22,6 +22,6 @@
     "group_block_size": 2
   },
   "runtime": {
-    "cpu_fallback": true
+    "cpu_fallback": false
   }
 }

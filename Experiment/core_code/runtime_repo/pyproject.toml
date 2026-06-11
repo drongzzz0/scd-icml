@@ -1,16 +1,16 @@
-﻿[build-system]
+[build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "scd-repro"
 version = "0.1.0"
-description = "语义缓存蒸馏（SCD）复现工具包"
+description = "Semantic Cache Distillation reproduction toolkit"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-  {name = "SCD 复现团队"}
+  {name = "SCD reproduction team"}
 ]
 dependencies = [
   "numpy>=2.0.0",
@@ -24,6 +24,9 @@ dependencies = [
 ml = [
   "datasets>=2.20.0"
 ]
+analysis = [
+  "scikit-learn>=1.4.0"
+]
 test = []
 
 [project.scripts]
@@ -34,8 +37,9 @@ train-patch = "scd_repro.cli.train_patch:main"
 build-route = "scd_repro.cli.build_route:main"
 infer = "scd_repro.cli.infer:main"
 eval = "scd_repro.cli.eval_cmd:main"
+eval-text-strict = "scd_repro.cli.eval_text_strict:main"
+summarize-mistral-repro = "scd_repro.cli.summarize_mistral_repro:main"
 report = "scd_repro.cli.report_cmd:main"
-search-blockwise-hybrid = "scd_repro.cli.search_blockwise_hybrid:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

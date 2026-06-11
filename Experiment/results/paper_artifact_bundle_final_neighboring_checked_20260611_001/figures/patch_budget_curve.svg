@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="430" viewBox="0 0 820 430">
+<rect width="100%" height="100%" fill="white"/>
+<text x="410.0" y="26" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700">SCD-ICML: cumulative gain curve</text>
+<line x1="75" y1="364" x2="785" y2="364" stroke="#333" stroke-width="1"/>
+<line x1="75" y1="46" x2="75" y2="364" stroke="#333" stroke-width="1"/>
+<text x="430.0" y="408" text-anchor="middle" font-family="Arial" font-size="13">Patch budget</text>
+<text x="18" y="205.0" transform="rotate(-90 18 205.0)" text-anchor="middle" font-family="Arial" font-size="13">Profile metric</text>
+<text x="75" y="384" text-anchor="middle" font-family="Arial" font-size="11">1</text>
+<text x="785" y="384" text-anchor="middle" font-family="Arial" font-size="11">16</text>
+<text x="67" y="50" text-anchor="end" font-family="Arial" font-size="11">5.779</text>
+<text x="67" y="368" text-anchor="end" font-family="Arial" font-size="11">-0.428</text>
+<polyline fill="none" stroke="#1b9e77" stroke-width="2.5" points="75.00,322.41 122.33,303.11 169.67,283.86 217.00,264.83 264.33,246.28 311.67,228.22 359.00,210.19 406.33,192.76 453.67,175.35 501.00,158.28 548.33,141.75 595.67,125.56 643.00,110.20 690.33,95.65 737.67,81.79 785.00,67.93"/>
+<circle cx="75.00" cy="322.41" r="3.4" fill="#1b9e77"><title>patch budget 1: Cumulative gain=0.383707</title></circle>
+<circle cx="122.33" cy="303.11" r="3.4" fill="#1b9e77"><title>patch budget 2: Cumulative gain=0.760520</title></circle>
+<circle cx="169.67" cy="283.86" r="3.4" fill="#1b9e77"><title>patch budget 3: Cumulative gain=1.136260</title></circle>
+<circle cx="217.00" cy="264.83" r="3.4" fill="#1b9e77"><title>patch budget 4: Cumulative gain=1.507779</title></circle>
+<circle cx="264.33" cy="246.28" r="3.4" fill="#1b9e77"><title>patch budget 5: Cumulative gain=1.869759</title></circle>
+<circle cx="311.67" cy="228.22" r="3.4" fill="#1b9e77"><title>patch budget 6: Cumulative gain=2.222327</title></circle>
+<circle cx="359.00" cy="210.19" r="3.4" fill="#1b9e77"><title>patch budget 7: Cumulative gain=2.574355</title></circle>
+<circle cx="406.33" cy="192.76" r="3.4" fill="#1b9e77"><title>patch budget 8: Cumulative gain=2.914486</title></circle>
+<circle cx="453.67" cy="175.35" r="3.4" fill="#1b9e77"><title>patch budget 9: Cumulative gain=3.254391</title></circle>
+<circle cx="501.00" cy="158.28" r="3.4" fill="#1b9e77"><title>patch budget 10: Cumulative gain=3.587565</title></circle>
+<circle cx="548.33" cy="141.75" r="3.4" fill="#1b9e77"><title>patch budget 11: Cumulative gain=3.910274</title></circle>
+<circle cx="595.67" cy="125.56" r="3.4" fill="#1b9e77"><title>patch budget 12: Cumulative gain=4.226189</title></circle>
+<circle cx="643.00" cy="110.20" r="3.4" fill="#1b9e77"><title>patch budget 13: Cumulative gain=4.526082</title></circle>
+<circle cx="690.33" cy="95.65" r="3.4" fill="#1b9e77"><title>patch budget 14: Cumulative gain=4.810054</title></circle>
+<circle cx="737.67" cy="81.79" r="3.4" fill="#1b9e77"><title>patch budget 15: Cumulative gain=5.080622</title></circle>
+<circle cx="785.00" cy="67.93" r="3.4" fill="#1b9e77"><title>patch budget 16: Cumulative gain=5.351145</title></circle>
+<rect x="85" y="53" width="12" height="12" fill="#1b9e77"/>
+<text x="103" y="63" font-family="Arial" font-size="12">Cumulative gain</text>
+</svg>

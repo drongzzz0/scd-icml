@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import re
@@ -60,13 +60,27 @@ def _collect_answer_texts(raw_answers) -> list[str]:
     return answers
 
 
-def load_cmrc2018_samples(data_root: str | Path, limit: int | None = None) -> list[CMRCSample]:
-    root = Path(data_root)
-    candidates = [
-        root / "cmrc2018" / "cmrc2018_dev.json",
-        root / "prompts" / "cmrc2018_dev.json",
-        root / "cmrc2018" / "cmrc2018_train.json",
+def _cmrc_candidate_paths(root: Path, split: str) -> list[Path]:
+    split_key = str(split or "").strip().lower()
+    if split_key not in {"dev", "train"}:
+        raise ValueError(f"unsupported CMRC2018 split: {split!r}; expected 'dev' or 'train'")
+    filename = f"cmrc2018_{split_key}.json"
+    return [
+        root / "cmrc2018" / filename,
+        root / "prompts" / filename,
+        root / "data" / "cmrc2018" / filename,
+        root / "data" / "prompts" / filename,
     ]
+
+
+def load_cmrc2018_samples(
+    data_root: str | Path,
+    limit: int | None = None,
+    *,
+    split: str = "dev",
+) -> list[CMRCSample]:
+    root = Path(data_root)
+    candidates = _cmrc_candidate_paths(root, split)
     saw_existing_candidate = False
     for path in candidates:
         if not path.exists():
@@ -128,7 +142,7 @@ def load_cmrc2018_samples(data_root: str | Path, limit: int | None = None) -> li
             return samples
     if saw_existing_candidate:
         raise ValueError(f"找到 CMRC 文件但未识别其结构: {candidates}")
-    raise FileNotFoundError(f"未找到可用的 CMRC2018 dev 数据: {candidates}")
+    raise FileNotFoundError(f"未找到可用的 CMRC2018 {split} 数据: {candidates}")
 
 
 def _mixed_segmentation(text: str, remove_punctuation: bool) -> list[str]:

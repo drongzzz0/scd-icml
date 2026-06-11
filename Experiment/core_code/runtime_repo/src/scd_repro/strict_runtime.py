@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import gc
 import math
@@ -446,7 +446,9 @@ class TransformersRuntimeSession:
         stack_cache = getattr(self, "__runtime_consumer_native_proj_stack__", None)
         if isinstance(stack_cache, dict):
             stack_cache.clear()
-        del self.model
+        for name in ("layers", "model", "tokenizer"):
+            if hasattr(self, name):
+                delattr(self, name)
         clear_torch_cache()
 
 
@@ -708,8 +710,11 @@ def _normalize_runtime_route(
     recompute_map = _as_int_map(route.get("recompute_segment_length_by_layer", {}))
     selected_recompute = _as_int_list(route.get("selected_recompute_layers", []))
 
-    if mode in {"reuse_fallback", "reuse_patch", "reuse_patch_recompute"} and fail_on_missing_route_fields and not route_reuse:
+    if mode == "reuse_fallback" and fail_on_missing_route_fields and not route_reuse:
         raise ValueError(f"{mode} 缺少 route.reuse_layers")
+    if mode in {"reuse_patch", "reuse_patch_recompute"} and fail_on_missing_route_fields and not route_reuse:
+        if set(route_patch) != set(all_layers):
+            raise ValueError(f"{mode} 缺少 route.reuse_layers，且 patch_layers 未完整覆盖所有层")
     if mode in {"patch_only", "reuse_patch", "reuse_patch_recompute"} and fail_on_missing_patch_fields and not route_patch:
         raise ValueError(f"{mode} 缺少 route.patch_layers/selected_patch_layers")
 
@@ -3456,6 +3461,11 @@ def _assemble_method_cache(
             hd = int(patch_meta["head_dim"])
             runtime_patch_layers = [int(layer) for layer in runtime_route["patch_layers"]]
             runtime_fallback_layers = [int(layer) for layer in runtime_route["fallback_layers"]]
+            if runtime_fallback_layers:
+                raise ValueError(
+                    "scd_full must follow paper SCD semantics: reuse non-patch layers and patch selected layers; "
+                    f"fallback/recompute layers are not allowed, got {runtime_fallback_layers}"
+                )
             extra_payload_bytes, patch_infer_ms = _apply_patch_layers_to_cache(
                 caches=caches,
                 patch_layers=runtime_patch_layers,
@@ -3476,15 +3486,7 @@ def _assemble_method_cache(
             timing.patch_infer_ms = float(patch_infer_ms)
             _apply_patch_breakdown_to_timing(timing=timing, patch_meta=patch_meta)
             _apply_patch_path_timing_to_timing(timing=timing, patch_meta=patch_meta)
-            _overlay_consumer_layers(
-                caches,
-                consumer_capture=consumer_capture,
-                layers=runtime_fallback_layers,
-                prefix_tokens=prefix_tokens,
-                consumer_device=consumer_device,
-                consumer_dtype=consumer_dtype,
-            )
-            timing.recompute_ms = float(sum(consumer_capture.layer_ms[layer] for layer in runtime_fallback_layers if 0 <= layer < len(consumer_capture.layer_ms)))
+            timing.recompute_ms = 0.0
         elif method == "oracle_kv_patchonly":
             assert runtime_route is not None
             runtime_patch_layers = [int(layer) for layer in runtime_route["patch_layers"]]

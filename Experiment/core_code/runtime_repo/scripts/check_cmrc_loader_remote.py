@@ -11,6 +11,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Diagnose CMRC loader path visibility")
     p.add_argument("--data-root", required=True)
     p.add_argument("--limit", type=int, default=2)
+    p.add_argument("--split", choices=["dev", "train"], default="dev")
     args = p.parse_args()
 
     root = Path(args.data_root)
@@ -24,8 +25,8 @@ def main() -> None:
     print(f"train_path={train_path!s}")
     print(f"train_exists={train_path.exists()} train_is_file={train_path.is_file()}")
 
-    rows = load_cmrc2018_samples(root, limit=int(args.limit))
-    print(f"rows={len(rows)} first_qid={rows[0].qid if rows else ''}")
+    rows = load_cmrc2018_samples(root, limit=int(args.limit), split=args.split)
+    print(f"split={args.split} rows={len(rows)} first_qid={rows[0].qid if rows else ''}")
 
 
 if __name__ == "__main__":

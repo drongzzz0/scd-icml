@@ -1,0 +1,124 @@
+% Current evidence-safe SCD-ICML results fragment.
+% Generated on 2026-06-10 from verified MistralLite -> Mistral-7B runs.
+% This fragment is intended to replace the historical broad result tables in
+% the archived ICML camera-ready source if a current reproducibility-safe paper
+% revision is needed. Qwen-32B is intentionally deferred.
+
+\subsection{Current Reproducible Result Boundary}
+\label{subsec:current_repro_boundary}
+
+We report the current machine-verified SCD result on the MistralLite$\to$Mistral-7B
+pair.  The release path uses a fixed no-fallback, no-recompute route: 19 layers
+are served by \textsc{Reuse}, and 13 transition layers are served by
+\textsc{Patch}.  The route is selected by F1/EM retention on CMRC2018 and is
+stored in the release package as
+\texttt{configs/routes/scd\_icml\_mistrallite\_to\_mistral7\_reuse19\_patch13\_cmrc200.json}.
+Qwen-32B is not included in this release-safety audit.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{\textbf{Verified CMRC2018 selected-route result.}
+  MistralLite$\to$Mistral-7B, CMRC2018 dev, $n=200$, greedy decoding, no
+  fallback, no recomputation.  SCD preserves F1/EM relative to Full Consumer
+  while reducing TTFT.  Avg NLL/PPL are reported as auxiliary calibration-risk
+  signals, not as the route-selection objective.}
+  \label{tab:current_cmrc_selected_route}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    \textbf{Method} & \textbf{F1} & \textbf{EM} & \textbf{Avg NLL} & \textbf{PPL} & \textbf{TTFT (ms)} \\
+    \midrule
+    Full Consumer & 0.657307 & 0.365 & 0.569284 & 1.767002 & 100.604 \\
+    SCD Reuse19/Patch13 & 0.642751 & 0.350 & 0.934572 & 2.546122 & 41.598 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The verified F1 retention is $0.977855$ and EM retention is $0.958904$.
+Thus, under the F1/EM-primary objective, the current release result does not
+show evidence of fabrication or an unrunnable main path: the open-source wrapper
+reaches the selected route, and the completed remote run reproduces the same
+Full Consumer/SCD comparison.
+
+\subsection{Maximum-Reuse Boundary}
+\label{subsec:current_reuse_boundary}
+
+The route-selection objective is to maximize the number of \textsc{Reuse} layers
+while preserving answer quality.  Starting from the Reuse19/Patch13 route, each
+single-layer extension to Reuse20 was tested.  The best Reuse20 candidate
+already falls below the working F1-retention target, and higher-Reuse routes
+degrade rapidly.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{\textbf{Quality boundary as Reuse count increases.}
+  CMRC2018 dev, $n=200$.  Reuse19/Patch13 is the current maximum verified
+  quality-preserving route under the F1/EM-primary criterion.}
+  \label{tab:current_reuse_boundary}
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{lrrr}
+    \toprule
+    \textbf{Route} & \textbf{CMRC F1} & \textbf{CMRC EM} & \textbf{Interpretation} \\
+    \midrule
+    Reuse19/Patch13 & 0.642751 & 0.350 & current boundary \\
+    Reuse20/Patch12 & 0.611265 & 0.360 & below F1-retention target \\
+    Reuse21/Patch11 & 0.554634 & 0.310 & too much quality loss \\
+    Reuse22/Patch10 & 0.496437 & 0.255 & too much quality loss \\
+    Reuse29/Patch03 & 0.077045 & 0.010 & collapsed \\
+    Reuse30/Patch02 & 0.009595 & 0.000 & collapsed \\
+    Reuse31/Patch01 & 0.007903 & 0.000 & collapsed \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Limitations on Other Benchmarks}
+\label{subsec:current_limitations}
+
+The current selected route should not be presented as a universal
+three-dataset quality-preserving result.  On full-context HotpotQA, the
+CMRC-selected route loses substantial F1/EM even after retraining HotpotQA banks
+on a disjoint split.  On WikiText-2, the selected route improves TTFT but worsens
+language-modeling quality as measured by NLL/PPL.  These rows are therefore
+limitations and diagnostics, not positive main claims.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{\textbf{Current non-CMRC diagnostics.}
+  HotpotQA uses complete distractor context with no truncation
+  (\texttt{MAX\_LENGTH=0}).  WikiText-2 reports teacher-forced
+  language-modeling quality.}
+  \label{tab:current_non_cmrc_diagnostics}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{llrrr}
+    \toprule
+    \textbf{Dataset} & \textbf{Method} & \textbf{F1/EM or NLL/PPL} & \textbf{TTFT (ms)} & \textbf{Conclusion} \\
+    \midrule
+    HotpotQA & Full Consumer & F1 0.400453 / EM 0.265 & 216.153 & baseline \\
+    HotpotQA & SCD Reuse19/Patch13 & F1 0.138272 / EM 0.105 & 67.060 & quality not preserved \\
+    WikiText-2 & Full Consumer & NLL 2.026045 / PPL 7.584029 & 62.368 & baseline \\
+    WikiText-2 & SCD Reuse19/Patch13 & NLL 3.274239 / PPL 26.423097 & 31.004 & auxiliary risk \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+An older GitHub snapshot reports a stronger HotpotQA Patch-only result
+(F1 $0.351659$, EM $0.252127$ on 7405 examples), but that evaluation uses a
+question-aware compressed-evidence prompt and \texttt{max\_length=512}.  It is a
+separate compressed-prompt benchmark and should not be mixed with the current
+full-context HotpotQA setting; the release code exposes it as
+\texttt{hotpotqa\_compressed} for isolated reproduction.  A question-text overlap audit found that this
+old 7405-example evaluation includes the 100 questions used to train the old
+Patch checkpoint; after removing those questions, Patch-only remains at F1
+$0.351443$ and EM $0.251608$.  Thus the result is real for the compressed
+setting, but it is not evidence for full-context HotpotQA.
+
+\paragraph{Evidence roots.}
+The CMRC selected-route aggregate is
+\texttt{/disk\_n/c101-3-mql/projects/SCD-ICML/runs/scd\_icml\_selected\_reuse19\_5method\_aggregate\_20260610\_034426}.
+The valid full-context HotpotQA run is
+\texttt{/disk\_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa\_fullcontext\_full\_scd\_20260610\_115952}.
+The HotpotQA full-bank heldout run is
+\texttt{/disk\_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa\_full\_banks\_20260610\_192156}.

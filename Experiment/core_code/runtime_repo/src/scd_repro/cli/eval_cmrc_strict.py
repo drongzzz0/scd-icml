@@ -47,6 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dtype", default="")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--log", default="")
+    p.add_argument("--cmrc-split", default="", help="CMRC2018 split for eval; defaults to runtime_eval.cmrc_split or dev")
     p.add_argument("--qids", default="", help="逗号分隔的 qid 子集，仅在当前加载样本窗口内过滤")
     p.add_argument("--qid-file", default="", help="每行一个 qid 的文件，仅在当前加载样本窗口内过滤")
     add_accel_args(p)
@@ -142,14 +143,63 @@ def _runtime_eval_cfg(eval_cfg: dict[str, Any]) -> dict[str, Any]:
     return eval_cfg.get("runtime_eval", {}) if isinstance(eval_cfg.get("runtime_eval", {}), dict) else {}
 
 
+def _runtime_patch_cfg(runtime_eval_cfg: dict[str, Any]) -> dict[str, Any]:
+    cfg = runtime_eval_cfg.get("patch_runtime", {})
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def _runtime_cfg_value(runtime_eval_cfg: dict[str, Any], key: str, default: Any = None) -> Any:
+    patch_cfg = _runtime_patch_cfg(runtime_eval_cfg)
+    if key in patch_cfg:
+        return patch_cfg[key]
+    return runtime_eval_cfg.get(key, default)
+
+
+def _bool_cfg_value(raw: Any, default: bool) -> bool:
+    if raw is None:
+        return bool(default)
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, (int, float)):
+        return bool(raw)
+    text = str(raw).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return bool(default)
+
+
+def _patch_ckpt_load_device(runtime_eval_cfg: dict[str, Any], consumer_device: str) -> str:
+    raw = _runtime_cfg_value(runtime_eval_cfg, "patch_ckpt_device", "")
+    text = str(raw or "").strip().lower()
+    if text in {"", "consumer", "consumer_device", "target", "target_device"}:
+        return str(consumer_device)
+    return str(raw)
+
+
+def _apply_patch_runtime_overrides(patch_meta: dict[str, object], runtime_eval_cfg: dict[str, Any]) -> None:
+    raw_window = _runtime_cfg_value(runtime_eval_cfg, "runtime_patch_window_size", None)
+    if raw_window not in {None, ""}:
+        patch_meta["runtime_patch_window_size"] = max(0, int(raw_window))
+    for key in ("runtime_patch_persist_shards", "runtime_patch_persist_modules"):
+        raw_value = _runtime_cfg_value(runtime_eval_cfg, key, None)
+        if raw_value is not None:
+            patch_meta[key] = _bool_cfg_value(raw_value, bool(patch_meta.get(key, False)))
+
+
 def _select_runtime_methods(runtime_eval_cfg: dict[str, Any]) -> list[str]:
     mapping = [
         ("run_full_consumer_baseline", "full_consumer", True),
+        ("run_raw_kv", "raw_kv", False),
+        ("run_quantized_4bit", "quantized_4bit", False),
+        ("run_selective_recompute", "selective_recompute", False),
         ("run_reuse_only", "reuse_only", True),
         ("run_reuse_fallback", "reuse_fallback", True),
         ("run_patch_only", "patch_only", False),
         ("run_reuse_patch", "reuse_patch", True),
         ("run_reuse_patch_recompute", "reuse_patch_recompute", True),
+        ("run_scd_full", "scd_full", False),
         ("run_oracle_xnorm_suffix", "oracle_xnorm_suffix", False),
         ("run_oracle_state_suffix", "oracle_state_suffix", False),
         ("run_oracle_kv_patchonly", "oracle_kv_patchonly", False),
@@ -162,6 +212,20 @@ def _consumer_capture_flags(methods: list[str]) -> tuple[bool, bool]:
     capture_xnorm = any(method in {"oracle_xnorm_suffix", "oracle_state_suffix"} for method in methods)
     capture_residual = any(method == "oracle_state_suffix" for method in methods)
     return capture_xnorm, capture_residual
+
+
+def _methods_need_patch(methods: list[str]) -> bool:
+    return any(
+        method
+        in {
+            "patch_only",
+            "reuse_patch",
+            "reuse_patch_recompute",
+            "scd_full",
+            "oracle_kv_patchonly",
+        }
+        for method in methods
+    )
 
 
 def _route_counts(route: dict[str, list[int]]) -> dict[str, int]:
@@ -281,7 +345,12 @@ def main() -> None:
 
     route = load_json(args.route)
     reuse_cpu, reuse_meta = load_reuse_weights(args.reuse_ckpt, device="cpu", dtype="float32")
-    patch_bundle, patch_meta = load_patch_ckpt(args.patch_ckpt, device=consumer_device, dtype="float32")
+    patch_ckpt_device = _patch_ckpt_load_device(runtime_eval_cfg, consumer_device)
+    if _methods_need_patch(methods):
+        patch_bundle, patch_meta = load_patch_ckpt(args.patch_ckpt, device=patch_ckpt_device, dtype="float32")
+        _apply_patch_runtime_overrides(patch_meta, runtime_eval_cfg)
+    else:
+        patch_bundle, patch_meta = None, {}
     reuse_prod = move_reuse_weights(reuse_cpu, producer_device, dtype="float32", cpu_fallback=True)
     reuse_cons = move_reuse_weights(reuse_cpu, consumer_device, dtype="float32", cpu_fallback=True)
 
@@ -293,6 +362,13 @@ def main() -> None:
         methods,
         patch_meta.get("fit_mode"),
         patch_meta.get("semantic_source"),
+    )
+    logger.info(
+        "patch runtime: ckpt_device=%s window_size=%s persist_shards=%s persist_modules=%s",
+        patch_ckpt_device,
+        patch_meta.get("runtime_patch_window_size", 0),
+        patch_meta.get("runtime_patch_persist_shards", False),
+        patch_meta.get("runtime_patch_persist_modules", False),
     )
     logger.info(
         "route summary: reuse=%s patch=%s fallback=%s recompute=%s",
@@ -311,8 +387,9 @@ def main() -> None:
         reuse_meta.get("rank_v", reuse_meta.get("rank")),
     )
 
-    samples = load_cmrc2018_samples(args.data_root, limit=max_eval_samples)
-    logger.info("CMRC 样本已加载: %d", len(samples))
+    cmrc_split = str(args.cmrc_split or runtime_eval_cfg.get("cmrc_split") or "dev").strip().lower()
+    samples = load_cmrc2018_samples(args.data_root, limit=max_eval_samples, split=cmrc_split)
+    logger.info("CMRC 样本已加载: split=%s n=%d", cmrc_split, len(samples))
     if qid_allowlist:
         qid_set = set(qid_allowlist)
         samples = [sample for sample in samples if sample.qid in qid_set]
@@ -390,6 +467,7 @@ def main() -> None:
         final_comparison = {
             "meta": {
                 "route_path": args.route,
+                "cmrc_split": cmrc_split,
                 "patch_ckpt_path": args.patch_ckpt,
                 "reuse_ckpt_path": args.reuse_ckpt,
                 "eval_config_path": args.eval_config,

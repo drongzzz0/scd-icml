@@ -72,10 +72,25 @@ def _select_layers(profile: dict, patch_budget: int, route: dict | None = None) 
         route_layers = [int(layer) for layer in route.get("patch_layers", [])]
         if route_layers:
             return route_layers[:patch_budget]
-    if "recommended_patch_layers" in profile:
-        return list(profile["recommended_patch_layers"][:patch_budget])
     scored = sorted(profile["layers"], key=lambda item: float(item["expected_gain"]), reverse=True)
-    return [int(row["layer"]) for row in scored[:patch_budget]]
+    selected: list[int] = []
+    seen: set[int] = set()
+    for layer in profile.get("recommended_patch_layers", []):
+        layer_id = int(layer)
+        if layer_id not in seen:
+            selected.append(layer_id)
+            seen.add(layer_id)
+        if len(selected) >= patch_budget:
+            return selected
+    for row in scored:
+        layer_id = int(row["layer"])
+        if layer_id in seen:
+            continue
+        selected.append(layer_id)
+        seen.add(layer_id)
+        if len(selected) >= patch_budget:
+            break
+    return selected
 
 
 def _resolve_decoder_layers(model):

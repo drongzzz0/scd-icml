@@ -1,0 +1,84 @@
+{
+  "status": "ok",
+  "warnings": [],
+  "protocols": {
+    "svdllm": {
+      "limit": 200,
+      "max_length": 1024,
+      "max_new_tokens": 32,
+      "bandwidth_gbps": 200.0
+    },
+    "slicegpt": {
+      "limit": 200,
+      "max_length": 1024,
+      "max_new_tokens": 32,
+      "bandwidth_gbps": 200.0
+    },
+    "tensorllm": {
+      "limit": 200,
+      "max_length": 1024,
+      "max_new_tokens": 32,
+      "bandwidth_gbps": 200.0
+    },
+    "scd": {
+      "max_length": 1024,
+      "max_new_tokens": 32,
+      "bandwidth_gbps": 200.0,
+      "dataset": "cmrc2018",
+      "data_root": "/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854"
+    }
+  },
+  "outputs": [
+    "neighboring_baselines.csv",
+    "neighboring_baselines.md",
+    "neighboring_baselines.tex"
+  ],
+  "sources": {
+    "svdllm": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/neighboring_baselines_cmrc200_maxlen1024_20260611_001/svdllm/summary.json",
+    "slicegpt": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/neighboring_baselines_cmrc200_maxlen1024_20260611_001/slicegpt/summary.json",
+    "tensorllm": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/neighboring_baselines_cmrc200_maxlen1024_20260611_001/tensorllm/summary.json",
+    "scd": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_selected_reuse19_full_scd_cmrc200_20260610_004450/lite_to_7b/strict_eval/cmrc2018/summary.json"
+  },
+  "rows": [
+    {
+      "method": "SVD-LLM-style adaptation",
+      "quality_retention": 0.02418090033956493,
+      "ttft_speedup": 0.30317841363830417,
+      "f1": 0.015842353872499,
+      "full_f1": 0.6551598017455805,
+      "ttft_ms": 241.35323171165578,
+      "full_ttft_ms": 73.17308991681784,
+      "source": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/neighboring_baselines_cmrc200_maxlen1024_20260611_001/svdllm/summary.json"
+    },
+    {
+      "method": "SliceGPT-style adapted KV transfer",
+      "quality_retention": 0.028385158187510428,
+      "ttft_speedup": 1.4253374636024205,
+      "f1": 0.018596814610646273,
+      "full_f1": 0.6551598017455805,
+      "ttft_ms": 51.454596520136775,
+      "full_ttft_ms": 73.34016409469768,
+      "source": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/neighboring_baselines_cmrc200_maxlen1024_20260611_001/slicegpt/summary.json"
+    },
+    {
+      "method": "TensorLLM-style adapted KV transfer",
+      "quality_retention": 0.002505247394063442,
+      "ttft_speedup": 0.07596771996291712,
+      "f1": 0.001641337386018237,
+      "full_f1": 0.6551598017455805,
+      "ttft_ms": 955.3110818741484,
+      "full_ttft_ms": 72.5728047452867,
+      "source": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/neighboring_baselines_cmrc200_maxlen1024_20260611_001/tensorllm/summary.json"
+    },
+    {
+      "method": "SCD",
+      "quality_retention": 0.9778549689974191,
+      "ttft_speedup": 2.471754629801709,
+      "f1": 0.6427511605994372,
+      "full_f1": 0.657307250029563,
+      "ttft_ms": 40.80477777868509,
+      "full_ttft_ms": 100.85939839249477,
+      "source": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_selected_reuse19_full_scd_cmrc200_20260610_004450/lite_to_7b/strict_eval/cmrc2018/summary.json"
+    }
+  ]
+}

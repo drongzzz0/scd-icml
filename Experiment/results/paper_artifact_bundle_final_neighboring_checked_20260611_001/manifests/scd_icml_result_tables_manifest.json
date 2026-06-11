@@ -1,0 +1,41 @@
+{
+  "patch_anchor_inputs": [
+    "/disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_cmrc200_20260611_001/patchonly_anchor_summary.json",
+    "/disk_n/c101-3-mql/projects/SCD-ICML/runs/patchonly_anchor_hotpot_wiki200_20260611_002/patchonly_anchor_summary.json"
+  ],
+  "route_metrics_inputs": [
+    "/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_snapshot_bank_prefix_curve_cmrc200_20260611_001/lite_to_7b/conditional_report/route_metrics.json",
+    "/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_boundary_hotpotqa_compressed_low200_20260611_001/lite_to_7b/conditional_report/route_metrics.json",
+    "/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_boundary_hotpotqa_compressed_mid200_20260611_001/lite_to_7b/conditional_report/route_metrics.json",
+    "/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_boundary_wikitext2_200_20260611_001/lite_to_7b/conditional_report/route_metrics.json",
+    "/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_full7405_boundary_postprocess_20260611_001/full7405_route_metrics.json"
+  ],
+  "outputs": [
+    "patch_anchor_table.csv",
+    "patch_anchor_table.md",
+    "patch_anchor_table.tex",
+    "mixed_route_boundary_table.csv",
+    "mixed_route_boundary_table.md",
+    "mixed_route_boundary_table.tex",
+    "ttft_breakdown_table.csv",
+    "ttft_breakdown_table.md",
+    "ttft_breakdown_table.tex",
+    "route_curve_cmrc2018.svg",
+    "route_curve_cmrc2018.csv",
+    "route_curve_cmrc2018.md",
+    "route_curve_hotpotqa_compressed.svg",
+    "route_curve_hotpotqa_compressed.csv",
+    "route_curve_hotpotqa_compressed.md",
+    "route_curve_wikitext2.svg",
+    "route_curve_wikitext2.csv",
+    "route_curve_wikitext2.md",
+    "latency_quality_pareto.csv",
+    "latency_quality_pareto.md",
+    "latency_quality_pareto_cmrc2018.svg",
+    "latency_quality_pareto_hotpotqa_compressed.svg",
+    "latency_quality_pareto_wikitext2.svg",
+    "bandwidth_sensitivity.csv",
+    "bandwidth_sensitivity.md",
+    "bandwidth_sensitivity.svg"
+  ]
+}

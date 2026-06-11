@@ -2,6 +2,7 @@
   "patch": {
     "fit_mode": "xnorm_nativekv_shared_residual_mlp_v1",
     "patch_budget": 32,
+    "force_residual_layers_as_selected": true,
     "ridge_lambda": 0.0001,
     "residual_layers": [
       0, 1, 2, 3, 4, 5, 6, 7,
@@ -29,6 +30,6 @@
     "group_block_size": 2
   },
   "runtime": {
-    "cpu_fallback": true
+    "cpu_fallback": false
   }
 }

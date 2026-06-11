@@ -1,0 +1,92 @@
+{
+  "rows": [
+    {
+      "label": "paper_mixed_capture_pair",
+      "status": "ok",
+      "elapsed_seconds": "755.660",
+      "elapsed_hms": "12:36",
+      "user_seconds": "659.680",
+      "system_seconds": "163.590",
+      "max_rss_gib": "14.492",
+      "exit_status": "0",
+      "path": "C:\\Users\\mql16\\Desktop\\SCD-ICML\\Experiment\\results\\offline_cost_evidence_20260611_001\\raw_time_logs\\paper_mixed_capture_pair.time.txt"
+    },
+    {
+      "label": "paper_mixed_profile_layers",
+      "status": "ok",
+      "elapsed_seconds": "1709.500",
+      "elapsed_hms": "28:30",
+      "user_seconds": "1108.500",
+      "system_seconds": "490.430",
+      "max_rss_gib": "2.279",
+      "exit_status": "0",
+      "path": "C:\\Users\\mql16\\Desktop\\SCD-ICML\\Experiment\\results\\offline_cost_evidence_20260611_001\\raw_time_logs\\paper_mixed_profile_layers.time.txt"
+    },
+    {
+      "label": "paper_mixed_train_reuse",
+      "status": "ok",
+      "elapsed_seconds": "743.550",
+      "elapsed_hms": "12:24",
+      "user_seconds": "402.370",
+      "system_seconds": "186.830",
+      "max_rss_gib": "2.156",
+      "exit_status": "0",
+      "path": "C:\\Users\\mql16\\Desktop\\SCD-ICML\\Experiment\\results\\offline_cost_evidence_20260611_001\\raw_time_logs\\paper_mixed_train_reuse.time.txt"
+    },
+    {
+      "label": "paper_mixed_train_patch",
+      "status": "no_time_fields",
+      "elapsed_seconds": "",
+      "elapsed_hms": "",
+      "user_seconds": "",
+      "system_seconds": "",
+      "max_rss_gib": "",
+      "exit_status": "",
+      "path": "C:\\Users\\mql16\\Desktop\\SCD-ICML\\Experiment\\results\\offline_cost_evidence_20260611_001\\raw_time_logs\\paper_mixed_train_patch.time.txt"
+    },
+    {
+      "label": "clean_reuse16_capture_pair",
+      "status": "ok",
+      "elapsed_seconds": "800.420",
+      "elapsed_hms": "13:20",
+      "user_seconds": "508.920",
+      "system_seconds": "194.410",
+      "max_rss_gib": "14.494",
+      "exit_status": "0",
+      "path": "C:\\Users\\mql16\\Desktop\\SCD-ICML\\Experiment\\results\\offline_cost_evidence_20260611_001\\raw_time_logs\\clean_reuse16_capture_pair.time.txt"
+    },
+    {
+      "label": "clean_reuse16_profile_layers",
+      "status": "ok",
+      "elapsed_seconds": "1720.450",
+      "elapsed_hms": "28:40",
+      "user_seconds": "635.280",
+      "system_seconds": "409.470",
+      "max_rss_gib": "2.309",
+      "exit_status": "0",
+      "path": "C:\\Users\\mql16\\Desktop\\SCD-ICML\\Experiment\\results\\offline_cost_evidence_20260611_001\\raw_time_logs\\clean_reuse16_profile_layers.time.txt"
+    },
+    {
+      "label": "clean_reuse16_train_reuse",
+      "status": "ok",
+      "elapsed_seconds": "625.590",
+      "elapsed_hms": "10:26",
+      "user_seconds": "222.930",
+      "system_seconds": "148.220",
+      "max_rss_gib": "2.289",
+      "exit_status": "0",
+      "path": "C:\\Users\\mql16\\Desktop\\SCD-ICML\\Experiment\\results\\offline_cost_evidence_20260611_001\\raw_time_logs\\clean_reuse16_train_reuse.time.txt"
+    },
+    {
+      "label": "clean_reuse16_train_patch_patch16",
+      "status": "ok",
+      "elapsed_seconds": "2390.530",
+      "elapsed_hms": "39:51",
+      "user_seconds": "1640.750",
+      "system_seconds": "391.830",
+      "max_rss_gib": "41.161",
+      "exit_status": "0",
+      "path": "C:\\Users\\mql16\\Desktop\\SCD-ICML\\Experiment\\results\\offline_cost_evidence_20260611_001\\raw_time_logs\\clean_reuse16_train_patch_patch16.time.txt"
+    }
+  ]
+}

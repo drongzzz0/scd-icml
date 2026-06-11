@@ -1,0 +1,29 @@
+{
+  "patch": {
+    "fit_mode": "xnorm_nativekv_residual_mlp_v1",
+    "patch_budget": 32,
+    "force_residual_layers_as_selected": false,
+    "ridge_lambda": 0.0001,
+    "patch_residual_hidden_dim": 2048,
+    "patch_residual_num_blocks": 2,
+    "patch_residual_ffn_multiplier": 2.0,
+    "patch_num_epochs": 3,
+    "patch_batch_size": 128,
+    "lr": 0.0001,
+    "weight_decay": 0.01,
+    "lambda_h": 1.0,
+    "lambda_k": 1.0,
+    "lambda_v": 1.0,
+    "lambda_delta": 0.00001,
+    "skip_linear_base_error_stats": true
+  },
+  "compute": {
+    "train_device": "cuda:0",
+    "accel_mode": "balanced",
+    "layer_block_size": 4,
+    "group_block_size": 2
+  },
+  "runtime": {
+    "cpu_fallback": false
+  }
+}

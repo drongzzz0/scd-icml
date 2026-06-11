@@ -1,0 +1,60 @@
+{
+  "paper_tex": "..\\..\\..\\Publication\\paper\\scd-icml-current-safe-paper-2026-06-10.tex",
+  "base_dir": "..\\..\\..\\Publication\\paper",
+  "included_images": [
+    "fig1.pdf",
+    "fig2.pdf",
+    "generated_figures/layerwise_xnorm_replacement.pdf",
+    "generated_figures/layer_selection_gain_profile.pdf",
+    "generated_figures/patch_budget_curve.pdf",
+    "generated_figures/stack_viz.pdf"
+  ],
+  "resolved_images": [
+    {
+      "source": "fig1.pdf",
+      "path": "..\\..\\..\\Publication\\paper\\fig1.pdf"
+    },
+    {
+      "source": "fig2.pdf",
+      "path": "..\\..\\..\\Publication\\paper\\fig2.pdf"
+    },
+    {
+      "source": "generated_figures/layerwise_xnorm_replacement.pdf",
+      "path": "..\\..\\..\\Publication\\paper\\generated_figures\\layerwise_xnorm_replacement.pdf"
+    },
+    {
+      "source": "generated_figures/layer_selection_gain_profile.pdf",
+      "path": "..\\..\\..\\Publication\\paper\\generated_figures\\layer_selection_gain_profile.pdf"
+    },
+    {
+      "source": "generated_figures/patch_budget_curve.pdf",
+      "path": "..\\..\\..\\Publication\\paper\\generated_figures\\patch_budget_curve.pdf"
+    },
+    {
+      "source": "generated_figures/stack_viz.pdf",
+      "path": "..\\..\\..\\Publication\\paper\\generated_figures\\stack_viz.pdf"
+    }
+  ],
+  "missing_images": [],
+  "bundle_status": "ok",
+  "required_text": [
+    "\\label{tab:neighboring_baselines}",
+    "\\label{tab:patchonly_anchors}",
+    "same-protocol CMRC2018 rerun",
+    "HotpotQA-compressed reports the full7405 selected route",
+    "\\label{tab:current_cmrc_selected_route}",
+    "\\label{tab:current_reuse_boundary}",
+    "\\label{tab:current_non_cmrc_diagnostics}",
+    "\\label{tab:offline_cost}",
+    "Reuse06/Patch26"
+  ],
+  "forbidden_text": [
+    "not part of the current verified release evidence",
+    "do not use them as a claim-facing comparison",
+    "full7405 remains pending",
+    "full7405 pending",
+    "full7405 is not yet closed",
+    "full7405 remains the final open"
+  ],
+  "errors": []
+}

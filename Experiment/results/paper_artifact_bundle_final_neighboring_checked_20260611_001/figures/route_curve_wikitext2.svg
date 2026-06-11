@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420">
+<rect width="100%" height="100%" fill="white"/>
+<text x="380.0" y="26" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700">wikitext2: PPL vs Reuse layers</text>
+<line x1="70" y1="350" x2="730" y2="350" stroke="#333" stroke-width="1"/>
+<line x1="70" y1="45" x2="70" y2="350" stroke="#333" stroke-width="1"/>
+<text x="400.0" y="398" text-anchor="middle" font-family="Arial" font-size="13">Reuse layers</text>
+<text x="18" y="197.5" transform="rotate(-90 18 197.5)" text-anchor="middle" font-family="Arial" font-size="13">PPL</text>
+<text x="70" y="370" text-anchor="middle" font-family="Arial" font-size="11">16</text>
+<text x="730" y="370" text-anchor="middle" font-family="Arial" font-size="11">20</text>
+<text x="60" y="49" text-anchor="end" font-family="Arial" font-size="11">8.396</text>
+<text x="60" y="354" text-anchor="end" font-family="Arial" font-size="11">7.524</text>
+<line x1="70" y1="328.97" x2="730" y2="328.97" stroke="#777" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="726" y="322.97" text-anchor="end" font-family="Arial" font-size="11" fill="#555">Full Consumer</text>
+<polyline points="70.00,100.72 565.00,66.03 730.00,68.26" fill="none" stroke="#1f77b4" stroke-width="2.5"/>
+<circle cx="70.00" cy="100.72" r="4.2" fill="#1f77b4"><title>conditional_reuse_reuse16_patch16</title></circle>
+<text x="70.00" y="92.72" text-anchor="middle" font-family="Arial" font-size="10">16</text>
+<circle cx="565.00" cy="66.03" r="4.2" fill="#1f77b4"><title>conditional_reuse_reuse19_patch13</title></circle>
+<text x="565.00" y="58.03" text-anchor="middle" font-family="Arial" font-size="10">19</text>
+<circle cx="730.00" cy="68.26" r="4.2" fill="#1f77b4"><title>conditional_reuse_reuse20_patch12</title></circle>
+<text x="730.00" y="60.26" text-anchor="middle" font-family="Arial" font-size="10">20</text>
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="430" viewBox="0 0 780 430">
+<rect width="100%" height="100%" fill="white"/>
+<text x="390.0" y="27" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700">cmrc2018 latency-quality points</text>
+<line x1="76" y1="358" x2="745" y2="358" stroke="#333" stroke-width="1"/>
+<line x1="76" y1="48" x2="76" y2="358" stroke="#333" stroke-width="1"/>
+<text x="410.5" y="406" text-anchor="middle" font-family="Arial" font-size="13">TTFT (ms)</text>
+<text x="18" y="203.0" transform="rotate(-90 18 203.0)" text-anchor="middle" font-family="Arial" font-size="13">F1</text>
+<text x="76" y="378" text-anchor="middle" font-family="Arial" font-size="11">31.2</text>
+<text x="745" y="378" text-anchor="middle" font-family="Arial" font-size="11">105.3</text>
+<text x="66" y="52" text-anchor="end" font-family="Arial" font-size="11">0.835</text>
+<text x="66" y="362" text-anchor="end" font-family="Arial" font-size="11">-0.048</text>
+<circle cx="182.95" cy="106.66" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse08_patch24</title></circle>
+<text x="189.95" y="101.66" font-family="Arial" font-size="9">conditional_reuse_reuse08_patch24</text>
+<circle cx="173.52" cy="117.49" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse12_patch20</title></circle>
+<text x="180.52" y="112.49" font-family="Arial" font-size="9">conditional_reuse_reuse12_patch20</text>
+<circle cx="182.85" cy="96.23" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse16_patch16</title></circle>
+<text x="189.85" y="91.23" font-family="Arial" font-size="9">conditional_reuse_reuse16_patch16</text>
+<circle cx="136.71" cy="117.61" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse19_patch13</title></circle>
+<text x="143.71" y="112.61" font-family="Arial" font-size="9">conditional_reuse_reuse19_patch13</text>
+<circle cx="131.12" cy="122.23" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse20_patch12</title></circle>
+<text x="138.12" y="117.23" font-family="Arial" font-size="9">conditional_reuse_reuse20_patch12</text>
+<circle cx="160.55" cy="140.50" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse21_patch11</title></circle>
+<text x="167.55" y="135.50" font-family="Arial" font-size="9">conditional_reuse_reuse21_patch11</text>
+<circle cx="125.88" cy="163.91" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse22_patch10</title></circle>
+<text x="132.88" y="158.91" font-family="Arial" font-size="9">conditional_reuse_reuse22_patch10</text>
+<circle cx="151.76" cy="170.78" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse23_patch09</title></circle>
+<text x="158.76" y="165.78" font-family="Arial" font-size="9">conditional_reuse_reuse23_patch09</text>
+<circle cx="122.14" cy="205.01" r="4.6" fill="#1f77b4"><title>conditional_reuse_reuse24_patch08</title></circle>
+<text x="129.14" y="200.01" font-family="Arial" font-size="9">conditional_reuse_reuse24_patch08</text>
+<circle cx="698.86" cy="110.42" r="4.6" fill="#2ca02c"><title>full_consumer</title></circle>
+<text x="705.86" y="105.42" font-family="Arial" font-size="9">full_consumer</text>
+<circle cx="266.63" cy="69.38" r="4.6" fill="#2ca02c"><title>patch_only</title></circle>
+<text x="273.63" y="64.38" font-family="Arial" font-size="9">patch_only</text>
+<circle cx="123.93" cy="336.62" r="4.6" fill="#2ca02c"><title>reuse_only</title></circle>
+<text x="130.93" y="331.62" font-family="Arial" font-size="9">reuse_only</text>
+<circle cx="599" cy="66" r="4.6" fill="#2ca02c"/>
+<text x="609" y="70" font-family="Arial" font-size="11">patch anchor</text>
+<circle cx="599" cy="84" r="4.6" fill="#1f77b4"/>
+<text x="609" y="88" font-family="Arial" font-size="11">mixed route</text>
+</svg>

@@ -1,0 +1,18 @@
+{
+  "patch": {
+    "fit_mode": "xnorm_nativekv_residual_mlp_v1",
+    "xnorm_nativekv_linear_only": true,
+    "patch_budget": 32,
+    "force_residual_layers_as_selected": false,
+    "ridge_lambda": 0.0001
+  },
+  "compute": {
+    "train_device": "cuda:0",
+    "accel_mode": "balanced",
+    "layer_block_size": 4,
+    "group_block_size": 2
+  },
+  "runtime": {
+    "cpu_fallback": false
+  }
+}

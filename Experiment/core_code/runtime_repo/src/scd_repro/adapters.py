@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterator, Protocol
@@ -176,7 +176,9 @@ class TransformersCaptureSession:
         for hook in self.hooks:
             hook.remove()
         self.hooks.clear()
-        del self.model
+        for name in ("layers", "model", "tokenizer"):
+            if hasattr(self, name):
+                delattr(self, name)
         clear_torch_cache()
 
 
