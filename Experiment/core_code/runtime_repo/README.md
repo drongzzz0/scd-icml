@@ -71,6 +71,22 @@ MistralLite-to-Mistral-7B slice described in the SCD-ICML paper. To run the
 optional reverse diagnostic, set `DIRECTIONS=lite_to_7b,7b_to_lite` explicitly.
 Qwen-32B is not part of the default `ser` reproduction path because the current
 machine cannot host that pair reliably.
+For the final-paper Qwen-32B claim audit on A800-class machines, use the
+explicit guarded entry point:
+
+```bash
+CONDA_ENV=cache \
+MODELS_CONFIG=configs/models_a800_qwen25_32b_base_to_instruct_template.json \
+DATA_ROOT=/home/student_t/maqianli/no4/data \
+DATASETS=cmrc2018 \
+bash scripts/run_a800_scd_icml_qwen32_repro.sh
+```
+
+This runner is intentionally fail-closed. It first runs
+`scripts/preflight_qwen32_a800.py`, rejects missing text-CausalLM model paths,
+rejects VL checkpoints, and requires two GPUs with sustained zero utilization
+and enough free memory before capture/training/evaluation starts. Do not use the
+legacy Qwen1.7B diagnostic scripts as evidence for the Qwen-32B paper row.
 The wrapper also waits by default for enough GPU memory before capture, train,
 and eval stages; override `WAIT_CAPTURE_FREE_MB`, `WAIT_TRAIN_FREE_MB`, and
 `WAIT_EVAL_FREE_MB` only if you have inspected GPU availability.

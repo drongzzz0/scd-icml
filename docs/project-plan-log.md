@@ -847,6 +847,31 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   - `officecli view --mode stats` reported 1 slide, 1 picture, and no missing picture alt text.
   - `officecli view --mode screenshot` rendered the full slide without visible cropping.
 
+## 2026-06-14 - ICML poster v3 understated horizontal template
+
+- Scope update: respond to the requested direction of fewer results, less attention-grabbing visual treatment, and a low-key template.
+- Design choice:
+  - Keep A0 landscape size at `118.9cm x 84.1cm`.
+  - Use a quiet academic style: warm white background, thin gray rules, one muted blue accent, and muted sage/clay secondary accents.
+  - Remove the v2 dark thesis band, large metric cards, bottom stat strip, and multi-chart result rail.
+  - Center the poster on method explanation: question/design/boundary on the left, method overview and mechanism detail in the center, one source figure and one small evidence table on the right.
+- Claim boundary:
+  - The v3 poster intentionally minimizes result emphasis.
+  - It still uses archived camera-ready SCD-ICML paper claims and source figures only.
+  - Follow-up route-search and release diagnostics are not promoted into this poster.
+- Outputs:
+  - `Promotion/slides/poster/build_poster_v3_understated_landscape.py`
+  - `Promotion/slides/poster/scd_icml_poster_v3_understated_landscape.png`
+  - `Promotion/slides/poster/scd_icml_poster_v3_understated_landscape.pdf`
+  - `Promotion/slides/poster/scd_icml_poster_v3_understated_landscape.pptx`
+  - `Promotion/slides/poster/POSTER_CONTENT_PLAN_v3.md`
+- Verification:
+  - Rendered the PNG/PDF with `python Promotion\slides\poster\build_poster_v3_understated_landscape.py`.
+  - Created a one-slide A0 landscape PPTX wrapper with the poster image placed at `0cm,0cm` and sized to `118.9cm x 84.1cm`.
+  - `officecli validate` passed with no errors.
+  - `officecli view --mode stats` reported 1 slide, 1 picture, and no missing picture alt text.
+  - `officecli view --mode screenshot` rendered the full slide without visible cropping.
+
 ## 2026-06-10 - Plan update: HotpotQA baseline prompt fixed
 
 - Scope update: repair the HotpotQA baseline path after the previous Full Consumer result showed abnormally low F1/EM and evidence-continuation outputs.
@@ -2459,3 +2484,44 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   - If this bandwidth simulation is used in paper text, state that mixed-route
     payload bytes are inferred from anchor payload per layer unless direct
     per-route transfer-byte instrumentation is added later.
+
+## 2026-06-14 - Plan update: guarded A800 Qwen32B reproduction path
+
+- Scope: add a paper-claim-aligned Qwen-32B reproduction entry point without
+  allowing missing checkpoints, VL checkpoints, CPU fallback, or partially idle
+  GPUs to produce misleading evidence.
+- Assumptions:
+  - The final camera-ready paper should be treated as fixed unless another
+    camera-ready window is confirmed later.
+  - Qwen-32B must use text CausalLM base/instruct checkpoints, not the
+    available Qwen2.5-VL-32B-Instruct checkpoint.
+  - A800 jobs should use idle GPUs by default; if no clearly idle GPUs are
+    available, the runner should monitor for sustained zero utilization before
+    starting.
+- Constraints:
+  - Do not report Qwen-32B SCD quality or latency results unless the actual
+    32B text model pair is present and the full guarded pipeline completes.
+  - Do not silently use Qwen1.7B diagnostic scripts as Qwen-32B paper evidence.
+  - Do not use CPU fallback for Qwen-32B training/evaluation.
+- Implementation approach:
+  - Add A800 model, reuse-bank, patch-bank, and strict-eval config templates
+    under `Experiment/core_code/runtime_repo/configs/`.
+  - Add `scripts/preflight_qwen32_a800.py` to validate model paths, reject
+    visual-language checkpoints, check required dataset files, and select only
+    GPUs with sustained zero utilization and enough free memory.
+  - Add `scripts/run_a800_scd_icml_qwen32_repro.sh` as the single guarded
+    capture/train/profile/route/eval wrapper. The wrapper activates the `cache`
+    conda environment when available and stops at preflight failure.
+  - Fix native residual patch training so the consumer model is loaded with the
+    requested dtype instead of always forcing float32, which is required for
+    Qwen-32B memory feasibility.
+- Current outcome:
+  - Static validation passed locally and on A800.
+  - The A800 preflight correctly blocked execution because the configured
+    Qwen2.5-32B text base/instruct model paths were not present and the current
+    machine did not provide two sustained-idle GPUs with at least 70 GB free
+    memory.
+- Next action:
+  - Materialize the correct text Qwen2.5-32B base/instruct checkpoints at the
+    configured paths or update the config to their real paths, then rerun the
+    guarded A800 wrapper when enough idle GPU memory is available.

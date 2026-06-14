@@ -33,7 +33,7 @@ from ..patch import (
 from ..pipeline import load_pairs_meta, save_patch_ckpt
 from ..rope import de_rope_k_torch, resolve_rope_specs
 from ..seed import set_global_seed
-from ..torch_utils import clear_torch_cache, configure_torch_acceleration, resolve_device
+from ..torch_utils import clear_torch_cache, configure_torch_acceleration, resolve_device, resolve_torch_dtype
 from .common import add_accel_args, load_cfg, resolve_accel_options, resolve_logger
 
 
@@ -165,9 +165,10 @@ def _load_consumer_native_components(
     if not model_b_path:
         raise ValueError("models-config 中缺少 model_b.path")
 
+    load_dtype = resolve_torch_dtype(dtype)
     model = AutoModelForCausalLM.from_pretrained(
         model_b_path,
-        torch_dtype=torch.float32 if str(dtype).lower() == "float32" else torch.float32,
+        torch_dtype=load_dtype,
         trust_remote_code=True,
         low_cpu_mem_usage=True,
     )
