@@ -11,6 +11,8 @@ TRAIN_SAMPLES="${TRAIN_SAMPLES:-20}"
 EVAL_LIMIT="${EVAL_LIMIT:-20}"
 MAX_LENGTH="${MAX_LENGTH:-1024}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-32}"
+CHUNK_SAMPLES="${CHUNK_SAMPLES:-1}"
+MAX_CHUNK_TOKENS="${MAX_CHUNK_TOKENS:-4096}"
 BANDWIDTH_GBPS="${BANDWIDTH_GBPS:-200}"
 PRODUCER_DEVICE="${PRODUCER_DEVICE:-cuda:0}"
 CONSUMER_DEVICE="${CONSUMER_DEVICE:-cuda:1}"
@@ -173,11 +175,14 @@ import json
 from pathlib import Path
 from scd_repro.cmrc import load_cmrc2018_samples
 
-rows = load_cmrc2018_samples("${DATA_ROOT}", limit=int("${TRAIN_SAMPLES}"), split="train")
+limit_value = int("${TRAIN_SAMPLES}")
+limit = None if limit_value <= 0 else limit_value
+rows = load_cmrc2018_samples("${DATA_ROOT}", limit=limit, split="train")
 Path("${PROMPTS_JSON}").write_text(
     json.dumps([x.prompt for x in rows], ensure_ascii=False, indent=2) + "\\n",
     encoding="utf-8",
 )
+print(f"wrote {len(rows)} CMRC2018 train prompts to ${PROMPTS_JSON}")
 PY
 
 run_pipeline() {
@@ -193,8 +198,8 @@ run_pipeline() {
     --model-a-device "${PRODUCER_DEVICE}" \
     --model-b-device "${CONSUMER_DEVICE}" \
     --artifact-dtype bfloat16 \
-    --chunk-samples 1 \
-    --max-chunk-tokens 4096 \
+    --chunk-samples "${CHUNK_SAMPLES}" \
+    --max-chunk-tokens "${MAX_CHUNK_TOKENS}" \
     --log "${LOG_DIR}/capture_pair.log"
 
   python -m scd_repro.cli.train_reuse \
@@ -258,6 +263,10 @@ cat > "${RUN_ROOT}/run_config.json" <<JSON
   "eval_split": "dev",
   "train_samples": ${TRAIN_SAMPLES},
   "eval_limit": ${EVAL_LIMIT},
+  "train_all": $(if [ "${TRAIN_SAMPLES}" -le 0 ]; then echo true; else echo false; fi),
+  "eval_all": $(if [ "${EVAL_LIMIT}" -le 0 ]; then echo true; else echo false; fi),
+  "chunk_samples": ${CHUNK_SAMPLES},
+  "max_chunk_tokens": ${MAX_CHUNK_TOKENS},
   "producer_device": "${PRODUCER_DEVICE}",
   "consumer_device": "${CONSUMER_DEVICE}",
   "train_device": "${TRAIN_DEVICE}",
@@ -277,6 +286,8 @@ if [ "${WAIT}" = "0" ]; then
     EVAL_LIMIT="${EVAL_LIMIT}" \
     MAX_LENGTH="${MAX_LENGTH}" \
     MAX_NEW_TOKENS="${MAX_NEW_TOKENS}" \
+    CHUNK_SAMPLES="${CHUNK_SAMPLES}" \
+    MAX_CHUNK_TOKENS="${MAX_CHUNK_TOKENS}" \
     BANDWIDTH_GBPS="${BANDWIDTH_GBPS}" \
     PRODUCER_DEVICE="${PRODUCER_DEVICE}" \
     CONSUMER_DEVICE="${CONSUMER_DEVICE}" \

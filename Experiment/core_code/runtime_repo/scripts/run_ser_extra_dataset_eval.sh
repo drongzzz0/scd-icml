@@ -33,7 +33,7 @@ REUSE_CKPT="${REUSE_CKPT:-${BANK_RUN_ROOT}/ckpt_reuse/layerwise_seed42}"
 PATCH_CKPT="${PATCH_CKPT:-${BANK_RUN_ROOT}/ckpt_patch/native_alllayers_seed42}"
 
 PYTHON_BIN="${VENV}/bin/python"
-mkdir -p "${RUN_BASE}/logs"
+mkdir -p "${RUN_BASE}/logs" "${RUN_BASE}/configs"
 
 require_file() {
   local path="$1"
@@ -89,12 +89,24 @@ start_eval() {
   local consumer_gpu="$5"
   local out_dir="${RUN_BASE}/${out_name}"
   local log_prefix="${RUN_BASE}/logs/${out_name}"
+  local eval_cfg="${RUN_BASE}/configs/eval_${out_name}.json"
+  "${PYTHON_BIN}" - <<PY
+import json
+from pathlib import Path
+
+src = Path("${EVAL_CONFIG}")
+dst = Path("${eval_cfg}")
+cfg = json.loads(src.read_text(encoding="utf-8-sig"))
+runtime_eval = cfg.setdefault("runtime_eval", {})
+runtime_eval["max_eval_samples"] = int("${limit}")
+dst.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+PY
   mkdir -p "${out_dir}"
-  echo "start ${dataset}: out=${out_dir} gpus=${producer_gpu},${consumer_gpu} limit=${limit}"
+  echo "start ${dataset}: out=${out_dir} gpus=${producer_gpu},${consumer_gpu} limit=${limit} eval_config=${eval_cfg}"
   nohup env PYTHONPATH="${ROOT}/src" "${PYTHON_BIN}" -m scd_repro.cli.eval_text_strict \
     --dataset "${dataset}" \
     --models-config "${MODELS_CONFIG}" \
-    --eval-config "${EVAL_CONFIG}" \
+    --eval-config "${eval_cfg}" \
     --data-root "${DATA_ROOT}" \
     --route "${ROUTE_PATH}" \
     --reuse-ckpt "${REUSE_CKPT}" \
