@@ -38,7 +38,7 @@ PROMPTS_JSON="${RUN_ROOT}/prompts/cmrc2018_train_prompts_seed${SEED}_n${CALIB_SA
 PAIRS_DIR="${RUN_ROOT}/pairs/cmrc2018_train_seed${SEED}_n${CALIB_SAMPLES}"
 REUSE_DIR="${RUN_ROOT}/ckpt_reuse/layerwise_seed${SEED}"
 PROFILE_PATH="${RUN_ROOT}/profile/profile_cmrc2018_train_seed${SEED}.json"
-PATCH_DIR="${RUN_ROOT}/ckpt_patch/semantic_alllayers_seed${SEED}"
+PATCH_DIR="${RUN_ROOT}/ckpt_patch/native_alllayers_seed${SEED}"
 GENERATED_EVAL_CONFIG="${RUN_ROOT}/configs/eval_${ROUTE_MODE}_patchbudget${ROUTE_PATCH_BUDGET}.json"
 ROUTE_PATH="${RUN_ROOT}/route/route_cmrc2018_${ROUTE_MODE}_patchbudget${ROUTE_PATCH_BUDGET}.json"
 STRICT_OUT="${RUN_ROOT}/strict_eval/cmrc2018_dev_full_vs_scd"
@@ -322,14 +322,19 @@ run_stage "train_reuse" "${TRAIN_GPU}" \
     --train-device "${TRAIN_DEVICE}" \
     --log "${MEASURE_DIR}/train_reuse/train_reuse.cli.log"
 
-run_stage "profile" "${TRAIN_GPU}" \
-  python -m scd_repro.cli.profile_layers \
-    --pairs "${PAIRS_DIR}" \
-    --reuse-ckpt "${REUSE_DIR}" \
-    --models-config "${MODELS_CONFIG}" \
-    --out "${PROFILE_PATH}" \
-    --train-device "${TRAIN_DEVICE}" \
-    --log "${MEASURE_DIR}/profile/profile.cli.log"
+if [ "${ROUTE_MODE}" = "fixed" ]; then
+  run_stage "profile_minimal" "" \
+    python -c "import json; from pathlib import Path; pairs=Path('${PAIRS_DIR}'); route_path=Path('${ROOT}') / '${FIXED_ROUTE_CONFIG}'; out=Path('${PROFILE_PATH}'); patch_cfg_path=Path('${ROOT}') / '${PATCH_TRAIN_CONFIG}'; meta=json.loads((pairs / 'manifest.json').read_text(encoding='utf-8-sig')); route=json.loads(route_path.read_text(encoding='utf-8-sig')); patch_cfg=json.loads(patch_cfg_path.read_text(encoding='utf-8-sig')); num_layers=int(route.get('num_layers') or meta.get('num_layers') or 0); patch_layers=sorted({int(x) for x in route.get('patch_layers', [])}); rows=[{'layer': i, 'reuse_error': 0.0, 'patch_error': 0.0, 'expected_gain': 1.0 if i in patch_layers else 0.0} for i in range(num_layers)]; out.parent.mkdir(parents=True, exist_ok=True); out.write_text(json.dumps({'profile_version': 'fixed_route_minimal_v1', 'num_layers': num_layers, 'patch_metric': 'fixed_route_minimal', 'patch_fit_mode': patch_cfg.get('patch', {}).get('fit_mode'), 'recommended_patch_layers': patch_layers, 'layers': rows, 'route_source': str(route_path), 'pairs_source': str(pairs)}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')"
+else
+  run_stage "profile" "${TRAIN_GPU}" \
+    python -m scd_repro.cli.profile_layers \
+      --pairs "${PAIRS_DIR}" \
+      --reuse-ckpt "${REUSE_DIR}" \
+      --models-config "${MODELS_CONFIG}" \
+      --out "${PROFILE_PATH}" \
+      --train-device "${TRAIN_DEVICE}" \
+      --log "${MEASURE_DIR}/profile/profile.cli.log"
+fi
 
 run_stage "train_patch" "${TRAIN_GPU}" \
   python -m scd_repro.cli.train_patch \
@@ -405,6 +410,7 @@ payload = {
     "reuse_ckpt": "${REUSE_DIR}",
     "patch_ckpt": "${PATCH_DIR}",
     "profile": "${PROFILE_PATH}",
+    "profile_stage": "profile_minimal" if "${ROUTE_MODE}" == "fixed" else "profile",
     "route": "${ROUTE_PATH}",
     "strict_eval": "${STRICT_OUT}",
     "route_counts": {

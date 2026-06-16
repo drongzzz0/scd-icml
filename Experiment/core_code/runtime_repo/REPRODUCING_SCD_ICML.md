@@ -109,7 +109,7 @@ This script uses CMRC2018 train examples for capture/training and CMRC2018 dev
 examples for strict evaluation. Its order is:
 
 ```text
-capture_pair(train) -> train_reuse -> profile_layers
+capture_pair(train) -> train_reuse -> profile_minimal(fixed route)
 -> train_patch(native-KV shared residual, all layers)
 -> select fixed reuse19/patch13 paper route
 -> validate_scd_route -> eval_cmrc_strict(dev)
@@ -117,8 +117,10 @@ capture_pair(train) -> train_reuse -> profile_layers
 
 The default route is
 `configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json`.
-It is the selected no-fallback/no-recompute paper route, while the script still
-constructs fresh Reuse and Patch banks from calibration data.
+It is the selected no-fallback/no-recompute paper route. In fixed-route mode,
+the script writes only the minimal profile needed by `train_patch`, while still
+constructing fresh Reuse and Patch banks from calibration data. Full
+`profile_layers` is reserved for explicit diagnostic route-search modes.
 
 A profile-only `build_route --profile` call is a legacy diagnostic path and
 must not be used as the final mixed Reuse+Patch route selector. Task-level

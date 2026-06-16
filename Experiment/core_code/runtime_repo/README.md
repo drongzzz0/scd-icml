@@ -58,7 +58,7 @@ standard open-source construction path for the release-facing mixed SCD route:
 
 1. capture train-split A/B pair artifacts;
 2. train the Reuse bank;
-3. profile Reuse/Patch diagnostics;
+3. write a minimal fixed-route profile for Patch training;
 4. train a full native-KV shared residual Patch bank;
 5. copy the fixed paper route selected on CMRC2018 (`reuse19/patch13`);
 6. validate that the route is mixed, complete, no-fallback, and no-recompute;
@@ -71,9 +71,10 @@ ROUTE_PATCH_BUDGET=13 \
 bash scripts/run_ser_build_reuse_patch_route_eval.sh
 ```
 
-The default script trains Patch before route use and does not use the weak
-semantic task-level selector as the release path. The claim-facing route is the
-validated no-fallback/no-recompute route in
+The default script trains Patch before route use and does not run the expensive
+full `profile_layers` pass for fixed routes. It does not use the weak semantic
+task-level selector as the release path. The claim-facing route is the validated
+no-fallback/no-recompute route in
 `configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json`.
 
 Task-level route search is still available as an explicit diagnostic mode, but
