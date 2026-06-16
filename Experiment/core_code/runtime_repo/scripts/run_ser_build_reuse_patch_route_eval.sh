@@ -336,7 +336,7 @@ else
       --log "${MEASURE_DIR}/profile/profile.cli.log"
 fi
 
-run_stage "train_patch" "${TRAIN_GPU}" \
+run_stage "train_patch" "${PRODUCER_GPU},${CONSUMER_GPU},${TRAIN_GPU}" \
   python -m scd_repro.cli.train_patch \
     --pairs "${PAIRS_DIR}" \
     --profile "${PROFILE_PATH}" \
