@@ -732,6 +732,28 @@ def _normalize_runtime_route(
     if mode == "reuse_patch_recompute" and not recompute_map and int(default_recompute_segment_length) > 0:
         recompute_map = {int(layer): int(default_recompute_segment_length) for layer in route_patch}
 
+    if mode in {"reuse_patch", "reuse_patch_recompute"} and fail_on_missing_route_fields:
+        recompute_covered = set(_covered_recompute_layers(int(num_layers), recompute_map))
+        declared = {
+            "reuse": set(route_reuse),
+            "patch": set(route_patch),
+            "fallback": set(route_fallback if fallback_explicit else []),
+            "recompute": recompute_covered,
+        }
+        overlaps: list[str] = []
+        names = list(declared)
+        for i, left_name in enumerate(names):
+            for right_name in names[i + 1 :]:
+                both = declared[left_name] & declared[right_name]
+                if both:
+                    overlaps.append(f"{left_name}/{right_name}:{sorted(both)}")
+        if overlaps:
+            raise ValueError(f"{mode} route layer policy has overlapping assignments: {', '.join(overlaps)}")
+        covered = set().union(*declared.values())
+        missing = sorted(set(all_layers) - covered)
+        if missing:
+            raise ValueError(f"{mode} route layer policy does not cover layers: {missing}")
+
     if mode == "reuse_only":
         patch_layers: list[int] = []
         fallback_layers: list[int] = []
@@ -751,12 +773,18 @@ def _normalize_runtime_route(
         patch_layers = sorted(route_patch)
         recompute_map = {}
         fallback_layers = sorted(route_fallback if fallback_explicit else [])
-        reuse_layers = sorted(layer for layer in all_layers if layer not in set(patch_layers) and layer not in set(fallback_layers))
+        if fail_on_missing_route_fields and route_reuse:
+            reuse_layers = sorted(route_reuse)
+        else:
+            reuse_layers = sorted(layer for layer in all_layers if layer not in set(patch_layers) and layer not in set(fallback_layers))
     elif mode == "reuse_patch_recompute":
         patch_layers = sorted(route_patch)
         recompute_covered = _covered_recompute_layers(int(num_layers), recompute_map)
         fallback_layers = sorted(route_fallback if fallback_explicit else [])
-        reuse_layers = sorted(layer for layer in all_layers if layer not in set(patch_layers) and layer not in set(fallback_layers))
+        if fail_on_missing_route_fields and route_reuse:
+            reuse_layers = sorted(route_reuse)
+        else:
+            reuse_layers = sorted(layer for layer in all_layers if layer not in set(patch_layers) and layer not in set(fallback_layers))
     else:
         patch_layers = sorted(route_patch)
         fallback_layers = sorted(route_fallback)

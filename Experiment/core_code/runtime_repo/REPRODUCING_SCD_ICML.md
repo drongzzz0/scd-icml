@@ -93,6 +93,31 @@ final SCD route; it is the quality target for later mixed-route optimization.
 For interrupted anchor runs, set `RESUME=1` with the same `RUN_ROOT` to skip
 dataset/stage outputs that already contain `per_mode_summary.json`.
 
+## Building Reuse and Patch Banks
+
+When the checkpoint banks do not already exist, use the standard construction
+script instead of the historical profile-only route scripts:
+
+```bash
+DATA_SOURCE_DIR=/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854/data/cmrc2018 \
+CALIB_SAMPLES=200 EVAL_SAMPLES=200 \
+ROUTE_PATCH_BUDGET=13 \
+bash scripts/run_ser_build_reuse_patch_route_eval.sh
+```
+
+This script uses CMRC2018 train examples for capture/training and CMRC2018 dev
+examples for strict evaluation. Its order is:
+
+```text
+capture_pair(train) -> train_reuse -> profile_layers -> train_patch(all layers)
+-> build_route(--pairs, --patch-ckpt) -> validate_scd_route -> eval_cmrc_strict(dev)
+```
+
+The important distinction is that `build_route` is called after the full Patch
+bank exists and receives both `--pairs` and `--patch-ckpt`. A profile-only
+`build_route --profile` call is a legacy diagnostic path and must not be used as
+the final mixed Reuse+Patch route selector.
+
 ## Main Reproduction Run
 
 Run from this directory on `ser`:

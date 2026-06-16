@@ -63,6 +63,14 @@ def _legacy_build_route(profile: dict, eval_cfg: dict[str, Any]) -> dict[str, An
         for x in profile["layers"]
     ]
     reuse_errors = [float(row.reuse_error) for row in rows]
+    patch_errors = [abs(float(row.patch_error)) for row in rows]
+    reuse_scale = max(1e-12, sorted(abs(float(v)) for v in reuse_errors)[len(reuse_errors) // 2])
+    patch_scale = sorted(patch_errors)[len(patch_errors) // 2] if patch_errors else 0.0
+    if int(patch_budget) > 0 and patch_metric == "patch_kv_error" and patch_scale > max(1000.0, reuse_scale * 1000.0):
+        raise ValueError(
+            "legacy build_route cannot compare reuse_error with patch_kv_error on incompatible scales; "
+            "rerun build_route with --pairs and --patch-ckpt to use task-level route search"
+        )
 
     if threshold_mode == "adaptive_p20_p80":
         reuse_threshold, fallback_threshold = compute_adaptive_thresholds(reuse_errors, reuse_percentile=20.0, fallback_percentile=80.0)
@@ -253,6 +261,17 @@ def _task_level_build_route(
         device=search_device,
     )
     artifact = greedy_search_task_route(task_profiles, candidate_layers=candidate_layers, config=config)
+    if route_input:
+        route_input_reuse = {int(layer) for layer in route_input.get("reuse_layers", [])}
+        candidate_set = {int(layer) for layer in candidate_layers}
+        outside_reuse = sorted(layer for layer in route_input_reuse if layer not in candidate_set)
+        if outside_reuse:
+            fallback_set = {int(layer) for layer in artifact.get("fallback_layers", [])}
+            reuse_set = {int(layer) for layer in artifact.get("reuse_layers", [])}
+            fallback_set.difference_update(outside_reuse)
+            reuse_set.update(outside_reuse)
+            artifact["fallback_layers"] = sorted(fallback_set)
+            artifact["reuse_layers"] = sorted(reuse_set)
     artifact.update(
         {
             "fit_mode": str(patch_meta.get("fit_mode") or ""),
@@ -260,6 +279,7 @@ def _task_level_build_route(
             "route_objective": config.route_objective,
             "quality_metric": config.quality_metric,
             "cost_metric": config.cost_metric,
+            "num_layers": int(pairs_meta.get("num_layers", len(task_profiles))),
             "patch_budget": int(config.patch_budget),
             "latency_budget_ms": None if config.latency_budget_ms is None else float(config.latency_budget_ms),
             "top_m_candidates": int(config.top_m_candidates),

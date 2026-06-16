@@ -51,6 +51,41 @@ MAX_LENGTH=256 MAX_NEW_TOKENS=8 \
 bash scripts/run_ser_scd_icml_mistral_repro.sh
 ```
 
+## Build Reuse + Patch + Route From Scratch
+
+Use this entry point when the checkpoint banks do not already exist. It is the
+standard open-source construction path for a mixed SCD route:
+
+1. capture train-split A/B pair artifacts;
+2. train the Reuse bank;
+3. profile Reuse and Patch candidates;
+4. train a full semantic Patch bank;
+5. build a task-level route from `--pairs` and `--patch-ckpt`;
+6. validate that the route is mixed, complete, no-fallback, and no-recompute;
+7. run strict CMRC2018 dev evaluation for Full Consumer versus SCD.
+
+```bash
+DATA_SOURCE_DIR=/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854/data/cmrc2018 \
+CALIB_SAMPLES=200 EVAL_SAMPLES=200 \
+ROUTE_PATCH_BUDGET=13 \
+bash scripts/run_ser_build_reuse_patch_route_eval.sh
+```
+
+The script intentionally trains Patch before route construction. Do not use a
+legacy `build_route --profile` call as the claim-facing mixed-route selector:
+that path cannot compare Reuse error with post-training Patch behavior and is
+now guarded against incompatible metric scales. The route selector for this
+pipeline is the task-level call:
+
+```bash
+python -m scd_repro.cli.build_route \
+  --profile "${PROFILE_PATH}" \
+  --pairs "${PAIRS_DIR}" \
+  --patch-ckpt "${PATCH_DIR}" \
+  --eval-config "${GENERATED_EVAL_CONFIG}" \
+  --out "${ROUTE_PATH}"
+```
+
 ## SCD-ICML Mistral Reproduction
 
 For the paper-facing Mistral reproduction, use the strict runtime wrapper. The

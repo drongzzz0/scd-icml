@@ -333,6 +333,7 @@ def greedy_search_task_route(
     config: RouteSearchConfig,
 ) -> dict[str, object]:
     eval_layers = _sorted_layers(task_profiles, candidate_layers)
+    all_profile_layers = _sorted_layers(task_profiles, None)
     baseline_metrics = evaluate_task_level_route(
         task_profiles,
         candidate_layers=eval_layers,
@@ -436,7 +437,7 @@ def greedy_search_task_route(
         stop_reason = "patch_budget_reached" if len(current_patch_layers) >= int(config.patch_budget) else "no_positive_gain"
 
     recompute_covered_layers = _recompute_covered_layers(max(eval_layers) + 1, current_recompute_map)
-    fallback_layers: list[int] = []
+    fallback_layers = sorted(layer for layer in all_profile_layers if layer not in set(eval_layers))
     reuse_layers = sorted(layer for layer in eval_layers if layer not in set(current_patch_layers) and layer not in set(recompute_covered_layers))
     final_metrics = evaluate_task_level_route(
         task_profiles,

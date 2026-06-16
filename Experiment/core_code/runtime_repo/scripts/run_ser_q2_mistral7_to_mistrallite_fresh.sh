@@ -280,26 +280,28 @@ python -m scd_repro.cli.profile_layers \
 EOF
 )"
 
-run_stage "build_route" "" "$(cat <<EOF
-python -m scd_repro.cli.build_route \
-  --profile "${PROFILE_PATH}" \
-  --eval-config "${EVAL_CONFIG}" \
-  --out "${ROUTE_PATH}" \
-  --log "${MEASURE_DIR}/build_route/build_route.cli.log"
-EOF
-)"
-
 run_stage "train_patch" "${TRAIN_GPU}" "$(cat <<EOF
 python -m scd_repro.cli.train_patch \
   --pairs "${PAIRS_DIR}" \
   --profile "${PROFILE_PATH}" \
-  --route "${ROUTE_PATH}" \
   --models-config "${MODELS_CONFIG}" \
   --train-config "${TRAIN_CONFIG}" \
   --out "${PATCH_DIR}" \
   --seed "${SEED}" \
   --train-device "${TRAIN_DEVICE}" \
   --log "${MEASURE_DIR}/train_patch/train_patch.cli.log"
+EOF
+)"
+
+run_stage "build_route" "${TRAIN_GPU}" "$(cat <<EOF
+python -m scd_repro.cli.build_route \
+  --profile "${PROFILE_PATH}" \
+  --pairs "${PAIRS_DIR}" \
+  --patch-ckpt "${PATCH_DIR}" \
+  --eval-config "${EVAL_CONFIG}" \
+  --out "${ROUTE_PATH}" \
+  --search-device "${TRAIN_DEVICE}" \
+  --log "${MEASURE_DIR}/build_route/build_route.cli.log"
 EOF
 )"
 
