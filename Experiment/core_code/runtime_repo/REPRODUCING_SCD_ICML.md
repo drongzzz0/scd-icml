@@ -109,14 +109,28 @@ This script uses CMRC2018 train examples for capture/training and CMRC2018 dev
 examples for strict evaluation. Its order is:
 
 ```text
-capture_pair(train) -> train_reuse -> profile_layers -> train_patch(all layers)
--> build_route(--pairs, --patch-ckpt) -> validate_scd_route -> eval_cmrc_strict(dev)
+capture_pair(train) -> train_reuse -> profile_layers
+-> train_patch(native-KV shared residual, all layers)
+-> select fixed reuse19/patch13 paper route
+-> validate_scd_route -> eval_cmrc_strict(dev)
 ```
 
-The important distinction is that `build_route` is called after the full Patch
-bank exists and receives both `--pairs` and `--patch-ckpt`. A profile-only
-`build_route --profile` call is a legacy diagnostic path and must not be used as
-the final mixed Reuse+Patch route selector.
+The default route is
+`configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json`.
+It is the selected no-fallback/no-recompute paper route, while the script still
+constructs fresh Reuse and Patch banks from calibration data.
+
+A profile-only `build_route --profile` call is a legacy diagnostic path and
+must not be used as the final mixed Reuse+Patch route selector. Task-level
+route search is available only as an explicit diagnostic mode:
+
+```bash
+ROUTE_MODE=task_level \
+PATCH_TRAIN_CONFIG=configs/train_scd_icml_patch_semantic_alllayers_20260616.json \
+bash scripts/run_ser_build_reuse_patch_route_eval.sh
+```
+
+Do not report a task-level route unless strict eval verifies F1/EM retention.
 
 ## Main Reproduction Run
 

@@ -54,13 +54,13 @@ bash scripts/run_ser_scd_icml_mistral_repro.sh
 ## Build Reuse + Patch + Route From Scratch
 
 Use this entry point when the checkpoint banks do not already exist. It is the
-standard open-source construction path for a mixed SCD route:
+standard open-source construction path for the release-facing mixed SCD route:
 
 1. capture train-split A/B pair artifacts;
 2. train the Reuse bank;
-3. profile Reuse and Patch candidates;
-4. train a full semantic Patch bank;
-5. build a task-level route from `--pairs` and `--patch-ckpt`;
+3. profile Reuse/Patch diagnostics;
+4. train a full native-KV shared residual Patch bank;
+5. copy the fixed paper route selected on CMRC2018 (`reuse19/patch13`);
 6. validate that the route is mixed, complete, no-fallback, and no-recompute;
 7. run strict CMRC2018 dev evaluation for Full Consumer versus SCD.
 
@@ -71,13 +71,18 @@ ROUTE_PATCH_BUDGET=13 \
 bash scripts/run_ser_build_reuse_patch_route_eval.sh
 ```
 
-The script intentionally trains Patch before route construction. Do not use a
-legacy `build_route --profile` call as the claim-facing mixed-route selector:
-that path cannot compare Reuse error with post-training Patch behavior and is
-now guarded against incompatible metric scales. The route selector for this
-pipeline is the task-level call:
+The default script trains Patch before route use and does not use the weak
+semantic task-level selector as the release path. The claim-facing route is the
+validated no-fallback/no-recompute route in
+`configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json`.
+
+Task-level route search is still available as an explicit diagnostic mode, but
+it currently requires a compatible semantic Patch bank and must pass F1/EM
+gates before being reported:
 
 ```bash
+ROUTE_MODE=task_level \
+PATCH_TRAIN_CONFIG=configs/train_scd_icml_patch_semantic_alllayers_20260616.json \
 python -m scd_repro.cli.build_route \
   --profile "${PROFILE_PATH}" \
   --pairs "${PAIRS_DIR}" \

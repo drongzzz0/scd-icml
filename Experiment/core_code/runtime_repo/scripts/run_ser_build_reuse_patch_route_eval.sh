@@ -20,12 +20,14 @@ ROUTE_TOP_M_CANDIDATES="${ROUTE_TOP_M_CANDIDATES:-0}"
 ROUTE_MAX_EVALS="${ROUTE_MAX_EVALS:-0}"
 CAPTURE_SKIP_VALIDATE="${CAPTURE_SKIP_VALIDATE:-1}"
 RESUME="${RESUME:-0}"
+ROUTE_MODE="${ROUTE_MODE:-fixed}"
 
 MODELS_CONFIG="${MODELS_CONFIG:-configs/models_ser_mistrallite_to_mistral7_mql.json}"
 CAPTURE_DATA_CONFIG="${CAPTURE_DATA_CONFIG:-configs/data_ser.yaml}"
 REUSE_TRAIN_CONFIG="${REUSE_TRAIN_CONFIG:-configs/train_reuse_mistral_self_layerwise_20260404.json}"
-PATCH_TRAIN_CONFIG="${PATCH_TRAIN_CONFIG:-configs/train_scd_icml_patch_semantic_alllayers_20260616.json}"
+PATCH_TRAIN_CONFIG="${PATCH_TRAIN_CONFIG:-configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_alllayers_e1_h2048_r512_b2_20260404.json}"
 ROUTE_EVAL_TEMPLATE="${ROUTE_EVAL_TEMPLATE:-configs/eval_scd_icml_no_fallback_no_recompute.json}"
+FIXED_ROUTE_CONFIG="${FIXED_ROUTE_CONFIG:-configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json}"
 
 MEASURE_DIR="${RUN_ROOT}/measure"
 CALIB_ROOT="${RUN_ROOT}/data_calib_train"
@@ -37,8 +39,8 @@ PAIRS_DIR="${RUN_ROOT}/pairs/cmrc2018_train_seed${SEED}_n${CALIB_SAMPLES}"
 REUSE_DIR="${RUN_ROOT}/ckpt_reuse/layerwise_seed${SEED}"
 PROFILE_PATH="${RUN_ROOT}/profile/profile_cmrc2018_train_seed${SEED}.json"
 PATCH_DIR="${RUN_ROOT}/ckpt_patch/semantic_alllayers_seed${SEED}"
-GENERATED_EVAL_CONFIG="${RUN_ROOT}/configs/eval_task_route_patchbudget${ROUTE_PATCH_BUDGET}.json"
-ROUTE_PATH="${RUN_ROOT}/route/route_cmrc2018_tasklevel_patchbudget${ROUTE_PATCH_BUDGET}.json"
+GENERATED_EVAL_CONFIG="${RUN_ROOT}/configs/eval_${ROUTE_MODE}_patchbudget${ROUTE_PATCH_BUDGET}.json"
+ROUTE_PATH="${RUN_ROOT}/route/route_cmrc2018_${ROUTE_MODE}_patchbudget${ROUTE_PATCH_BUDGET}.json"
 STRICT_OUT="${RUN_ROOT}/strict_eval/cmrc2018_dev_full_vs_scd"
 
 mkdir -p \
@@ -66,6 +68,9 @@ require_file "${ROOT}/${CAPTURE_DATA_CONFIG}"
 require_file "${ROOT}/${REUSE_TRAIN_CONFIG}"
 require_file "${ROOT}/${PATCH_TRAIN_CONFIG}"
 require_file "${ROOT}/${ROUTE_EVAL_TEMPLATE}"
+if [ "${ROUTE_MODE}" = "fixed" ]; then
+  require_file "${ROOT}/${FIXED_ROUTE_CONFIG}"
+fi
 
 cd "${ROOT}"
 source "${VENV}/bin/activate"
@@ -133,7 +138,7 @@ from pathlib import Path
 template_path = Path("${ROOT}") / "${ROUTE_EVAL_TEMPLATE}"
 cfg = json.loads(template_path.read_text(encoding="utf-8-sig"))
 route = cfg.setdefault("route", {})
-route["enable_task_level_profile"] = True
+route["enable_task_level_profile"] = "${ROUTE_MODE}" == "task_level"
 route["patch_budget"] = int("${ROUTE_PATCH_BUDGET}")
 route["top_m_candidates"] = int("${ROUTE_TOP_M_CANDIDATES}")
 route["max_evals"] = int("${ROUTE_MAX_EVALS}")
@@ -337,15 +342,23 @@ run_stage "train_patch" "${TRAIN_GPU}" \
     --train-device "${TRAIN_DEVICE}" \
     --log "${MEASURE_DIR}/train_patch/train_patch.cli.log"
 
-run_stage "build_route_tasklevel" "${TRAIN_GPU}" \
-  python -m scd_repro.cli.build_route \
-    --profile "${PROFILE_PATH}" \
-    --pairs "${PAIRS_DIR}" \
-    --patch-ckpt "${PATCH_DIR}" \
-    --eval-config "${GENERATED_EVAL_CONFIG}" \
-    --out "${ROUTE_PATH}" \
-    --search-device "${TRAIN_DEVICE}" \
-    --log "${MEASURE_DIR}/build_route_tasklevel/build_route.cli.log"
+if [ "${ROUTE_MODE}" = "task_level" ]; then
+  run_stage "build_route_tasklevel" "${TRAIN_GPU}" \
+    python -m scd_repro.cli.build_route \
+      --profile "${PROFILE_PATH}" \
+      --pairs "${PAIRS_DIR}" \
+      --patch-ckpt "${PATCH_DIR}" \
+      --eval-config "${GENERATED_EVAL_CONFIG}" \
+      --out "${ROUTE_PATH}" \
+      --search-device "${TRAIN_DEVICE}" \
+      --log "${MEASURE_DIR}/build_route_tasklevel/build_route.cli.log"
+elif [ "${ROUTE_MODE}" = "fixed" ]; then
+  run_stage "select_fixed_route" "" \
+    python -c "from pathlib import Path; src=Path('${ROOT}') / '${FIXED_ROUTE_CONFIG}'; dst=Path('${ROUTE_PATH}'); dst.parent.mkdir(parents=True, exist_ok=True); dst.write_text(src.read_text(encoding='utf-8-sig'), encoding='utf-8')"
+else
+  echo "unknown ROUTE_MODE=${ROUTE_MODE}; expected fixed or task_level" >&2
+  exit 1
+fi
 
 run_stage "validate_route" "" \
   python scripts/validate_scd_route.py \
@@ -385,6 +398,8 @@ payload = {
     "models_config": "${MODELS_CONFIG}",
     "reuse_train_config": "${REUSE_TRAIN_CONFIG}",
     "patch_train_config": "${PATCH_TRAIN_CONFIG}",
+    "route_mode": "${ROUTE_MODE}",
+    "fixed_route_config": "${FIXED_ROUTE_CONFIG}" if "${ROUTE_MODE}" == "fixed" else None,
     "generated_eval_config": "${GENERATED_EVAL_CONFIG}",
     "pairs": "${PAIRS_DIR}",
     "reuse_ckpt": "${REUSE_DIR}",
