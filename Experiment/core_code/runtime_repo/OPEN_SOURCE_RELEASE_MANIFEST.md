@@ -45,6 +45,14 @@ This benchmark is intentionally narrow: it is a trusted/static-prefix
 microbenchmark and must not be reported as a general multi-tenant serving,
 privacy, arbitrary-routing, or dataset-quality claim.
 
+For connector-development experiments, the package includes
+`scd_vllm.preloaded_connector.SCDPreloadedConnector`, which can be loaded by
+vLLM with `--kv-connector SCDPreloadedConnector` and
+`--kv-connector-module-path scd_vllm.preloaded_connector`. It memoizes loaded
+SCD KV tensors per worker to avoid repeated safetensors reads for identical
+batch prefixes. This is an experimental connector prototype, not a production
+multi-tenant cache manager.
+
 ## Required Lightweight Tests
 
 ```text
@@ -341,11 +349,12 @@ directories:
   for higher-Reuse raw-bank-to-vLLM plugin evidence.
 - `../../Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`
   for quality-first raw-bank-to-vLLM plugin evidence.
-- `../../Experiment/results/a800_qwen17_scd_vllm_prefixbench_20260618_cache/`
+- `../../Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`
   for repeated-prefix trusted microbenchmark evidence. It compares plain vLLM,
-  vLLM `prefix-cache`, and Qwen `ExampleConnector` SCD batch load. The measured
-  SCD load throughput is lower than both vLLM baselines and must not be used as
-  a speedup claim.
+  vLLM `prefix-cache`, and Qwen `SCDPreloadedConnector` batch load. The
+  preloaded connector reduces disk-backed ExampleConnector overhead, but the
+  measured SCD load throughput is still lower than both vLLM baselines and must
+  not be used as a speedup claim.
 - `../../Experiment/results/scd_vllm_multidataset_full_strict_20260617/` for
   full CMRC2018 and HotpotQA strict QA evidence.
 - `../../Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`

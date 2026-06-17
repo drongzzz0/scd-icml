@@ -355,15 +355,16 @@ and speed remain bounded by the strict runtime table below.
 
 Artifact:
 
-- `Experiment/results/a800_qwen17_scd_vllm_prefixbench_20260618_cache/`
+- `Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`
 
 This run validates the public `scd-vllm batch-benchmark` command on the same
 Qwen3-1.7B -> Qwen3-1.7B-gray bundle as a repeated-prefix trusted
-microbenchmark with plain vLLM, vLLM prefix caching, and SCD load stages:
+microbenchmark with plain vLLM, vLLM prefix caching, and SCDPreloaded load
+stages:
 
 - Host: A800mql.
 - Environment: `conda activate cache`.
-- Code snapshot: `runtime_repo_codex_prefixbench_20260618_0616`.
+- Code snapshot: `runtime_repo_codex_preloaded_20260618_0634`.
 - vLLM: `0.18.0`.
 - Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`.
 - Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
@@ -376,21 +377,25 @@ Result:
 | Check | Value |
 | --- | ---: |
 | Batch benchmark pass | `true` |
+| Connector | `SCDPreloadedConnector` |
+| Connector module | `scd_vllm.preloaded_connector` |
 | Load generation OK | `true` |
 | Bundle token match | `true` |
 | Storage ready | `true` |
-| Plain vLLM tokens/s | `6189.640815` |
-| vLLM prefix-cache tokens/s | `7016.957157` |
-| SCD load tokens/s | `1968.496077` |
-| Prefix-cache/Plain tokens/s ratio | `1.133661` |
-| SCD load/Plain tokens/s ratio | `0.318031` |
-| SCD load/Prefix-cache tokens/s ratio | `0.280534` |
+| Plain vLLM tokens/s | `6194.909625` |
+| vLLM prefix-cache tokens/s | `6786.831734` |
+| SCDPreloaded load tokens/s | `4294.997427` |
+| Prefix-cache/Plain tokens/s ratio | `1.095550` |
+| SCDPreloaded/Plain tokens/s ratio | `0.693311` |
+| SCDPreloaded/Prefix-cache tokens/s ratio | `0.632843` |
 
 Interpretation: this closes the missing batched-command evidence gap for the
-plugin, but it does not support a Qwen speedup claim. In this checked
-ExampleConnector microbenchmark, SCD load is slower than both plain vLLM and
-vLLM prefix caching, so this result should be framed as integration evidence
-and an overhead warning.
+plugin and validates vLLM's external `kv_connector_module_path` mechanism for
+the repository connector. It does not support a Qwen speedup claim.
+SCDPreloaded is materially faster than the earlier disk-backed
+`ExampleConnector` path, but it remains slower than both plain vLLM and vLLM
+prefix caching, so this result should be framed as integration evidence and an
+overhead warning.
 
 ## Additional Qwen3-1.7B Gray Risk Check
 

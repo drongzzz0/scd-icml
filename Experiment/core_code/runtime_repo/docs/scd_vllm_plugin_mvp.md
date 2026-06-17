@@ -115,6 +115,33 @@ trusted, static-prefix connector throughput check. With
 caching, and SCD load metrics in one artifact. It is not evidence for
 multi-tenant safety, arbitrary prompt routing, or dataset-level quality.
 
+The release also includes an external vLLM connector prototype that can be
+loaded through vLLM's `kv_connector_module_path` mechanism:
+
+```bash
+scd-vllm batch-benchmark \
+  --bundle-dir runs/scd_vllm/my_plugin_run/reuse_patch_bundle \
+  --storage-dir runs/scd_vllm/my_plugin_run/example_connector_storage \
+  --model /path/to/consumer \
+  --batch-size 64 \
+  --num-batches 3 \
+  --warmup-batches 1 \
+  --max-new-tokens 16 \
+  --out runs/scd_vllm/my_preloaded_connector_bench \
+  --enforce-eager \
+  --disable-hybrid-kv-cache-manager \
+  --include-prefix-cache-baseline \
+  --kv-connector SCDPreloadedConnector \
+  --kv-connector-module-path scd_vllm.preloaded_connector \
+  --connector-cache-device cuda
+```
+
+`SCDPreloadedConnector` keeps vLLM's connector metadata semantics but caches
+loaded SCD KV tensors per worker by filename, avoiding repeated safetensors
+reads for identical prefixes inside a batch. It is still an experimental
+connector prototype and does not solve multi-tenant isolation or dynamic route
+selection.
+
 ## Python API
 
 ```python

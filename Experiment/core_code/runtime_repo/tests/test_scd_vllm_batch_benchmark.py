@@ -4,7 +4,7 @@ import json
 
 import numpy as np
 
-from scd_vllm.batch_benchmark import build_batch_benchmark_metrics, parse_args
+from scd_vllm.batch_benchmark import build_batch_benchmark_metrics, build_kv_transfer_config, parse_args
 from scd_vllm.bundle import make_manifest, write_manifest
 
 
@@ -153,3 +153,33 @@ def test_batch_benchmark_parse_args_supports_prefix_cache_baseline() -> None:
 
     assert args.stage == "prefix-cache"
     assert args.include_prefix_cache_baseline is True
+
+
+def test_batch_benchmark_builds_external_connector_config() -> None:
+    args = parse_args(
+        [
+            "--model",
+            "m",
+            "--bundle-dir",
+            "bundle",
+            "--storage-dir",
+            "storage",
+            "--out",
+            "out",
+            "--kv-connector",
+            "SCDPreloadedConnector",
+            "--kv-connector-module-path",
+            "scd_vllm.preloaded_connector",
+            "--connector-cache-device",
+            "cuda",
+        ]
+    )
+
+    config = build_kv_transfer_config(args)
+
+    assert config["kv_connector"] == "SCDPreloadedConnector"
+    assert config["kv_connector_module_path"] == "scd_vllm.preloaded_connector"
+    assert config["kv_connector_extra_config"] == {
+        "shared_storage_path": "storage",
+        "cache_device": "cuda",
+    }

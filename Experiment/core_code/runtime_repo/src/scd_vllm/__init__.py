@@ -11,6 +11,7 @@ __all__ = [
     "env_probe",
     "kv_spec",
     "metrics",
+    "preloaded_connector",
     "repo_audit",
     "report",
 ]

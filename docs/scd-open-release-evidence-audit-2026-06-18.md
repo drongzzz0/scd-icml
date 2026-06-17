@@ -106,7 +106,7 @@ remains cautionary because it does not support Qwen acceleration.
 Additional Qwen batched SCD-vLLM evidence:
 
 - Batch benchmark artifact:
-  `Experiment/results/a800_qwen17_scd_vllm_prefixbench_20260618_cache/`.
+  `Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`.
 - Model pair: Qwen3-1.7B producer -> Qwen3-1.7B-gray consumer.
 - Runtime: A800mql, `conda activate cache`, vLLM `0.18.0`,
   `CUDA_VISIBLE_DEVICES=7`.
@@ -119,17 +119,19 @@ Additional Qwen batched SCD-vLLM evidence:
 - Result:
   `benchmark_pass=True`, `load_generation_ok=True`,
   `bundle_token_match=True`, `storage_ready=True`,
-  `prefix_cache_generation_ok=True`.
-- Throughput: plain vLLM `6189.640815` tokens/s; vLLM prefix-cache baseline
-  `7016.957157` tokens/s; SCD load `1968.496077` tokens/s. Prefix-cache/plain
-  ratio is `1.133661`; SCD load/plain ratio is `0.318031`; SCD
-  load/prefix-cache ratio is `0.280534`.
+  `prefix_cache_generation_ok=True`; connector `SCDPreloadedConnector` from
+  module `scd_vllm.preloaded_connector`.
+- Throughput: plain vLLM `6194.909625` tokens/s; vLLM prefix-cache baseline
+  `6786.831734` tokens/s; SCDPreloaded load `4294.997427` tokens/s.
+  Prefix-cache/plain ratio is `1.095550`; SCDPreloaded/plain ratio is
+  `0.693311`; SCDPreloaded/prefix-cache ratio is `0.632843`.
 
-This proves the repeated-prefix `scd-vllm batch-benchmark` command and
-ExampleConnector load path work for the Qwen bundle. It also shows the current
-disk-backed connector path is slower than both plain vLLM and vLLM prefix
-caching for this microbenchmark, so it should be reported as integration
-evidence and overhead risk, not a speedup result.
+This proves the repeated-prefix `scd-vllm batch-benchmark` command and the
+repository's external connector module path work for the Qwen bundle. The
+preloaded connector reduces the disk-backed ExampleConnector overhead but is
+still slower than both plain vLLM and vLLM prefix caching for this
+microbenchmark, so it should be reported as integration evidence and overhead
+risk, not a speedup result.
 
 ## Release Risk Notes
 
@@ -144,8 +146,9 @@ evidence and overhead risk, not a speedup result.
 - Do not use F1/EM as the WikiText-2 acceptance metric.
 - Do not claim privacy or multi-tenant safety for reused KV caches without a
   separate isolation design and evaluation.
-- Do not present the Qwen batched ExampleConnector run as a throughput
-  improvement; it passed functionally but was slower than both plain vLLM and
-  vLLM prefix caching in the checked repeated-prefix microbenchmark.
+- Do not present the Qwen batched SCDPreloadedConnector run as a throughput
+  improvement; it passed functionally and improves over the disk-backed
+  ExampleConnector path, but it is still slower than both plain vLLM and vLLM
+  prefix caching in the checked repeated-prefix microbenchmark.
 - Use `patch20_reuse12` for the higher-Reuse/speed demo and `patch26_reuse6`
   for quality-first CMRC2018 and WikiText-2 demonstrations.

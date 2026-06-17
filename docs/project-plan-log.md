@@ -2812,3 +2812,29 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   `0.280534`x of prefix-cache throughput. This reinforces the release boundary:
   current SCD-vLLM is a plug-in integration prototype and overhead-risk
   artifact, not a throughput-improving serving connector.
+
+### 2026-06-18 update - add external preloaded SCD connector prototype
+
+- Change:
+  Added `scd_vllm.preloaded_connector.SCDPreloadedConnector`, exposed the
+  connector through vLLM's `kv_connector_module_path` mechanism, and extended
+  `scd-vllm batch-benchmark` with `--kv-connector`,
+  `--kv-connector-module-path`, and `--connector-cache-device`.
+- Rationale:
+  The previous Qwen batch benchmark showed the disk-backed `ExampleConnector`
+  path was much slower than vLLM baselines. The next useful implementation step
+  was to remove repeated safetensors reads for identical prefixes inside a
+  batch without modifying the installed vLLM package.
+- Verification:
+  On A800mql with `conda activate cache`, GPUs `3,4,6,7` stayed at utilization
+  `0` for 60 seconds; GPU `7` was used. The preloaded connector run passed with
+  `benchmark_pass=True`, `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `load_generation_ok=True`, `prefix_cache_generation_ok=True`,
+  `bundle_token_match=True`, and `storage_ready=True`.
+- Result boundary:
+  SCDPreloaded reached `4294.997427` tokens/s versus the previous disk-backed
+  SCD load `1968.496077` tokens/s, a material connector improvement. It remains
+  below plain vLLM `6194.909625` tokens/s and vLLM prefix-cache
+  `6786.831734` tokens/s, so the release can claim a functional external
+  connector prototype and reduced overhead, not serving speedup.

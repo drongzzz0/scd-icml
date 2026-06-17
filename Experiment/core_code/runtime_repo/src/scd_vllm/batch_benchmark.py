@@ -44,6 +44,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--enable-prefix-caching", action="store_true")
     parser.add_argument("--enable-chunked-prefill", action="store_true")
     parser.add_argument("--disable-hybrid-kv-cache-manager", action="store_true")
+    parser.add_argument("--kv-connector", default="ExampleConnector", help="vLLM KV connector class name for load stage")
+    parser.add_argument(
+        "--kv-connector-module-path",
+        default="",
+        help="Optional external vLLM connector module path for --kv-connector",
+    )
+    parser.add_argument(
+        "--connector-cache-device",
+        default="cuda",
+        choices=["cuda", "gpu", "cpu"],
+        help="Cache device hint passed to SCD connector implementations",
+    )
     parser.add_argument(
         "--include-prefix-cache-baseline",
         action="store_true",
@@ -97,6 +109,12 @@ def run_batch_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         str(args.temperature),
         "--top-p",
         str(args.top_p),
+        "--kv-connector",
+        args.kv_connector,
+        "--kv-connector-module-path",
+        args.kv_connector_module_path,
+        "--connector-cache-device",
+        args.connector_cache_device,
     ]
     for flag, enabled in (
         ("--enforce-eager", args.enforce_eager),
@@ -163,12 +181,7 @@ def run_stage(args: argparse.Namespace) -> dict[str, Any]:
     if args.stage == "load":
         if not args.storage_dir:
             raise SCDBatchBenchmarkError("--storage-dir is required for load stage")
-        llm_kwargs["kv_transfer_config"] = {
-            "kv_connector": "ExampleConnector",
-            "kv_role": "kv_both",
-            "kv_load_failure_policy": "fail",
-            "kv_connector_extra_config": {"shared_storage_path": args.storage_dir},
-        }
+        llm_kwargs["kv_transfer_config"] = build_kv_transfer_config(args)
 
     memory_before = _cuda_memory_info(torch)
     start_load = time.perf_counter()
@@ -228,6 +241,9 @@ def run_stage(args: argparse.Namespace) -> dict[str, Any]:
         "tokenizer": args.tokenizer or args.model,
         "bundle_dir": args.bundle_dir,
         "storage_dir": args.storage_dir,
+        "kv_connector": args.kv_connector if args.stage == "load" else "",
+        "kv_connector_module_path": args.kv_connector_module_path if args.stage == "load" else "",
+        "connector_cache_device": args.connector_cache_device if args.stage == "load" else "",
         "prompt_text_hash": text_sha256(prompt),
         "prompt_token_count": len(prompt_token_ids),
         "prompt_token_ids": prompt_token_ids,
@@ -330,6 +346,8 @@ def build_batch_benchmark_metrics(
         "bundle_type": manifest.get("bundle_type"),
         "route_id": manifest.get("route_id"),
         "route_hash": manifest.get("route_hash"),
+        "kv_connector": records.get("load", {}).get("kv_connector"),
+        "kv_connector_module_path": records.get("load", {}).get("kv_connector_module_path"),
         "batch_size": int(batch_size),
         "num_batches": int(num_batches),
         "warmup_batches": int(warmup_batches),
@@ -362,6 +380,22 @@ def _resolve_prompt(bundle_dir: Path, prompt: str, prefix_file: str) -> str:
     if not prefix_path.is_file():
         raise SCDInjectionError("no prompt/prefix-file supplied and bundle prefix.txt is missing")
     return load_prompt(prefix_path.read_text(encoding="utf-8"), "")
+
+
+def build_kv_transfer_config(args: argparse.Namespace) -> dict[str, Any]:
+    extra = {
+        "shared_storage_path": args.storage_dir,
+        "cache_device": args.connector_cache_device,
+    }
+    config: dict[str, Any] = {
+        "kv_connector": args.kv_connector,
+        "kv_role": "kv_both",
+        "kv_load_failure_policy": "fail",
+        "kv_connector_extra_config": extra,
+    }
+    if args.kv_connector_module_path:
+        config["kv_connector_module_path"] = args.kv_connector_module_path
+    return config
 
 
 def _load_manifest_metadata(bundle_dir: Path) -> dict[str, Any]:

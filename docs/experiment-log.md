@@ -6339,3 +6339,55 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - ResearchKB:
   Harvest recorded `harvest_d7b3f06d675c5b85`; structured run recorded
   `run_695cfcac2dbc4528`.
+
+## 2026-06-18 - A800 Qwen3-1.7B Gray SCDPreloadedConnector Benchmark
+
+- Experiment id:
+  `a800_qwen17_scd_vllm_preloadedbench_20260618_cache`.
+- Purpose:
+  Test the new repository-provided external vLLM connector
+  `SCDPreloadedConnector`, which uses vLLM's `kv_connector_module_path`
+  mechanism and caches loaded SCD KV tensors by filename inside each worker.
+- Environment:
+  Host `A800mql`; activation `conda activate cache`; code snapshot
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_preloaded_20260618_0634`;
+  vLLM `0.18.0`; `CUDA_VISIBLE_DEVICES=7`.
+- GPU selection:
+  A800 GPUs `3,4,6,7` were sampled for 60 seconds and stayed at utilization
+  `0`; GPU `7` had the lowest resident memory among those cards and was used.
+- Inputs:
+  Consumer model
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`; bundle
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/reuse_patch_qwen17_gray_cmrc_route`;
+  storage
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/example_connector_storage`.
+- Method:
+  Ran `python -m scd_vllm_plugin.cli batch-benchmark` with
+  `--include-prefix-cache-baseline`, `--kv-connector SCDPreloadedConnector`,
+  `--kv-connector-module-path scd_vllm.preloaded_connector`,
+  `--connector-cache-device cuda`, `batch_size=128`, `num_batches=3`,
+  `warmup_batches=1`, `max_new_tokens=16`, `dtype=bfloat16`,
+  `max_model_len=256`, `gpu_memory_utilization=0.35`, `enforce_eager=True`,
+  and `--disable-hybrid-kv-cache-manager`.
+- Outputs:
+  `Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`.
+- Results:
+  `benchmark_pass=True`; `kv_connector=SCDPreloadedConnector`;
+  `kv_connector_module_path=scd_vllm.preloaded_connector`;
+  `route_id=paper_scd_reuse_patch_k6`; patch/reuse `6/22`; expected requests
+  `384`; `load_generation_ok=True`; `prefix_cache_generation_ok=True`;
+  `bundle_token_match=True`; `storage_ready=True`. Plain vLLM throughput was
+  `6194.909625` tokens/s; vLLM prefix-cache throughput was `6786.831734`
+  tokens/s; SCDPreloaded load throughput was `4294.997427` tokens/s.
+  Prefix-cache/plain ratio was `1.095550`; SCDPreloaded/plain ratio was
+  `0.693311`; SCDPreloaded/prefix-cache ratio was `0.632843`.
+- Analysis:
+  The external connector mechanism works from the repository without modifying
+  the installed vLLM package. Caching loaded tensors materially improves the
+  SCD load path relative to the previous disk-backed ExampleConnector run
+  (`1968.496077` tokens/s), but it remains below both vLLM baselines. The
+  release can claim an experimental external connector prototype and measured
+  overhead reduction, not a throughput speedup.
+- ResearchKB:
+  Harvest recorded `harvest_7c7032d9feccb303`; structured run recorded
+  `run_ce95bb2097b74b55`.
