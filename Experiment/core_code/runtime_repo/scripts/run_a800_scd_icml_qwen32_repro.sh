@@ -8,11 +8,30 @@ DATA_ROOT="${DATA_ROOT:-/home/student_t/maqianli/no4/data}"
 MODELS_CONFIG="${MODELS_CONFIG:-configs/models_a800_qwen25_32b_base_to_instruct_template.json}"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
-if [ -d /nas/mql ] && [ -w /nas/mql ]; then
-  DEFAULT_RUN_PARENT="/nas/mql/SCD-ICML/runs"
-else
-  DEFAULT_RUN_PARENT="/home/student_t/maqianli/SCD-ICML/runs"
-fi
+choose_default_run_parent() {
+  if [ -n "${RUN_PARENT:-}" ]; then
+    echo "${RUN_PARENT}"
+    return
+  fi
+  if [ -d /nas/mql ] && [ -w /nas/mql ]; then
+    echo "/nas/mql/SCD-ICML/runs"
+    return
+  fi
+  if [ -d /dev/shm ] && [ -w /dev/shm ]; then
+    local shm_avail_mb
+    shm_avail_mb="$(df -Pm /dev/shm | awk 'NR==2 {print $4}')"
+    if [ "${shm_avail_mb:-0}" -ge "${MIN_RUN_PARENT_FREE_MB:-200000}" ]; then
+      echo "/dev/shm/SCD-ICML/runs"
+      return
+    fi
+  fi
+  if [ -d /data ] && [ -w /data ]; then
+    echo "/data/SCD-ICML/runs"
+    return
+  fi
+  echo "/home/student_t/maqianli/SCD-ICML/runs"
+}
+DEFAULT_RUN_PARENT="$(choose_default_run_parent)"
 RUN_ROOT="${RUN_ROOT:-${DEFAULT_RUN_PARENT}/scd_icml_qwen32_repro_${STAMP}}"
 
 SEED="${SEED:-42}"
@@ -81,6 +100,7 @@ cat > "${RUN_ROOT}/run_config.json" <<EOF
 {
   "root": "${ROOT}",
   "data_root": "${DATA_ROOT}",
+  "run_parent": "${DEFAULT_RUN_PARENT}",
   "run_root": "${RUN_ROOT}",
   "models_config": "${MODELS_CONFIG}",
   "seed": ${SEED},
@@ -114,10 +134,19 @@ run_logged() {
   start_ts="$(date +%s)"
   printf '%q ' "$@" > "${stage_dir}/command.txt"
   printf '\n' >> "${stage_dir}/command.txt"
-  if /usr/bin/time -v -o "${stage_dir}/time.txt" "$@" >"${stage_dir}/stdout.log" 2>"${stage_dir}/stderr.log"; then
-    exit_code=0
+  if [ -x /usr/bin/time ]; then
+    if /usr/bin/time -v -o "${stage_dir}/time.txt" "$@" >"${stage_dir}/stdout.log" 2>"${stage_dir}/stderr.log"; then
+      exit_code=0
+    else
+      exit_code=$?
+    fi
   else
-    exit_code=$?
+    echo "/usr/bin/time unavailable; running without resource-time wrapper" > "${stage_dir}/time.txt"
+    if "$@" >"${stage_dir}/stdout.log" 2>"${stage_dir}/stderr.log"; then
+      exit_code=0
+    else
+      exit_code=$?
+    fi
   fi
   end_ts="$(date +%s)"
   python - "${status_path}" "${name}" "${exit_code}" "${start_ts}" "${end_ts}" <<'PY'
@@ -250,6 +279,10 @@ run_logged "make_route" \
     --patch-budget "${PATCH_BUDGET}" \
     "${_patch_layer_args[@]}" \
     --out "${ROUTE_PATH}"
+
+run_logged "validate_route" \
+  python scripts/validate_scd_route.py \
+    --route "${ROUTE_PATH}"
 
 IFS=',' read -r -a DATASET_LIST <<< "${DATASETS}"
 for dataset in "${DATASET_LIST[@]}"; do

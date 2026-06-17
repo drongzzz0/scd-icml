@@ -16,6 +16,7 @@ dependencies = [
   "numpy>=2.0.0",
   "scipy>=1.10.0",
   "matplotlib>=3.8.0",
+  "safetensors>=0.4.0",
   "torch>=2.2.0",
   "transformers>=4.45.0"
 ]
@@ -28,6 +29,9 @@ analysis = [
   "scikit-learn>=1.4.0"
 ]
 test = []
+vllm = [
+  "vllm>=0.18.0"
+]
 
 [project.scripts]
 capture-pair = "scd_repro.cli.capture_pair:main"
@@ -40,6 +44,7 @@ eval = "scd_repro.cli.eval_cmd:main"
 eval-text-strict = "scd_repro.cli.eval_text_strict:main"
 summarize-mistral-repro = "scd_repro.cli.summarize_mistral_repro:main"
 report = "scd_repro.cli.report_cmd:main"
+scd-vllm = "scd_vllm_plugin.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

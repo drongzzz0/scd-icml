@@ -59,6 +59,46 @@ require_dir "${PATCH_CKPT}"
 require_dir "${DATA_ROOT}"
 require_file "${PYTHON_BIN}"
 
+"${PYTHON_BIN}" - <<PY
+import json
+from pathlib import Path
+
+route_path = Path("${ROUTE_PATH}")
+route = json.loads(route_path.read_text(encoding="utf-8-sig"))
+num_layers = int(route.get("num_layers") or 32)
+reuse = {int(v) for v in route.get("reuse_layers", [])}
+patch = {int(v) for v in route.get("selected_patch_layers", route.get("patch_layers", []))}
+fallback = {int(v) for v in route.get("fallback_layers", [])}
+selected_recompute = {int(v) for v in route.get("selected_recompute_layers", [])}
+recompute_map = route.get("recompute_segment_length_by_layer", {}) or {}
+errors = []
+if fallback:
+    errors.append(f"fallback_layers must be empty, got {sorted(fallback)}")
+if selected_recompute or recompute_map:
+    errors.append(
+        "recompute must be disabled, "
+        f"got selected_recompute_layers={sorted(selected_recompute)} "
+        f"recompute_segment_length_by_layer={recompute_map}"
+    )
+overlap = reuse & patch
+if overlap:
+    errors.append(f"reuse_layers and patch_layers overlap: {sorted(overlap)}")
+missing = set(range(num_layers)) - (reuse | patch)
+if missing:
+    errors.append(f"reuse_layers + patch_layers must cover all layers, missing {sorted(missing)}")
+if errors:
+    raise SystemExit("invalid strict no-fallback/no-recompute route "
+                     + str(route_path) + ": " + "; ".join(errors))
+print(
+    "validated strict route:",
+    route_path,
+    f"reuse={len(reuse)}",
+    f"patch={len(patch)}",
+    "fallback=0",
+    "recompute=0",
+)
+PY
+
 cat > "${RUN_BASE}/run_config.json" <<EOF
 {
   "run_base": "${RUN_BASE}",

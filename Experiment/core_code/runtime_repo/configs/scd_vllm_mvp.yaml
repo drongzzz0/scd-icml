@@ -1,0 +1,61 @@
+project:
+  name: scd_vllm_mvp
+  seed: 1234
+  run_root: runs/scd_vllm
+  report_path: reports/scd_vllm_status.md
+
+models:
+  producer: null
+  consumer: null
+  tokenizer: null
+  dtype: bfloat16
+  trust_remote_code: true
+
+workload:
+  prefix_file: null
+  max_prefix_tokens: 2048
+  prefix_lengths_to_test: [128, 512, 2048]
+  decode_tokens_for_oracle: 1
+  decode_tokens_for_text_match: 16
+  batch_size: 1
+
+route:
+  route_file: null
+  route_id: null
+  fixed_offline_route: true
+  allowed_modes: [full_consumer, truekv, patch_only, reuse_only, mixed]
+
+vllm:
+  require_installed: true
+  pinned_version: null
+  tensor_parallel_size: 1
+  pipeline_parallel_size: 1
+  gpu_memory_utilization: 0.80
+  disable_prefix_caching: true
+  enable_chunked_prefill: false
+  enforce_eager_for_debug: true
+  max_model_len: 2048
+
+truekv_oracle_gate:
+  token_ids_identical: true
+  position_ids_identical: true
+  first_token_top1_match: true
+  greedy_1tok_match: true
+  greedy_16tok_match: true
+  logit_rel_l2_max_if_available: 1.0e-3
+  logit_max_abs_diff_if_available: 1.0e-2
+
+scd_quality_gate:
+  first_token_top1_match_required: false
+  max_logit_rel_l2: 0.05
+  max_logit_kl: 0.05
+  max_ppl_delta: 0.10
+  max_task_metric_drop_abs: 0.02
+  require_payload_smaller_than_raw_kv: true
+  require_mixed_better_than_reuse_only: true
+
+logging:
+  level: INFO
+  save_shapes: true
+  save_token_hashes: true
+  save_tensor_stats: true
