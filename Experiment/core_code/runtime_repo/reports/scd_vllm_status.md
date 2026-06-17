@@ -1,7 +1,8 @@
 # SCD vLLM Integration Status
 
 This report records the current release-facing vLLM evidence for the
-MistralLite producer to Mistral-7B consumer path. The integration is an
+MistralLite producer to Mistral-7B consumer SCD path, plus an additional
+Qwen3-1.7B plain-vLLM compatibility baseline. The integration is an
 experimental external adapter around vLLM connector storage, not a forked vLLM
 engine and not a production multi-tenant serving connector.
 
@@ -94,6 +95,31 @@ Both runs used:
 - For `patch26_reuse6`, GPUs `0,1` were sampled for 60 seconds before launch
   and stayed at utilization `0`.
 
+## Additional Model vLLM Baseline Evidence
+
+This is a plain official-vLLM compatibility and generation baseline for a
+second model family. It does not use SCD Reuse/Patch artifacts and must not be
+reported as a Qwen SCD speedup result.
+
+| Model | Pair | KV Compatible | vLLM Baseline | Prompt Tokens | Mean Gen Seconds | Tokens/s | 1-token Proxy |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `Qwen3-1.7B` | self -> self | true | pass | 11 | 0.207544 | 77.092046 | 0.013509s |
+
+Artifacts:
+
+- `../../Experiment/results/a800_qwen17_vllm_baseline_20260618_0530/`
+
+Run boundary:
+
+- Host: A800mql, `conda activate cache`, vLLM `0.18.0`.
+- Model:
+  `/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B`.
+- `CUDA_VISIBLE_DEVICES=0`.
+- GPUs `0,1,2,5` were sampled for 60 seconds before launch and all reported
+  utilization `0`.
+- The env probe reports Qwen KV compatibility with `num_layers=28`,
+  `num_attention_heads=16`, `num_kv_heads=8`, and `head_dim=128`.
+
 ## Dataset Quality Evidence
 
 Dataset quality is measured by the strict HF/SCD runtime, not by the vLLM
@@ -131,6 +157,8 @@ train/eval leakage artifact.
 - Do not claim a universal route across all datasets.
 - Qwen3-1.7B gray evidence is portability/risk evidence only; it is not a
   speedup claim.
+- Qwen3-1.7B plain-vLLM baseline evidence only proves that the current A800
+  vLLM environment can load and generate from the second model family.
 - Model loading from NAS dominates smoke runtime and is not an SCD speed result.
 
 ## Reproduction Commands

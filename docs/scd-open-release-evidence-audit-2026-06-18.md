@@ -63,10 +63,29 @@ production-grade
 multi-tenant safety, privacy isolation, dynamic routing, or general vLLM
 throughput improvement under concurrent serving load.
 
+Additional model-family vLLM baseline evidence:
+
+- Artifact:
+  `Experiment/results/a800_qwen17_vllm_baseline_20260618_0530/`.
+- Model: Qwen3-1.7B self -> self.
+- Runtime: A800mql, `conda activate cache`, vLLM `0.18.0`,
+  `CUDA_VISIBLE_DEVICES=0`.
+- GPU selection: GPUs `0,1,2,5` were sampled for 60 seconds and all stayed at
+  utilization `0` before launch.
+- Result: KV compatibility `True`; plain vLLM baseline passed with prompt
+  tokens `11`, mean 16-token generation time `0.207544s`,
+  mean throughput `77.092046` tokens/s, and 1-token proxy time `0.013509s`.
+
+This Qwen run is plain-vLLM compatibility evidence for a second model family.
+It is not a Qwen SCD Reuse/Patch route-quality or speedup claim.
+
 ## Release Risk Notes
 
 - Do not present Qwen3-1.7B gray as a speedup result. It is additional-model
   portability/risk evidence only.
+- Do not present the Qwen3-1.7B plain-vLLM baseline as an SCD result. It only
+  proves the current A800 vLLM environment can load and generate with that
+  model family.
 - Do not present one universal route. Route quality is dataset- and metric-
   dependent.
 - Do not use F1/EM as the WikiText-2 acceptance metric.

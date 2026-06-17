@@ -2723,3 +2723,24 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Scope boundary:
   This is release-surface hardening only. It does not alter route selection,
   model artifacts, or dataset metric values.
+
+### 2026-06-18 update - Qwen3-1.7B plain-vLLM compatibility evidence
+
+- Change:
+  Added A800mql Qwen3-1.7B self -> self vLLM env-probe and plain-generation
+  baseline artifacts under
+  `Experiment/results/a800_qwen17_vllm_baseline_20260618_0530/`, and updated
+  the vLLM status/evidence docs.
+- Rationale:
+  The main SCD route evidence is still MistralLite -> Mistral-7B. The release
+  goal also asks for multiple models, so the next useful low-risk step was to
+  prove that the current A800 `conda activate cache` vLLM environment can load
+  and generate with a second model family.
+- Verification:
+  GPUs `0,1,2,5` stayed at utilization `0` for 60 seconds before launch. The
+  Qwen env probe reported KV compatibility `True`, and the plain vLLM baseline
+  generated 16-token outputs at mean `77.092046` tokens/s with 1-token proxy
+  time `0.013509s`.
+- Scope boundary:
+  This is compatibility evidence only. It is not a Qwen SCD Reuse/Patch
+  route-quality result and not a Qwen speedup claim.

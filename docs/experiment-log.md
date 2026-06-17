@@ -6152,3 +6152,46 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   The release preview is now consistent with the vLLM status report's
   reproduction commands. This is a packaging and traceability check, not a new
   quality or latency benchmark.
+
+## 2026-06-18 - A800 Qwen3-1.7B Plain vLLM Compatibility Baseline
+
+- Experiment id:
+  `a800_qwen17_vllm_baseline_20260618_0530`.
+- Purpose:
+  Add a second-model-family vLLM compatibility signal for the open-source SCD
+  release without claiming Qwen SCD speedup or route quality.
+- Environment:
+  Host `A800mql`; activation `conda activate cache`; code snapshot
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_f9f07b5`;
+  Python `/home/c101-800-mql/.conda/envs/cache/bin/python`; vLLM `0.18.0`;
+  `CUDA_VISIBLE_DEVICES=0`.
+- GPU selection:
+  GPUs `0,1,2,5` were sampled every 10 seconds for 60 seconds before launch;
+  all samples reported utilization `0`.
+- Inputs:
+  Qwen3-1.7B model
+  `/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B`;
+  prompt `Summarize Semantic Cache Distillation in one sentence.`;
+  dtype `bfloat16`; max model length `512`; max new tokens `16`;
+  `enforce_eager=True`; `trust_remote_code=True`.
+- Method:
+  Ran `python -m scd_vllm.env_probe` with Qwen3-1.7B as both producer and
+  consumer, then ran `python -m scd_vllm.vllm_baseline` as a plain official
+  vLLM generation baseline. The final shell `find | sort` listing failed due
+  to a CRLF quoting issue in the SSH stdin script after the metrics were
+  already written; no GPU rerun was needed.
+- Outputs:
+  `Experiment/results/a800_qwen17_vllm_baseline_20260618_0530/`.
+- Results:
+  KV compatibility `True`; Qwen KV spec has `28` layers, `16` attention heads,
+  `8` KV heads, and head dim `128`. Plain vLLM baseline loaded and generated
+  successfully. Mean 16-token generation time was `0.207544s`; mean throughput
+  was `77.092046` tokens/s; 1-token proxy time was `0.013509s`; prompt token
+  count was `11`.
+- Analysis:
+  This supports multi-model vLLM runtime compatibility for the release, but it
+  does not use SCD Reuse/Patch artifacts and must not be reported as a Qwen SCD
+  route-quality or speedup result.
+- ResearchKB:
+  Harvest recorded `harvest_04e0bf84b52a3611`; structured run recorded
+  `run_92cfa0ed515947c1`.

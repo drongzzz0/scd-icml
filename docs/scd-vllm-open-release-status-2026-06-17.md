@@ -270,6 +270,44 @@ Interpretation:
   should frame SCD-vLLM as suitable for trusted or controlled deployments unless
   isolation and policy checks are added.
 
+## Additional Qwen3-1.7B vLLM Baseline Check
+
+Artifacts:
+
+`Experiment/results/a800_qwen17_vllm_baseline_20260618_0530/`
+
+This is a second-model-family vLLM compatibility and plain-generation check,
+not an SCD Reuse/Patch result. It used Qwen3-1.7B self -> self because the
+available A800 path has the base Qwen3-1.7B model but not a validated gray
+consumer model for the vLLM plugin path.
+
+Runtime boundary:
+
+- Host: A800mql.
+- Environment: `conda activate cache`.
+- Code snapshot: `runtime_repo_codex_f9f07b5`.
+- Model:
+  `/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B`.
+- GPU selection: GPUs `0,1,2,5` were sampled for 60 seconds and all stayed at
+  utilization `0`; the run used `CUDA_VISIBLE_DEVICES=0`.
+- vLLM: `0.18.0`.
+
+Result:
+
+| Check | Value |
+| --- | ---: |
+| KV compatibility | `True` |
+| Layers / KV heads / head dim | `28 / 8 / 128` |
+| Prompt tokens | `11` |
+| Mean 16-token generation time | `0.207544s` |
+| Mean tokens/s | `77.092046` |
+| 1-token proxy time | `0.013509s` |
+
+Interpretation: this closes a small part of the multi-model release risk by
+showing that the current A800 vLLM environment can load and generate with a
+second model family. It does not support a Qwen SCD speedup or route-quality
+claim.
+
 ## Additional Qwen3-1.7B Gray Risk Check
 
 Artifacts:

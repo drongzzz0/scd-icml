@@ -1,0 +1,308 @@
+{
+  "mode": "vllm_plain_baseline",
+  "vllm_version": "0.18.0",
+  "model": "/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B",
+  "tokenizer_id": "/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B",
+  "dtype": "bfloat16",
+  "max_model_len": 512,
+  "max_new_tokens": 16,
+  "temperature": 0.0,
+  "top_p": 1.0,
+  "top_k": 0,
+  "seed": 0,
+  "warmup": 1,
+  "repeat": 3,
+  "ttft_proxy_repeat": 3,
+  "enable_prefix_caching": false,
+  "load_seconds": 13.370026895077899,
+  "prompt_token_count": 11,
+  "prompt_token_hash": "06341a94fb7ce27429f58271db0a038a0852d3fe8d8fd6eab2be7f37c04cab8b",
+  "hf_bundle_check": {
+    "enabled": false
+  },
+  "memory_before": {
+    "cuda_available": true,
+    "device": 0,
+    "device_name": "NVIDIA A800-SXM4-80GB",
+    "free_bytes": 68061102080,
+    "total_bytes": 85094825984,
+    "used_bytes": 17033723904
+  },
+  "memory_after_load": {
+    "cuda_available": true,
+    "device": 0,
+    "device_name": "NVIDIA A800-SXM4-80GB",
+    "free_bytes": 7934115840,
+    "total_bytes": 85094825984,
+    "used_bytes": 77160710144
+  },
+  "memory_after_generate": {
+    "cuda_available": true,
+    "device": 0,
+    "device_name": "NVIDIA A800-SXM4-80GB",
+    "free_bytes": 7934115840,
+    "total_bytes": 85094825984,
+    "used_bytes": 77160710144
+  },
+  "warmup_runs": [
+    {
+      "kind": "warmup",
+      "index": 0,
+      "generation_seconds": 0.284023571992293,
+      "ttft_seconds": null,
+      "output_token_count": 16,
+      "output_token_ids": [
+        576,
+        74333,
+        19479,
+        27604,
+        66084,
+        374,
+        264,
+        14762,
+        429,
+        6147,
+        264,
+        1614,
+        311,
+        3960,
+        323,
+        3553
+      ],
+      "finish_reason": "length",
+      "text": " The Semantic Cache Distillation is a technique that allows a model to learn and store",
+      "prompt_token_ids": [
+        9190,
+        5612,
+        551,
+        74333,
+        19479,
+        27604,
+        66084,
+        304,
+        825,
+        11652,
+        13
+      ],
+      "request_metrics": null
+    }
+  ],
+  "ttft_proxy_runs": [
+    {
+      "kind": "ttft_proxy",
+      "index": 0,
+      "generation_seconds": 0.014007627964019775,
+      "ttft_seconds": null,
+      "output_token_count": 1,
+      "output_token_ids": [
+        576
+      ],
+      "finish_reason": "length",
+      "text": " The",
+      "prompt_token_ids": [
+        9190,
+        5612,
+        551,
+        74333,
+        19479,
+        27604,
+        66084,
+        304,
+        825,
+        11652,
+        13
+      ],
+      "request_metrics": null
+    },
+    {
+      "kind": "ttft_proxy",
+      "index": 1,
+      "generation_seconds": 0.013261175015941262,
+      "ttft_seconds": null,
+      "output_token_count": 1,
+      "output_token_ids": [
+        576
+      ],
+      "finish_reason": "length",
+      "text": " The",
+      "prompt_token_ids": [
+        9190,
+        5612,
+        551,
+        74333,
+        19479,
+        27604,
+        66084,
+        304,
+        825,
+        11652,
+        13
+      ],
+      "request_metrics": null
+    },
+    {
+      "kind": "ttft_proxy",
+      "index": 2,
+      "generation_seconds": 0.013256862992420793,
+      "ttft_seconds": null,
+      "output_token_count": 1,
+      "output_token_ids": [
+        576
+      ],
+      "finish_reason": "length",
+      "text": " The",
+      "prompt_token_ids": [
+        9190,
+        5612,
+        551,
+        74333,
+        19479,
+        27604,
+        66084,
+        304,
+        825,
+        11652,
+        13
+      ],
+      "request_metrics": null
+    }
+  ],
+  "runs": [
+    {
+      "kind": "measure",
+      "index": 0,
+      "generation_seconds": 0.19709042098838836,
+      "ttft_seconds": null,
+      "output_token_count": 16,
+      "output_token_ids": [
+        576,
+        74333,
+        19479,
+        27604,
+        66084,
+        374,
+        264,
+        14762,
+        429,
+        6147,
+        264,
+        1614,
+        311,
+        3960,
+        323,
+        3553
+      ],
+      "finish_reason": "length",
+      "text": " The Semantic Cache Distillation is a technique that allows a model to learn and store",
+      "prompt_token_ids": [
+        9190,
+        5612,
+        551,
+        74333,
+        19479,
+        27604,
+        66084,
+        304,
+        825,
+        11652,
+        13
+      ],
+      "request_metrics": null
+    },
+    {
+      "kind": "measure",
+      "index": 1,
+      "generation_seconds": 0.1976905670017004,
+      "ttft_seconds": null,
+      "output_token_count": 16,
+      "output_token_ids": [
+        576,
+        74333,
+        19479,
+        27604,
+        66084,
+        374,
+        264,
+        14762,
+        429,
+        6147,
+        264,
+        1614,
+        311,
+        3960,
+        323,
+        3553
+      ],
+      "finish_reason": "length",
+      "text": " The Semantic Cache Distillation is a technique that allows a model to learn and store",
+      "prompt_token_ids": [
+        9190,
+        5612,
+        551,
+        74333,
+        19479,
+        27604,
+        66084,
+        304,
+        825,
+        11652,
+        13
+      ],
+      "request_metrics": null
+    },
+    {
+      "kind": "measure",
+      "index": 2,
+      "generation_seconds": 0.22785133600700647,
+      "ttft_seconds": null,
+      "output_token_count": 16,
+      "output_token_ids": [
+        576,
+        74333,
+        19479,
+        27604,
+        66084,
+        374,
+        264,
+        14762,
+        429,
+        6147,
+        264,
+        1614,
+        311,
+        3960,
+        323,
+        3553
+      ],
+      "finish_reason": "length",
+      "text": " The Semantic Cache Distillation is a technique that allows a model to learn and store",
+      "prompt_token_ids": [
+        9190,
+        5612,
+        551,
+        74333,
+        19479,
+        27604,
+        66084,
+        304,
+        825,
+        11652,
+        13
+      ],
+      "request_metrics": null
+    }
+  ],
+  "summary": {
+    "generation_seconds_mean": 0.20754410799903175,
+    "generation_seconds_min": 0.19709042098838836,
+    "generation_seconds_max": 0.22785133600700647,
+    "output_token_count_mean": 16.0,
+    "tokens_per_second_mean": 77.09204638117043,
+    "ttft_seconds_mean": null,
+    "ttft_seconds_min": null,
+    "ttft_source": "unavailable",
+    "ttft_proxy_seconds_mean": 0.013508555324127277,
+    "ttft_proxy_seconds_min": 0.013256862992420793,
+    "ttft_proxy_source": "one_token_generate_wall_time"
+  }
+}
