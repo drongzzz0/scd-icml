@@ -171,21 +171,22 @@ gate; full-dataset quality for Qwen remains the strict runtime result below.
 
 This is a repeated-prefix trusted microbenchmark for the same Qwen3-1.7B ->
 Qwen3-1.7B-gray `paper_scd_reuse_patch_k6` bundle. It checks the public
-`scd-vllm batch-benchmark` command and the vLLM `ExampleConnector` load path
-under a batched request shape. It is not a general serving-speed,
-multi-tenant, privacy, or dataset-quality claim.
+`scd-vllm batch-benchmark` command, a plain vLLM baseline, an official vLLM
+prefix-cache baseline, and the SCD `ExampleConnector` load path under a
+batched request shape. It is not a general serving-speed, multi-tenant,
+privacy, or dataset-quality claim.
 
 Artifact:
 
-- `../../Experiment/results/a800_qwen17_scd_vllm_batchbench_20260618_cache/`
+- `../../Experiment/results/a800_qwen17_scd_vllm_prefixbench_20260618_cache/`
 
 Run boundary:
 
 - Host: A800mql, `conda activate cache`, vLLM `0.18.0`.
-- Code snapshot: `runtime_repo_codex_batchbench_20260618`.
-- GPU selection: A800 GPUs `3,4,6,7` were sampled for 60 seconds and stayed
-  busy; GPUs `0,1,2,5` stayed at `0` utilization, so the run used
-  `CUDA_VISIBLE_DEVICES=0`.
+- Code snapshot: `runtime_repo_codex_prefixbench_20260618_0616`.
+- GPU selection: A800 GPUs `3,4,6,7` were sampled for 60 seconds and stayed at
+  utilization `0`; GPU `7` had the lowest resident memory among those cards,
+  so the run used `CUDA_VISIBLE_DEVICES=7`.
 - vLLM load stage used `--disable-hybrid-kv-cache-manager` because
   `ExampleConnector` does not support HMA.
 
@@ -199,14 +200,18 @@ Run boundary:
 | Load generation OK | `true` |
 | Bundle token match | `true` |
 | Storage ready | `true` |
-| Load tokens/s | `2000.185735` |
-| Baseline tokens/s | `6514.906148` |
-| Load/Baseline tokens/s ratio | `0.307017` |
+| Plain vLLM tokens/s | `6189.640815` |
+| vLLM prefix-cache tokens/s | `7016.957157` |
+| SCD load tokens/s | `1968.496077` |
+| Prefix-cache/Plain tokens/s ratio | `1.133661` |
+| SCD load/Plain tokens/s ratio | `0.318031` |
+| SCD load/Prefix-cache tokens/s ratio | `0.280534` |
 
 Interpretation: batched SCD-vLLM loading works and reports positive throughput,
-but the current disk-backed `ExampleConnector` path is slower than plain vLLM
-for this Qwen repeated-prefix microbenchmark. This strengthens integration
-evidence, not a speedup claim.
+but the current disk-backed `ExampleConnector` path is slower than both plain
+vLLM and vLLM's native prefix-cache baseline for this Qwen repeated-prefix
+microbenchmark. This strengthens integration evidence and makes the overhead
+risk explicit; it is not a speedup claim.
 
 ## Dataset Quality Evidence
 
@@ -249,8 +254,8 @@ train/eval leakage artifact.
   prove current A800 vLLM compatibility and adapter portability for the second
   model family.
 - Qwen3-1.7B batched benchmark evidence proves the repeated-prefix
-  `ExampleConnector` path runs, but the measured load path is slower than
-  plain vLLM in the checked microbenchmark.
+  `ExampleConnector` path runs, but the measured load path is slower than both
+  plain vLLM and vLLM prefix caching in the checked microbenchmark.
 - Model loading from NAS dominates smoke runtime and is not an SCD speed result.
 
 ## Reproduction Commands

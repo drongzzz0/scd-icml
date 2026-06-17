@@ -355,20 +355,21 @@ and speed remain bounded by the strict runtime table below.
 
 Artifact:
 
-- `Experiment/results/a800_qwen17_scd_vllm_batchbench_20260618_cache/`
+- `Experiment/results/a800_qwen17_scd_vllm_prefixbench_20260618_cache/`
 
 This run validates the public `scd-vllm batch-benchmark` command on the same
 Qwen3-1.7B -> Qwen3-1.7B-gray bundle as a repeated-prefix trusted
-microbenchmark:
+microbenchmark with plain vLLM, vLLM prefix caching, and SCD load stages:
 
 - Host: A800mql.
 - Environment: `conda activate cache`.
-- Code snapshot: `runtime_repo_codex_batchbench_20260618`.
+- Code snapshot: `runtime_repo_codex_prefixbench_20260618_0616`.
 - vLLM: `0.18.0`.
 - Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`.
 - Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
-- GPU selection: A800 GPUs `3,4,6,7` were busy during a 60-second check; GPUs
-  `0,1,2,5` stayed at `0` utilization; the run used `CUDA_VISIBLE_DEVICES=0`.
+- GPU selection: A800 GPUs `3,4,6,7` stayed at `0` utilization during a
+  60-second check; GPU `7` had the lowest resident memory among those cards,
+  so the run used `CUDA_VISIBLE_DEVICES=7`.
 
 Result:
 
@@ -378,14 +379,18 @@ Result:
 | Load generation OK | `true` |
 | Bundle token match | `true` |
 | Storage ready | `true` |
-| Load tokens/s | `2000.185735` |
-| Plain vLLM baseline tokens/s | `6514.906148` |
-| Load/Baseline tokens/s ratio | `0.307017` |
+| Plain vLLM tokens/s | `6189.640815` |
+| vLLM prefix-cache tokens/s | `7016.957157` |
+| SCD load tokens/s | `1968.496077` |
+| Prefix-cache/Plain tokens/s ratio | `1.133661` |
+| SCD load/Plain tokens/s ratio | `0.318031` |
+| SCD load/Prefix-cache tokens/s ratio | `0.280534` |
 
 Interpretation: this closes the missing batched-command evidence gap for the
 plugin, but it does not support a Qwen speedup claim. In this checked
-ExampleConnector microbenchmark, SCD load is slower than plain vLLM, so this
-result should be framed as integration evidence and an overhead warning.
+ExampleConnector microbenchmark, SCD load is slower than both plain vLLM and
+vLLM prefix caching, so this result should be framed as integration evidence
+and an overhead warning.
 
 ## Additional Qwen3-1.7B Gray Risk Check
 

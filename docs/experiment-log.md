@@ -6290,3 +6290,52 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - ResearchKB:
   Harvest recorded `harvest_b686e6617ed38a60`; structured run recorded
   `run_46116bf79b924d40`.
+
+## 2026-06-18 - A800 Qwen3-1.7B Gray SCD-vLLM Prefix-Cache Control Benchmark
+
+- Experiment id:
+  `a800_qwen17_scd_vllm_prefixbench_20260618_cache`.
+- Purpose:
+  Add the missing vLLM native prefix-cache control for the repeated-prefix
+  Qwen SCD-vLLM benchmark, so release evidence distinguishes plain vLLM,
+  official vLLM prefix caching, and SCD `ExampleConnector` loading.
+- Environment:
+  Host `A800mql`; activation `conda activate cache`; code snapshot
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_prefixbench_20260618_0616`;
+  vLLM `0.18.0`; `CUDA_VISIBLE_DEVICES=7`.
+- GPU selection:
+  A800 GPUs `3,4,6,7` were sampled for 60 seconds and stayed at utilization
+  `0`; GPU `7` had the lowest resident memory among those cards and was used.
+- Inputs:
+  Consumer model
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`; bundle
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/reuse_patch_qwen17_gray_cmrc_route`;
+  storage
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/example_connector_storage`.
+- Method:
+  Ran `python -m scd_vllm_plugin.cli batch-benchmark` with
+  `--include-prefix-cache-baseline`, `batch_size=128`, `num_batches=3`,
+  `warmup_batches=1`, `max_new_tokens=16`, `dtype=bfloat16`,
+  `max_model_len=256`, `gpu_memory_utilization=0.35`, `enforce_eager=True`,
+  and `--disable-hybrid-kv-cache-manager`. The command measured plain vLLM,
+  vLLM prefix caching, and SCD load stages in separate subprocesses.
+- Outputs:
+  `Experiment/results/a800_qwen17_scd_vllm_prefixbench_20260618_cache/`.
+- Results:
+  `benchmark_pass=True`; `route_id=paper_scd_reuse_patch_k6`; patch/reuse
+  `6/22`; expected requests `384`; `load_generation_ok=True`;
+  `prefix_cache_generation_ok=True`; `bundle_token_match=True`;
+  `storage_ready=True`. Plain vLLM throughput was `6189.640815` tokens/s;
+  prefix-cache vLLM throughput was `7016.957157` tokens/s; SCD load throughput
+  was `1968.496077` tokens/s. Prefix-cache/plain ratio was `1.133661`;
+  SCD load/plain ratio was `0.318031`; SCD load/prefix-cache ratio was
+  `0.280534`.
+- Analysis:
+  Prefix caching is the stronger built-in baseline for this repeated-prefix
+  workload and outperforms plain vLLM. The current disk-backed SCD load path is
+  much slower than both vLLM baselines. This result makes the release boundary
+  sharper: the current plugin is functional integration evidence, not a
+  throughput-improving serving connector.
+- ResearchKB:
+  Harvest recorded `harvest_d7b3f06d675c5b85`; structured run recorded
+  `run_695cfcac2dbc4528`.

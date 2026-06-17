@@ -44,8 +44,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--enable-prefix-caching", action="store_true")
     parser.add_argument("--enable-chunked-prefill", action="store_true")
     parser.add_argument("--disable-hybrid-kv-cache-manager", action="store_true")
+    parser.add_argument(
+        "--include-prefix-cache-baseline",
+        action="store_true",
+        help="Also run a plain-vLLM stage with vLLM prefix caching enabled.",
+    )
     parser.add_argument("--skip-baseline", action="store_true", help="Run only the ExampleConnector load stage")
-    parser.add_argument("--stage", choices=["baseline", "load"], default="", help=argparse.SUPPRESS)
+    parser.add_argument("--stage", choices=["baseline", "prefix-cache", "load"], default="", help=argparse.SUPPRESS)
     return parser.parse_args(list(argv) if argv is not None else None)
 
 
@@ -104,6 +109,8 @@ def run_batch_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 
     records: dict[str, dict[str, Any]] = {}
     stages = ["load"] if args.skip_baseline else ["baseline", "load"]
+    if args.include_prefix_cache_baseline and not args.skip_baseline:
+        stages.insert(1, "prefix-cache")
     for stage in stages:
         stage_out = out_dir / f"{stage}.json"
         cmd = [
@@ -149,7 +156,7 @@ def run_stage(args: argparse.Namespace) -> dict[str, Any]:
         "gpu_memory_utilization": args.gpu_memory_utilization,
         "seed": args.seed,
         "enforce_eager": args.enforce_eager,
-        "enable_prefix_caching": args.enable_prefix_caching,
+        "enable_prefix_caching": bool(args.enable_prefix_caching or args.stage == "prefix-cache"),
         "enable_chunked_prefill": args.enable_chunked_prefill,
         "disable_hybrid_kv_cache_manager": args.disable_hybrid_kv_cache_manager,
     }
@@ -260,6 +267,7 @@ def build_batch_benchmark_metrics(
 ) -> dict[str, Any]:
     load = records.get("load", {})
     baseline = records.get("baseline", {})
+    prefix_cache = records.get("prefix-cache", {})
     manifest = _load_manifest_metadata(bundle_dir)
     storage = load.get("storage", {})
     expected_requests = int(batch_size) * int(num_batches)
@@ -282,10 +290,39 @@ def build_batch_benchmark_metrics(
             float(load.get("requests_per_second", 0.0) or 0.0),
             float(baseline.get("requests_per_second", 0.0) or 0.0),
         )
+    prefix_cache_generation_ok = bool(
+        prefix_cache
+        and prefix_cache.get("request_count") == expected_requests
+        and int(prefix_cache.get("output_tokens", 0) or 0) > 0
+        and float(prefix_cache.get("tokens_per_second", 0.0) or 0.0) > 0.0
+        and prefix_cache.get("prompt_token_hash") == manifest.get("token_hash")
+    )
+    prefix_cache_vs_baseline_tokens_per_second: float | None = None
+    prefix_cache_vs_baseline_requests_per_second: float | None = None
+    load_vs_prefix_cache_tokens_per_second: float | None = None
+    load_vs_prefix_cache_requests_per_second: float | None = None
+    if prefix_cache and baseline:
+        prefix_cache_vs_baseline_tokens_per_second = _safe_div(
+            float(prefix_cache.get("tokens_per_second", 0.0) or 0.0),
+            float(baseline.get("tokens_per_second", 0.0) or 0.0),
+        )
+        prefix_cache_vs_baseline_requests_per_second = _safe_div(
+            float(prefix_cache.get("requests_per_second", 0.0) or 0.0),
+            float(baseline.get("requests_per_second", 0.0) or 0.0),
+        )
+    if prefix_cache:
+        load_vs_prefix_cache_tokens_per_second = _safe_div(
+            float(load.get("tokens_per_second", 0.0) or 0.0),
+            float(prefix_cache.get("tokens_per_second", 0.0) or 0.0),
+        )
+        load_vs_prefix_cache_requests_per_second = _safe_div(
+            float(load.get("requests_per_second", 0.0) or 0.0),
+            float(prefix_cache.get("requests_per_second", 0.0) or 0.0),
+        )
     return {
         "mode": "scd_vllm_batch_benchmark",
         "benchmark_pass": benchmark_pass,
-        "claim_boundary": "repeated-prefix trusted microbenchmark; not a multi-tenant or general throughput claim",
+        "claim_boundary": "repeated-prefix trusted microbenchmark; compares plain vLLM, optional vLLM prefix caching, and SCD load; not a multi-tenant or general throughput claim",
         "model": model,
         "tokenizer": tokenizer,
         "bundle_dir": str(bundle_dir),
@@ -305,8 +342,15 @@ def build_batch_benchmark_metrics(
         "load_requests_per_second": load.get("requests_per_second"),
         "baseline_tokens_per_second": baseline.get("tokens_per_second") if baseline else None,
         "baseline_requests_per_second": baseline.get("requests_per_second") if baseline else None,
+        "prefix_cache_generation_ok": prefix_cache_generation_ok if prefix_cache else None,
+        "prefix_cache_tokens_per_second": prefix_cache.get("tokens_per_second") if prefix_cache else None,
+        "prefix_cache_requests_per_second": prefix_cache.get("requests_per_second") if prefix_cache else None,
         "speedup_tokens_per_second": speedup_tokens_per_second,
         "speedup_requests_per_second": speedup_requests_per_second,
+        "prefix_cache_vs_baseline_tokens_per_second": prefix_cache_vs_baseline_tokens_per_second,
+        "prefix_cache_vs_baseline_requests_per_second": prefix_cache_vs_baseline_requests_per_second,
+        "load_vs_prefix_cache_tokens_per_second": load_vs_prefix_cache_tokens_per_second,
+        "load_vs_prefix_cache_requests_per_second": load_vs_prefix_cache_requests_per_second,
         "records": records,
     }
 

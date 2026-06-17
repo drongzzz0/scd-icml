@@ -105,11 +105,14 @@ scd-vllm batch-benchmark \
   --max-new-tokens 16 \
   --out runs/scd_vllm/my_batch_bench \
   --enforce-eager \
-  --disable-hybrid-kv-cache-manager
+  --disable-hybrid-kv-cache-manager \
+  --include-prefix-cache-baseline
 ```
 
 This benchmark intentionally repeats one validated prefix. Treat it as a
-trusted, static-prefix connector throughput check. It is not evidence for
+trusted, static-prefix connector throughput check. With
+`--include-prefix-cache-baseline`, it reports plain vLLM, official vLLM prefix
+caching, and SCD load metrics in one artifact. It is not evidence for
 multi-tenant safety, arbitrary prompt routing, or dataset-level quality.
 
 ## Python API

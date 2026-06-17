@@ -41,13 +41,21 @@ def test_batch_benchmark_metrics_pass_for_loaded_repeated_prefix(tmp_path) -> No
         "prompt_token_hash": manifest.token_hash,
         "storage": {"exists": True, "safetensor_files": 2},
     }
+    prefix_cache = {
+        "request_count": 8,
+        "output_tokens": 64,
+        "tokens_per_second": 240.0,
+        "requests_per_second": 30.0,
+        "prompt_token_hash": manifest.token_hash,
+        "storage": {"exists": True, "safetensor_files": 2},
+    }
 
     metrics = build_batch_benchmark_metrics(
         model="m",
         tokenizer="t",
         bundle_dir=bundle,
         storage_dir=storage,
-        records={"baseline": baseline, "load": load},
+        records={"baseline": baseline, "prefix-cache": prefix_cache, "load": load},
         batch_size=4,
         num_batches=2,
         warmup_batches=1,
@@ -58,7 +66,10 @@ def test_batch_benchmark_metrics_pass_for_loaded_repeated_prefix(tmp_path) -> No
     assert metrics["bundle_type"] == "reuse_patch"
     assert metrics["bundle_token_match"] is True
     assert metrics["storage_ready"] is True
+    assert metrics["prefix_cache_generation_ok"] is True
     assert metrics["speedup_tokens_per_second"] == 2.0
+    assert metrics["prefix_cache_vs_baseline_tokens_per_second"] == 1.5
+    assert metrics["load_vs_prefix_cache_tokens_per_second"] == 320.0 / 240.0
     assert "repeated-prefix trusted microbenchmark" in metrics["claim_boundary"]
 
 
@@ -121,3 +132,24 @@ def test_batch_benchmark_parse_args_keeps_load_stage_hidden() -> None:
 
     assert args.stage == "load"
     assert args.batch_size == 8
+
+
+def test_batch_benchmark_parse_args_supports_prefix_cache_baseline() -> None:
+    args = parse_args(
+        [
+            "--stage",
+            "prefix-cache",
+            "--model",
+            "m",
+            "--bundle-dir",
+            "bundle",
+            "--storage-dir",
+            "storage",
+            "--out",
+            "out.json",
+            "--include-prefix-cache-baseline",
+        ]
+    )
+
+    assert args.stage == "prefix-cache"
+    assert args.include_prefix_cache_baseline is True

@@ -341,11 +341,11 @@ directories:
   for higher-Reuse raw-bank-to-vLLM plugin evidence.
 - `../../Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`
   for quality-first raw-bank-to-vLLM plugin evidence.
-- `../../Experiment/results/a800_qwen17_scd_vllm_batchbench_20260618_cache/`
-  for repeated-prefix trusted microbenchmark evidence. It shows the Qwen
-  `ExampleConnector` batch load path runs, but the measured SCD load throughput
-  is lower than the plain vLLM baseline and must not be used as a speedup
-  claim.
+- `../../Experiment/results/a800_qwen17_scd_vllm_prefixbench_20260618_cache/`
+  for repeated-prefix trusted microbenchmark evidence. It compares plain vLLM,
+  vLLM `prefix-cache`, and Qwen `ExampleConnector` SCD batch load. The measured
+  SCD load throughput is lower than both vLLM baselines and must not be used as
+  a speedup claim.
 - `../../Experiment/results/scd_vllm_multidataset_full_strict_20260617/` for
   full CMRC2018 and HotpotQA strict QA evidence.
 - `../../Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`

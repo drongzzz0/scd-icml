@@ -2788,3 +2788,27 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   The measured SCD load path reached `2000.185735` tokens/s versus plain vLLM
   baseline `6514.906148` tokens/s, so this is integration/overhead evidence
   only. It must not be advertised as a Qwen throughput speedup.
+
+### 2026-06-18 update - add vLLM prefix-cache control to Qwen batch gate
+
+- Change:
+  Extended `scd-vllm batch-benchmark` with
+  `--include-prefix-cache-baseline`, then reran the Qwen3-1.7B ->
+  Qwen3-1.7B-gray repeated-prefix benchmark on A800.
+- Rationale:
+  Plain vLLM alone is an incomplete baseline for a repeated-prefix workload.
+  vLLM's native prefix caching is the correct built-in control for this serving
+  shape, so the release artifact should report plain vLLM, prefix-cache vLLM,
+  and SCD load together.
+- Verification:
+  On A800mql with `conda activate cache`, GPUs `3,4,6,7` stayed at utilization
+  `0` for 60 seconds; GPU `7` was used. `batch_size=128`, `num_batches=3`,
+  expected requests `384`; `benchmark_pass=True`,
+  `prefix_cache_generation_ok=True`, `load_generation_ok=True`,
+  `bundle_token_match=True`, and `storage_ready=True`.
+- Scope boundary:
+  Prefix caching reached `7016.957157` tokens/s versus plain vLLM
+  `6189.640815` tokens/s. SCD load reached only `1968.496077` tokens/s, or
+  `0.280534`x of prefix-cache throughput. This reinforces the release boundary:
+  current SCD-vLLM is a plug-in integration prototype and overhead-risk
+  artifact, not a throughput-improving serving connector.
