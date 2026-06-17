@@ -298,7 +298,11 @@ def check_declared_dependencies(root: Path, errors: list[str]) -> None:
     }
     stdlib = set(getattr(sys, "stdlib_module_names", ()))
     stdlib.update({"__future__"})
-    local_roots = {"scd_repro"}
+    local_roots = {
+        path.name
+        for path in src_root.iterdir()
+        if path.is_dir() and (path / "__init__.py").is_file()
+    }
     direct_imports: dict[str, set[str]] = {}
     for path in sorted(src_root.rglob("*.py")):
         try:

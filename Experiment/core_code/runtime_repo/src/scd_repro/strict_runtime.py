@@ -817,6 +817,19 @@ def _normalize_runtime_route(
     }
 
 
+def _require_no_fallback_no_recompute_route(route: dict[str, Any], *, method: str) -> None:
+    fallback_layers = _as_int_list(route.get("fallback_layers", []))
+    selected_recompute_layers = _as_int_list(route.get("selected_recompute_layers", []))
+    recompute_map = _as_int_map(route.get("recompute_segment_length_by_layer", {}))
+    if fallback_layers or selected_recompute_layers or recompute_map:
+        raise ValueError(
+            f"{method} must not use fallback or recompute layers: "
+            f"fallback_layers={fallback_layers}, "
+            f"selected_recompute_layers={selected_recompute_layers}, "
+            f"recompute_segment_length_by_layer={recompute_map}"
+        )
+
+
 def _target_answer_ids(session: TransformersRuntimeSession, answers: list[str], max_new_tokens: int) -> Any:
     t = require_torch()
     answer = next((str(x).strip() for x in answers if str(x).strip()), "")
@@ -3351,6 +3364,8 @@ def _assemble_method_cache(
                 fail_on_missing_patch_fields=fail_on_missing_patch_fields,
             )
         elif method in {"scd_full", "reuse_patch", "oracle_kv_patchonly"}:
+            if method == "scd_full":
+                _require_no_fallback_no_recompute_route(route, method=method)
             runtime_route = _normalize_runtime_route(
                 route,
                 mode="reuse_patch",

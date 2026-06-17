@@ -4,7 +4,7 @@ import unittest
 
 from scd_repro.cli.build_route import _legacy_build_route
 from scd_repro.routing import RouteSearchConfig, TaskLayerProfile, greedy_search_task_route
-from scd_repro.strict_runtime import _normalize_runtime_route
+from scd_repro.strict_runtime import _normalize_runtime_route, _require_no_fallback_no_recompute_route
 
 
 class RouteGuardrailTest(unittest.TestCase):
@@ -58,6 +58,22 @@ class RouteGuardrailTest(unittest.TestCase):
                 fail_on_missing_route_fields=True,
                 fail_on_missing_patch_fields=True,
             )
+
+    def test_scd_full_guard_rejects_fallback_layers(self) -> None:
+        route = {"reuse_layers": [1], "patch_layers": [0], "fallback_layers": [2]}
+        with self.assertRaisesRegex(ValueError, "must not use fallback or recompute"):
+            _require_no_fallback_no_recompute_route(route, method="scd_full")
+
+    def test_scd_full_guard_rejects_recompute_layers(self) -> None:
+        route = {
+            "reuse_layers": [1],
+            "patch_layers": [0],
+            "fallback_layers": [],
+            "selected_recompute_layers": [2],
+            "recompute_segment_length_by_layer": {"2": 1},
+        }
+        with self.assertRaisesRegex(ValueError, "must not use fallback or recompute"):
+            _require_no_fallback_no_recompute_route(route, method="scd_full")
 
 
 if __name__ == "__main__":
