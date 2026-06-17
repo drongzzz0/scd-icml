@@ -1,0 +1,11 @@
+{
+  "mode": "a800_scd_vllm_bundle_doctor_smoke",
+  "runtime": "/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_ecbb130",
+  "model": "/home/c101-800-mql/nas/mql/models/Mistral-7B-expanded-for-MistralLite",
+  "out": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_bundle_doctor_smoke_20260618_024236",
+  "doctor_reuse19_patch13": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_bundle_doctor_smoke_20260618_024236/doctor_reuse19_patch13.json",
+  "doctor_patch20_reuse12": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_bundle_doctor_smoke_20260618_024236/doctor_patch20_reuse12.json",
+  "convert_reuse19_patch13": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_bundle_doctor_smoke_20260618_024236/convert_reuse19_patch13.json",
+  "convert_patch20_reuse12": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_bundle_doctor_smoke_20260618_024236/convert_patch20_reuse12.json",
+  "smoke_patch20_reuse12": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_bundle_doctor_smoke_20260618_024236/smoke_patch20_reuse12_gpu0/metrics.json"
+}

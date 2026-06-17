@@ -5820,3 +5820,53 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   quality drop.
 - Artifacts:
   `Experiment/results/qwen17_gray_full_strict_microsharded_20260617/`.
+
+## 2026-06-18 - A800 SCD-vLLM Bundle Doctor and Injection Smoke
+
+- Experiment id:
+  `a800_scd_vllm_bundle_doctor_smoke_20260618_024236`.
+- Purpose:
+  Validate the publishable plug-and-play SCD-vLLM path on A800 using the
+  `cache` conda environment, without relying on a NAS virtual environment.
+- Environment:
+  Host `A800mql`; working directory
+  `/home/c101-800-mql/maqianli/SCD-ICML`; environment
+  `conda activate cache`; Python
+  `/home/c101-800-mql/.conda/envs/cache/bin/python`; vLLM `0.18.0`.
+- Method:
+  Synced the current runtime package to
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_ecbb130`.
+  Added and exercised `scd-vllm doctor --bundle-dir`, then validated two
+  reconstructed SCD bundles and converted them to vLLM ExampleConnector
+  storage. Ran a single-GPU vLLM smoke test for `patch20_reuse12` on GPU 0.
+- Inputs:
+  Consumer model path
+  `/home/c101-800-mql/nas/mql/models/Mistral-7B-expanded-for-MistralLite`.
+  Reconstructed bundles:
+  `reuse19_patch13_cmrc200` and `patch20_reuse12`, both under
+  `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617/runs/scd_vllm/`.
+- Results:
+  - `reuse19_patch13`: `scd-vllm doctor` passed. Route has patch/reuse
+    `13/19`, fallback `0`, recompute `0`; bundle manifest validates
+    `32` layer files, `229` tokens, route hash match, payload bytes
+    `29,889,280`; ExampleConnector conversion payload bytes `29,362,944`.
+  - `patch20_reuse12`: `scd-vllm doctor` passed. Route has patch/reuse
+    `20/12`, fallback `0`, recompute `0`; bundle manifest validates
+    `32` layer files, `229` tokens, route hash match, payload bytes
+    `29,889,280`; ExampleConnector conversion payload bytes `29,362,944`.
+  - vLLM smoke for `patch20_reuse12`: `adapter_smoke_pass=True`,
+    `scd_injection_pass=True`, `reconstructed_scd=True`,
+    `loaded_generation_ok=True`, `bundle_token_match=True`,
+    `same_token_ids=True`, aligned tokens `224`, layers `32`, payload bytes
+    `29,362,944`.
+  - Greedy token equality is `False` for both 1-token and n-token outputs.
+    This is acceptable for reconstructed approximate SCD and is not treated as
+    an adapter failure.
+- Analysis:
+  This run strengthens the open-source vLLM integration evidence: the package
+  can validate existing SCD bundles, convert them into ExampleConnector
+  storage, and execute a real vLLM cache-load smoke path under the corrected
+  A800 `cache` environment. It does not replace dataset-level F1/EM/PPL
+  quality evidence.
+- Artifacts:
+  `Experiment/results/a800_scd_vllm_bundle_doctor_smoke_20260618_024236/`.

@@ -131,6 +131,7 @@ def _print_help(file=None) -> None:
                 "",
                 "Examples:",
                 "  scd-vllm doctor --reuse-ckpt /path/to/reuse --patch-ckpt /path/to/patch --route configs/routes/my_route.json --skip-vllm-import",
+                "  scd-vllm doctor --bundle-dir runs/scd_vllm/my_bundle --route runs/scd_vllm/my_bundle/route.json",
                 "  scd-vllm export-bundle --producer-model ... --consumer-model ... --reuse-ckpt ... --patch-ckpt ... --route ... --out runs/scd_vllm/my_bundle",
                 "  scd-vllm convert-bundle --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --overwrite",
                 "  scd-vllm smoke-test --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --out runs/scd_vllm/my_smoke --overwrite",

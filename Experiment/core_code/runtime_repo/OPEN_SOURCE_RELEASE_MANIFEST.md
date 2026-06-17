@@ -35,7 +35,9 @@ docs/scd_vllm_plugin_mvp.md
 
 The public plugin entry point is `scd-vllm`. Run `scd-vllm doctor` before GPU
 work to verify that local artifacts exist, vLLM can import, and the selected
-route is a strict no-fallback/no-recompute mixed reuse+patch route.
+route is a strict no-fallback/no-recompute mixed reuse+patch route. The doctor
+supports both raw `--reuse-ckpt/--patch-ckpt` paths and existing
+`--bundle-dir` artifacts.
 
 ## Required Lightweight Tests
 

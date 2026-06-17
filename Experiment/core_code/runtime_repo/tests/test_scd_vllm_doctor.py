@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 
+from scd_vllm.bundle import SCHEMA_VERSION, stable_json_hash
 from scd_vllm_plugin.cli import main as plugin_main
 from scd_vllm_plugin.doctor import run_doctor
 
 
-def _write_route(path, *, num_layers=4, patch=None, reuse=None, fallback=None, recompute=None) -> None:
+def _write_route(path, *, num_layers=4, patch=None, reuse=None, fallback=None, recompute=None) -> dict:
     payload = {
         "name": "test_route",
         "num_layers": num_layers,
@@ -17,6 +18,33 @@ def _write_route(path, *, num_layers=4, patch=None, reuse=None, fallback=None, r
         "recompute_segment_length_by_layer": {} if recompute is None else recompute,
     }
     path.write_text(json.dumps(payload), encoding="utf-8")
+    return payload
+
+
+def _write_bundle(path, *, route_payload: dict, num_layers: int = 4) -> None:
+    kv_dir = path / "kv"
+    kv_dir.mkdir(parents=True)
+    (path / "token_ids.npy").write_bytes(b"placeholder")
+    (path / "prefix.txt").write_text("hello", encoding="utf-8")
+    for layer in range(num_layers):
+        (kv_dir / f"layer_{layer:03d}.safetensors").write_bytes(b"placeholder")
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "created_at": "2026-06-18T00:00:00+00:00",
+        "producer_model": "producer",
+        "consumer_model": "consumer",
+        "tokenizer_id": "consumer",
+        "token_hash": "dummy",
+        "bundle_type": "reuse_patch",
+        "dtype": "bfloat16",
+        "device_origin": "cuda:0",
+        "num_tokens": 16,
+        "kv_spec": {"num_layers": num_layers, "num_kv_heads": 8, "head_dim": 128},
+        "route_id": "test_route",
+        "route_hash": stable_json_hash(route_payload),
+        "quality_gate": {"gate_name": "doctor_test", "thresholds": {}},
+    }
+    (path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def test_doctor_passes_for_strict_mixed_route(tmp_path) -> None:
@@ -91,3 +119,38 @@ def test_doctor_cli_writes_metrics(tmp_path) -> None:
     assert saved["mode"] == "scd_vllm_doctor"
     assert saved["pass"] is True
 
+
+def test_doctor_accepts_existing_bundle_without_raw_banks(tmp_path) -> None:
+    route = tmp_path / "route.json"
+    bundle = tmp_path / "bundle"
+    route_payload = _write_route(route)
+    _write_bundle(bundle, route_payload=route_payload)
+
+    metrics = run_doctor(
+        bundle_dir=str(bundle),
+        route=str(route),
+        skip_vllm_import=True,
+    )
+
+    assert metrics["pass"] is True
+    bundle_check = next(item for item in metrics["checks"] if item["name"] == "bundle_manifest")
+    assert bundle_check["status"] == "pass"
+    assert bundle_check["details"]["route_hash_match"] is True
+    assert bundle_check["details"]["num_layers"] == 4
+
+
+def test_doctor_rejects_bundle_route_hash_mismatch(tmp_path) -> None:
+    route = tmp_path / "route.json"
+    bundle = tmp_path / "bundle"
+    _write_bundle(bundle, route_payload={"name": "different", "num_layers": 4})
+    _write_route(route)
+
+    metrics = run_doctor(
+        bundle_dir=str(bundle),
+        route=str(route),
+        skip_vllm_import=True,
+    )
+
+    assert metrics["pass"] is False
+    bundle_check = next(item for item in metrics["checks"] if item["name"] == "bundle_manifest")
+    assert "route_hash does not match" in bundle_check["message"]

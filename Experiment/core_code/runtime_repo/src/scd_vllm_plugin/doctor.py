@@ -31,6 +31,7 @@ def run_doctor(
     consumer_model: str = "",
     reuse_ckpt: str = "",
     patch_ckpt: str = "",
+    bundle_dir: str = "",
     route: str = "",
     require_local_models: bool = False,
     require_mixed: bool = True,
@@ -38,11 +39,13 @@ def run_doctor(
 ) -> dict[str, Any]:
     checks: list[DoctorCheck] = []
     checks.append(_check_vllm_import(skip=skip_vllm_import))
+    using_bundle = bool(bundle_dir)
     for name, value, required in (
         ("producer_model", producer_model, require_local_models),
         ("consumer_model", consumer_model, require_local_models),
-        ("reuse_ckpt", reuse_ckpt, True),
-        ("patch_ckpt", patch_ckpt, True),
+        ("reuse_ckpt", reuse_ckpt, not using_bundle),
+        ("patch_ckpt", patch_ckpt, not using_bundle),
+        ("bundle_dir", bundle_dir, False),
         ("route", route, True),
     ):
         checks.append(_check_path(name, value, required=required))
@@ -50,6 +53,8 @@ def run_doctor(
         checks.append(_check_route(route, require_mixed=require_mixed))
     else:
         checks.append(DoctorCheck("route_strictness", "fail", "missing --route"))
+    if bundle_dir:
+        checks.append(_check_bundle(bundle_dir, route_path=route))
     failed = [item for item in checks if item.status == "fail"]
     warnings = [item for item in checks if item.status == "warn"]
     return {
@@ -148,6 +153,76 @@ def _check_route(route_path: str, *, require_mixed: bool) -> DoctorCheck:
     return DoctorCheck("route_strictness", "pass", "strict reuse+patch route validated", details)
 
 
+def _check_bundle(bundle_dir: str, *, route_path: str) -> DoctorCheck:
+    path = Path(bundle_dir)
+    if not path.is_dir():
+        return DoctorCheck("bundle_manifest", "fail", "bundle directory does not exist", {"path": str(path)})
+    manifest_path = path / "manifest.json"
+    if not manifest_path.is_file():
+        return DoctorCheck("bundle_manifest", "fail", "bundle manifest is missing", {"path": str(manifest_path)})
+    try:
+        from scd_vllm.bundle import read_manifest, stable_json_hash
+
+        manifest = read_manifest(manifest_path)
+    except Exception as exc:
+        return DoctorCheck("bundle_manifest", "fail", f"bundle manifest validation failed: {exc}", {"path": str(manifest_path)})
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    token_ids = path / "token_ids.npy"
+    if not token_ids.is_file():
+        errors.append("missing token_ids.npy")
+    prefix = path / "prefix.txt"
+    if not prefix.is_file():
+        warnings.append("missing prefix.txt")
+    num_layers = int(manifest.kv_spec.get("num_layers", 0) or 0)
+    if num_layers <= 0:
+        errors.append(f"manifest kv_spec.num_layers must be positive, got {num_layers}")
+    missing_layers = [
+        layer
+        for layer in range(max(num_layers, 0))
+        if not (path / "kv" / f"layer_{layer:03d}.safetensors").is_file()
+    ]
+    if missing_layers:
+        errors.append(f"missing bundle KV layer files: {missing_layers[:16]}")
+
+    route_hash_match: bool | None = None
+    if route_path and Path(route_path).is_file():
+        try:
+            route_data = json.loads(Path(route_path).read_text(encoding="utf-8-sig"))
+            route_hash = stable_json_hash(route_data)
+            if manifest.route_hash:
+                route_hash_match = route_hash == manifest.route_hash
+                if not route_hash_match:
+                    errors.append("bundle manifest route_hash does not match --route")
+            else:
+                warnings.append("bundle manifest has no route_hash to compare")
+        except Exception as exc:
+            errors.append(f"route hash comparison failed: {exc}")
+
+    layer_files = list((path / "kv").glob("layer_*.safetensors")) if (path / "kv").is_dir() else []
+    payload_bytes = sum(item.stat().st_size for item in layer_files)
+    details = {
+        "path": str(path),
+        "manifest": str(manifest_path),
+        "bundle_type": manifest.bundle_type,
+        "consumer_model": manifest.consumer_model,
+        "producer_model": manifest.producer_model,
+        "tokenizer_id": manifest.tokenizer_id,
+        "num_tokens": manifest.num_tokens,
+        "num_layers": num_layers,
+        "layer_file_count": len(layer_files),
+        "payload_bytes": payload_bytes,
+        "route_id": manifest.route_id,
+        "route_hash_match": route_hash_match,
+    }
+    if errors:
+        return DoctorCheck("bundle_manifest", "fail", "; ".join(errors), details)
+    if warnings:
+        return DoctorCheck("bundle_manifest", "warn", "; ".join(warnings), details)
+    return DoctorCheck("bundle_manifest", "pass", "bundle manifest and layer files validated", details)
+
+
 def _int_list(route: dict[str, Any], key: str) -> list[int]:
     return [int(layer) for layer in route.get(key, [])]
 
@@ -159,8 +234,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--producer-model", default="")
     parser.add_argument("--consumer-model", default="")
-    parser.add_argument("--reuse-ckpt", required=True)
-    parser.add_argument("--patch-ckpt", required=True)
+    parser.add_argument("--reuse-ckpt", default="")
+    parser.add_argument("--patch-ckpt", default="")
+    parser.add_argument("--bundle-dir", default="", help="Optional existing reconstructed SCD bundle directory")
     parser.add_argument("--route", required=True)
     parser.add_argument("--require-local-models", action="store_true")
     parser.add_argument("--allow-non-mixed-route", action="store_true")
@@ -176,6 +252,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         consumer_model=args.consumer_model,
         reuse_ckpt=args.reuse_ckpt,
         patch_ckpt=args.patch_ckpt,
+        bundle_dir=args.bundle_dir,
         route=args.route,
         require_local_models=args.require_local_models,
         require_mixed=not args.allow_non_mixed_route,
@@ -187,4 +264,3 @@ def main(argv: Sequence[str] | None = None) -> int:
         out.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0 if payload["pass"] else 1
-

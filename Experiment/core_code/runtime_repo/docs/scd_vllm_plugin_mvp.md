@@ -32,6 +32,18 @@ Use `--skip-vllm-import` only for documentation or CI environments that do not
 install the optional `vllm` extra. Use `--require-local-models` when producer
 and consumer model arguments must be local directories rather than model IDs.
 
+If a reconstructed SCD bundle already exists, validate that artifact directly:
+
+```bash
+scd-vllm doctor \
+  --bundle-dir runs/scd_vllm/my_bundle \
+  --route runs/scd_vllm/my_bundle/route.json \
+  --out runs/scd_vllm/doctor_bundle.json
+```
+
+Bundle preflight validates `manifest.json`, `token_ids.npy`, KV layer files,
+and the route hash when both the bundle manifest and `--route` expose one.
+
 ```bash
 scd-vllm export-bundle \
   --producer-model /path/to/producer \

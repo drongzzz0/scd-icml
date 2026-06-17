@@ -63,6 +63,14 @@ scd-vllm doctor \
   --route configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json
 ```
 
+For an already reconstructed SCD bundle, check the bundle artifact instead:
+
+```bash
+scd-vllm doctor \
+  --bundle-dir runs/scd_vllm/my_bundle \
+  --route runs/scd_vllm/my_bundle/route.json
+```
+
 Then use `scd-vllm run` to export a reconstructed reuse+patch bundle, convert
 it to vLLM ExampleConnector-compatible storage, and run the smoke injection
 path. See `docs/scd_vllm_plugin_mvp.md` for the full command.

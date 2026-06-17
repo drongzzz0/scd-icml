@@ -2550,3 +2550,17 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   Run release readiness, focused `scd_vllm_plugin` tests, and the full runtime
   unittest suite before committing. Do not push the branch until the user
   explicitly authorizes it.
+
+### 2026-06-18 update - bundle artifact preflight
+
+- Change:
+  Extend `scd-vllm doctor` from raw reuse/patch bank preflight to also accept
+  `--bundle-dir` for already reconstructed SCD cache bundles.
+- Rationale:
+  The A800 open-release artifacts already contain reconstructed reuse+patch
+  bundles. Validating these artifacts directly is closer to the plug-and-play
+  deployment path than forcing users to provide raw training banks.
+- Verification:
+  Local focused tests now cover bundle route-hash validation, and A800
+  `cache` verified real `reuse19_patch13` and `patch20_reuse12` bundles plus a
+  `patch20_reuse12` vLLM ExampleConnector smoke run.
