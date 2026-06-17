@@ -2625,3 +2625,23 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Scope boundary:
   WikiText-2 quality should be discussed via NLL/PPL, not F1/EM. Both strict
   routes improve TTFT but worsen PPL relative to Full Consumer.
+
+### 2026-06-18 update - release evidence boundary audit
+
+- Change:
+  Added `docs/scd-open-release-evidence-audit-2026-06-18.md` and aligned
+  `OPEN_SOURCE_RELEASE_MANIFEST.md` with the current route roles:
+  `patch20_reuse12` as the vLLM demo route and `patch26_reuse6` as the
+  quality-first reference route.
+- Rationale:
+  The manifest still contained older `reuse19_patch13` and full7405
+  consolidation language that could be confused with the current open-release
+  claim boundary.
+- Verification:
+  `check_release_readiness.py` now requires the manifest to mention
+  `patch20_reuse12`, `current vLLM plugin demo route`, `patch26_reuse6`,
+  `quality-first reference route`, and `NLL/PPL`.
+- Scope boundary:
+  The release audit is a claim-boundary artifact, not a new experiment. It
+  keeps Qwen3-1.7B gray as portability/risk evidence rather than a speedup
+  claim.

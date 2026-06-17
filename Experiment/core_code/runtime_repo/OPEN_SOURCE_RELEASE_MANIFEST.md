@@ -285,62 +285,42 @@ full consumer, raw KV, 4-bit KV, reuse-only, and SCD. This is a structural
 release check; it does not certify that every dataset row supports the same
 quality claim.
 
-The default SCD route must follow the paper implementation boundary:
-non-patch layers are reconstructed by Reuse, selected transition layers are
-corrected by Patch, Patch and Reuse jointly cover all layers, and
-`fallback_layers` / recomputation are not allowed in the claim-facing
-`scd_full` path. The selected route should maximize Reuse while preserving
-F1/EM against the full-consumer/oracle baseline. The current
-CMRC200 F1/EM-primary selected route is
-`configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json`.
-It uses 19 Reuse layers and 13 Patch layers. All 13 one-layer Reuse20
-extensions from this route were tested on CMRC200 and failed to preserve F1;
-avg NLL is an auxiliary risk signal rather than the primary selector. Validate the route
-with:
+The default SCD method boundary is unchanged: non-patch layers are
+reconstructed by Reuse, selected transition layers are corrected by Patch,
+Patch and Reuse jointly cover all layers, and `fallback_layers` /
+recomputation are not allowed in the claim-facing `scd_full` path. Validate any
+published route with:
 
 ```bash
 python scripts/validate_scd_route.py --route <route.json> --require-mixed
 ```
 
-The current verified aggregate run is
-`/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_selected_reuse19_5method_aggregate_20260610_034426`.
-It contains 15 rows for CMRC2018, HotpotQA, and WikiText-2 across
-`full_consumer`, `raw_kv`, `quantized_4bit`, `reuse_only`, and `scd_full`, and
-passes `scripts/check_release_readiness.py --run-root`.
+The current open-release route roles are:
 
-Use this aggregate's CMRC2018 rows as the current selected-route quality
-evidence. Do not use its HotpotQA rows for quality claims: later full-context,
-no-truncation HotpotQA runs fixed the abnormal baseline and show poor
-Reuse19/Patch13 retention. The current HotpotQA evidence is:
+- `reuse19_patch13`: paper-aligned maximum-Reuse reference route. It remains
+  useful for historical comparison, but it is not the current vLLM demo route.
+- `patch20_reuse12`: current vLLM plugin demo route. It has raw-bank-to-vLLM
+  smoke evidence with `greedy_1tok_match=True` and `greedy_ntok_match=True`.
+- `patch26_reuse6`: current quality-first reference route for CMRC2018 and
+  WikiText-2.
 
-- `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_fullcontext_full_scd_20260610_115952`
-  reports Full Consumer F1 `0.4005`, EM `0.265` versus SCD F1 `0.1383`, EM
-  `0.105`.
-- `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_full_banks_20260610_192156`
-  reports Full Consumer F1 `0.3838`, EM `0.235` versus SCD mixed-from-banks F1
-  `0.0920`, EM `0.065` on a disjoint heldout split.
+The current branch-local release evidence is summarized in
+`../../docs/scd-vllm-open-release-status-2026-06-17.md` and in these artifact
+directories:
 
-The older snapshot at
-`/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854` has a
-stronger HotpotQA patch-only result, but that path uses question-aware evidence
-compression and `max_length=512`; treat it as a separate compressed-prompt
-benchmark, not as evidence for the diagnostic full-context rows. The current
-runtime exposes this protocol as `--dataset hotpotqa_compressed`, and this is
-the paper-facing HotpotQA protocol. The current full7405 bracket is closed for
-the first passing/failing pair and can be refined with intervening reuse counts.
-A question-text overlap audit found that the old full7405 eval includes the
-100 training questions, but removing those 100 samples leaves Patch-only at F1
-`0.3514`, EM `0.2516`, so the old result is not primarily explained by the
-small overlap.
+- `../../Experiment/results/a800_scd_vllm_raw_bank_patch20_run_20260618_032217/`
+  for raw-bank-to-vLLM plugin evidence.
+- `../../Experiment/results/scd_vllm_multidataset_full_strict_20260617/` for
+  full CMRC2018 and HotpotQA strict QA evidence.
+- `../../Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`
+  for full WikiText-2 NLL/PPL evidence.
 
-Current consolidation note: the paper-facing HotpotQA reproduction should now
-be checked under the GitHub-compatible `hotpotqa_compressed` protocol with
-`MAX_LENGTH=512` and full7405 evaluation. The full-context rows above are
-diagnostic evidence that the CMRC-selected route is not universal; they should
-not replace the compressed-protocol full7405 route table. The current
-full7405 boundary is closed: `reuse04_patch28`, `reuse05_patch27`, and
-`reuse06_patch26` pass the absolute F1-drop gate, while `reuse07_patch25` and
-`reuse08_patch24` fail. The selected full7405 route is `reuse06_patch26`.
+For QA datasets, use F1/EM as the primary quality metrics. For WikiText-2, use
+NLL/PPL as the primary language-modeling metrics. Do not claim that one route
+is universally best across all datasets: `patch20_reuse12` is the deployable
+vLLM demo route, while `patch26_reuse6` is the safer quality route for
+CMRC2018 and WikiText-2. Both strict WikiText-2 routes improve TTFT but worsen
+PPL relative to Full Consumer, so report that trade-off explicitly.
 
 ## Historical Files
 
