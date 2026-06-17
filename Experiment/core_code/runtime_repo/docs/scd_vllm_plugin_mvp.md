@@ -11,8 +11,10 @@ companion adapter instead of a vLLM fork.
 - It does not patch vLLM core and is not a production serving backend.
 - Dataset-level quality evidence remains the strict runtime evaluation; vLLM
   smoke tests prove connector loading and generation.
-- The current vLLM demo route is
+- The current higher-Reuse/speed vLLM demo route is
   `configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`.
+  The quality-first validated vLLM route is
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json`.
   The `reuse19_patch13` route remains available as a paper-aligned
   maximum-Reuse reference.
 

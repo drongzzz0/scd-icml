@@ -24,7 +24,7 @@ as the release-facing claim boundary.
 | --- | --- | --- |
 | `reuse19_patch13` | Historical maximum-Reuse reference | Raw-bank plugin path passes, but greedy continuation does not match. Do not use it as the vLLM demo route. |
 | `patch20_reuse12` | Current vLLM demo route | Raw-bank-to-vLLM smoke passes with `greedy_1tok_match=True` and `greedy_ntok_match=True`; full CMRC2018, HotpotQA, and WikiText-2 evidence exists. |
-| `patch26_reuse6` | Quality-first reference route | Better CMRC2018 F1/EM and better WikiText-2 PPL than `patch20_reuse12`, but lower Reuse and no separate passing raw-bank vLLM greedy smoke has been recorded for this route. |
+| `patch26_reuse6` | Quality-first vLLM-validated route | Better CMRC2018 F1/EM and better WikiText-2 PPL than `patch20_reuse12`; raw-bank-to-vLLM smoke also passes with greedy continuation equality, but it uses fewer Reuse layers. |
 
 ## Dataset Evidence
 
@@ -47,9 +47,19 @@ Current passing end-to-end plugin evidence:
   `scd_injection_pass=True`, `bundle_token_match=True`,
   `same_token_ids=True`, `greedy_1tok_match=True`,
   `greedy_ntok_match=True`.
+- Artifact:
+  `Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`.
+- Route: `patch26_reuse6`.
+- Runtime: A800mql, `conda activate cache`, vLLM `0.18.0`.
+- Result:
+  `doctor_pass=True`, `plugin_pass=True`, `adapter_smoke_pass=True`,
+  `scd_injection_pass=True`, `bundle_token_match=True`,
+  `same_token_ids=True`, `greedy_1tok_match=True`,
+  `greedy_ntok_match=True`.
 
-This is enough to advertise a plug-and-play experimental vLLM integration for
-the checked Mistral route. It is not enough to claim production-grade
+These runs are enough to advertise a plug-and-play experimental vLLM
+integration for the checked Mistral routes. They are not enough to claim
+production-grade
 multi-tenant safety, privacy isolation, dynamic routing, or general vLLM
 throughput improvement under concurrent serving load.
 
@@ -62,5 +72,5 @@ throughput improvement under concurrent serving load.
 - Do not use F1/EM as the WikiText-2 acceptance metric.
 - Do not claim privacy or multi-tenant safety for reused KV caches without a
   separate isolation design and evaluation.
-- Keep `patch20_reuse12` as the current vLLM demo route until a higher-Reuse or
-  quality-first route passes the same raw-bank-to-vLLM greedy smoke.
+- Use `patch20_reuse12` for the higher-Reuse/speed demo and `patch26_reuse6`
+  for quality-first CMRC2018 and WikiText-2 demonstrations.

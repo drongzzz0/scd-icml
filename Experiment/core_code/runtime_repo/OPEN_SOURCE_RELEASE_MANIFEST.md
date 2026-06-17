@@ -86,10 +86,11 @@ it through `MODELS_CONFIG_LITE_TO_7B`.
 
 The `reuse19_patch13` route is the paper-aligned maximum-Reuse reference for
 the current Mistral evidence package. The `patch20_reuse12` route is the
-current vLLM plugin demo route because it has full CMRC2018/HotpotQA quality
+current higher-Reuse/speed vLLM plugin demo route because it has full CMRC2018/HotpotQA quality
 evidence and passes the reconstructed vLLM greedy smoke check from raw trained
 Reuse/Patch banks. The `patch26_reuse6` route is the current quality-first
-reference route for CMRC2018 and WikiText-2.
+reference route for CMRC2018 and WikiText-2; it also passes the same
+raw-bank-to-vLLM greedy smoke check.
 
 ## Required Scripts
 
@@ -302,14 +303,17 @@ The current open-release route roles are:
 - `patch20_reuse12`: current vLLM plugin demo route. It has raw-bank-to-vLLM
   smoke evidence with `greedy_1tok_match=True` and `greedy_ntok_match=True`.
 - `patch26_reuse6`: current quality-first reference route for CMRC2018 and
-  WikiText-2.
+  WikiText-2. It also has raw-bank-to-vLLM smoke evidence with
+  `greedy_1tok_match=True` and `greedy_ntok_match=True`.
 
 The current branch-local release evidence is summarized in
 `../../docs/scd-vllm-open-release-status-2026-06-17.md` and in these artifact
 directories:
 
 - `../../Experiment/results/a800_scd_vllm_raw_bank_patch20_run_20260618_032217/`
-  for raw-bank-to-vLLM plugin evidence.
+  for higher-Reuse raw-bank-to-vLLM plugin evidence.
+- `../../Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`
+  for quality-first raw-bank-to-vLLM plugin evidence.
 - `../../Experiment/results/scd_vllm_multidataset_full_strict_20260617/` for
   full CMRC2018 and HotpotQA strict QA evidence.
 - `../../Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`
@@ -317,10 +321,11 @@ directories:
 
 For QA datasets, use F1/EM as the primary quality metrics. For WikiText-2, use
 NLL/PPL as the primary language-modeling metrics. Do not claim that one route
-is universally best across all datasets: `patch20_reuse12` is the deployable
-vLLM demo route, while `patch26_reuse6` is the safer quality route for
-CMRC2018 and WikiText-2. Both strict WikiText-2 routes improve TTFT but worsen
-PPL relative to Full Consumer, so report that trade-off explicitly.
+is universally best across all datasets: `patch20_reuse12` is the higher-Reuse
+and speed-oriented vLLM demo route, while `patch26_reuse6` is the safer
+quality route for CMRC2018 and WikiText-2. Both strict WikiText-2 routes
+improve TTFT but worsen PPL relative to Full Consumer, so report that trade-off
+explicitly.
 
 ## Historical Files
 

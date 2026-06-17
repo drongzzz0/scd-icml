@@ -66,9 +66,10 @@ scd-vllm doctor \
 For the current vLLM demo route, use
 `configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`.
 It keeps strict reuse+patch-only semantics and is the route with the strongest
-raw-bank-to-vLLM smoke evidence in this branch.
+reuse/speed trade-off among the currently validated vLLM smoke routes.
 For quality-first CMRC2018 and WikiText-2 comparisons, use
 `configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json`.
+It also has raw-bank-to-vLLM greedy-smoke evidence in this branch.
 
 For an already reconstructed SCD bundle, check the bundle artifact instead:
 

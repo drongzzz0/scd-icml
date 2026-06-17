@@ -32,7 +32,7 @@ adapter, not as a forked vLLM codebase. The checked A800mql environment used:
 - vLLM: `0.18.0`
 - PyTorch: `2.10.0+cu128`
 
-The current passing vLLM route is `patch20_reuse12`:
+The initial passing vLLM route was `patch20_reuse12`:
 
 - Export run:
   `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617/runs/scd_vllm/reconstructed_mistrallite_to_mistral7_patch20_reuse12_gpu34`
@@ -113,6 +113,44 @@ This is the strongest current plug-and-play integration evidence because it
 starts from raw trained reuse/patch banks and still reaches the reconstructed
 vLLM injection path with deterministic greedy agreement on the checked prompt.
 
+### A800 Raw-Bank Plugin E2E Smoke - patch26/reuse6
+
+Artifacts:
+
+`Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`
+
+This run repeats the same raw-bank-to-vLLM validation for the current
+quality-first route:
+
+- Raw reuse bank:
+  `open_build_native_fixedroute_cmrc200_20260616_133222/layerwise_seed42`.
+- Raw patch bank:
+  `open_build_native_fixedroute_cmrc200_20260616_133222/native_alllayers_seed42`.
+- Route:
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json`.
+- Runtime:
+  A800mql, `conda activate cache`, vLLM `0.18.0`,
+  `CUDA_VISIBLE_DEVICES=0,1`.
+- GPU selection:
+  GPUs `0,1` were sampled for 60 seconds before launch and stayed at
+  utilization `0`.
+- `scd-vllm doctor`: pass, `failure_count=0`, `warning_count=0`.
+- Route strictness: patch/reuse `26/6`, fallback `0`, recompute `0`,
+  `num_layers=32`.
+- Reconstructed bundle: `bundle_type=reuse_patch`, `num_tokens=229`,
+  `num_layers=32`.
+- ExampleConnector conversion: `aligned_tokens=224`, payload bytes
+  `29,362,944`.
+- vLLM plugin smoke: `pass=True`, `adapter_smoke_pass=True`,
+  `scd_injection_pass=True`, `reconstructed_scd=True`,
+  `bundle_token_match=True`, `same_token_ids=True`.
+- Greedy output equality:
+  `greedy_1tok_match=True`, `greedy_ntok_match=True`.
+
+This closes the previous integration gap for the quality-first route. The
+release can now present both `patch20_reuse12` and `patch26_reuse6` as
+raw-bank-to-vLLM validated routes, with different quality/speed trade-offs.
+
 ## Full CMRC2018 Dev Result
 
 Run root:
@@ -136,9 +174,10 @@ Data:
 Interpretation:
 
 - Both strict routes preserve or improve F1/EM on this full CMRC dev run.
-- `patch26_reuse6` is the stronger quality route on CMRC.
-- `patch20_reuse12` is the better vLLM demo route today because it passes the
-  reconstructed vLLM greedy checks and keeps higher reuse / lower TTFT.
+- `patch26_reuse6` is the stronger quality route on CMRC and now also passes
+  the raw-bank-to-vLLM greedy smoke.
+- `patch20_reuse12` remains the better speed/reuse demo because it keeps higher
+  Reuse and lower TTFT.
 
 ## HotpotQA Full Dev Result
 
@@ -219,10 +258,11 @@ Interpretation:
 
 ## Release Guidance
 
-- Keep `patch20_reuse12` as the current vLLM plugin demo route until a stricter
-  or higher-reuse route passes the same reconstructed vLLM greedy checks. It
-  now has full CMRC, full HotpotQA, and full WikiText-2 evidence.
-- For quality-first CMRC claims, prefer `patch26_reuse6`.
+- Keep `patch20_reuse12` as the higher-Reuse/speed vLLM plugin demo. It has
+  full CMRC, full HotpotQA, full WikiText-2, and raw-bank-to-vLLM greedy smoke
+  evidence.
+- For quality-first CMRC claims, prefer `patch26_reuse6`; it now also has
+  raw-bank-to-vLLM greedy smoke evidence.
 - For quality-first WikiText-2 claims, prefer `patch26_reuse6`, while clearly
   reporting that both strict routes increase PPL versus Full Consumer.
 - For speed/reuse-first CMRC claims, `patch20_reuse12` is a better trade-off.

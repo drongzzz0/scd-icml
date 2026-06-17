@@ -6027,3 +6027,55 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   `patch20_reuse12` remains the faster and higher-Reuse vLLM demo route.
 - Artifacts:
   `Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`.
+
+## 2026-06-18 - A800 SCD-vLLM Raw-Bank E2E Smoke for patch26/reuse6
+
+- Experiment id:
+  `a800_scd_vllm_raw_bank_patch26_run_20260618_044521`.
+- Purpose:
+  Close the release-facing integration gap for the quality-first
+  `patch26_reuse6` route by validating the same raw-bank-to-vLLM path already
+  used by `patch20_reuse12`.
+- Environment:
+  Host `A800mql`; runtime
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_ecbb130`;
+  activation `conda activate cache`; Python
+  `/home/c101-800-mql/.conda/envs/cache/bin/python`; vLLM `0.18.0`;
+  `CUDA_VISIBLE_DEVICES=0,1`.
+- GPU selection:
+  GPUs `0,1` were sampled for 60 seconds before launch; all six samples showed
+  utilization `0`.
+- Inputs:
+  Producer `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/MistralLite`;
+  consumer
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/Mistral-7B-v0.1`;
+  Reuse bank
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/layerwise_seed42`;
+  Patch bank
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/native_alllayers_seed42`;
+  route
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json`.
+- Method:
+  Ran `python -m scd_vllm_plugin.cli doctor` followed by
+  `python -m scd_vllm_plugin.cli run` from raw trained Reuse/Patch banks,
+  exporting a reconstructed `reuse_patch` bundle, converting it to
+  ExampleConnector-compatible storage, and running the vLLM injection smoke.
+- Outputs:
+  Local artifact directory
+  `Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`.
+  Remote run root
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_patch26_run_20260618_044521`.
+- Results:
+  `doctor_pass=True`, `plugin_pass=True`, `adapter_smoke_pass=True`,
+  `scd_injection_pass=True`, `reconstructed_scd=True`,
+  `bundle_token_match=True`, `same_token_ids=True`,
+  `greedy_1tok_match=True`, `greedy_ntok_match=True`,
+  `aligned_tokens=224`, `payload_bytes=29362944`.
+- Analysis:
+  `patch26_reuse6` is now both the quality-first route for CMRC2018/WikiText-2
+  and a raw-bank-to-vLLM validated route. `patch20_reuse12` remains the
+  higher-Reuse/speed demo route.
+- ResearchKB:
+  Harvested the local result directory with
+  `D:\ResearchKB\rk-harvest.cmd --project "KV Cache Reuse"`; 7 JSON records
+  were recorded.

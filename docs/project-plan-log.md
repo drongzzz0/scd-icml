@@ -2645,3 +2645,23 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   The release audit is a claim-boundary artifact, not a new experiment. It
   keeps Qwen3-1.7B gray as portability/risk evidence rather than a speedup
   claim.
+
+### 2026-06-18 update - patch26/reuse6 vLLM smoke closure
+
+- Change:
+  Ran the full raw-bank-to-vLLM smoke path for
+  `patch26_reuse6` on A800mql under `conda activate cache`, copied the local
+  result artifacts into
+  `Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`,
+  and updated the release evidence docs.
+- Rationale:
+  The previous claim boundary treated `patch26_reuse6` as quality-first but
+  not separately vLLM-smoke-validated. That left an unnecessary release gap for
+  the route that is best on CMRC2018 and WikiText-2 quality metrics.
+- Verification:
+  The patch26 run passed doctor, plugin pipeline, SCD injection,
+  token equality, and greedy one-token / multi-token equality. GPU `0,1`
+  utilization stayed at `0` for the 60-second pre-launch monitor.
+- Design choice:
+  Keep `patch20_reuse12` as the higher-Reuse/speed demo route, but allow
+  `patch26_reuse6` to be presented as the quality-first vLLM-validated route.
