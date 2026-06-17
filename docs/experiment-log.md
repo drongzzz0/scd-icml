@@ -6391,3 +6391,65 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - ResearchKB:
   Harvest recorded `harvest_7c7032d9feccb303`; structured run recorded
   `run_ce95bb2097b74b55`.
+
+## 2026-06-18 - A800 Mistral SCDPreloadedConnector Batch Benchmarks
+
+- Experiment ids:
+  `a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache` and
+  `a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache`.
+- Purpose:
+  Validate the repository-provided external `SCDPreloadedConnector` on the main
+  release-facing MistralLite -> Mistral-7B routes, not only on the auxiliary
+  Qwen route. The benchmark compares plain vLLM, official vLLM prefix caching,
+  and SCDPreloaded load under the same repeated-prefix trusted batch shape.
+- Environment:
+  Host `A800mql`; activation
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`;
+  code snapshot
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_preloaded_20260618_0634`;
+  vLLM `0.18.0`.
+- GPU selection:
+  A800 GPUs `0` and `1` were sampled three times over 40 seconds and stayed at
+  utilization `0`. `patch20_reuse12` used `CUDA_VISIBLE_DEVICES=0`;
+  `patch26_reuse6` used `CUDA_VISIBLE_DEVICES=1`.
+- Inputs:
+  Consumer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/Mistral-7B-v0.1`.
+  `patch20_reuse12` bundle/storage came from
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_patch20_run_20260618_032217/plugin_run_patch20_reuse12/`.
+  `patch26_reuse6` bundle/storage came from
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/plugin_run_patch26_reuse6/`.
+- Method:
+  Ran `python -m scd_vllm_plugin.cli batch-benchmark` with
+  `--include-prefix-cache-baseline`, `--kv-connector SCDPreloadedConnector`,
+  `--kv-connector-module-path scd_vllm.preloaded_connector`,
+  `--connector-cache-device cuda`, `batch_size=128`, `num_batches=3`,
+  `warmup_batches=1`, `max_new_tokens=16`, `dtype=bfloat16`,
+  `max_model_len=512`, `gpu_memory_utilization=0.35`, `enforce_eager=True`,
+  and `--disable-hybrid-kv-cache-manager`.
+- Outputs:
+  `Experiment/results/a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache/`
+  and
+  `Experiment/results/a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache/`.
+- Results:
+  Both runs reported `benchmark_pass=True`,
+  `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `load_generation_ok=True`, `prefix_cache_generation_ok=True`,
+  `bundle_token_match=True`, and `storage_ready=True`.
+  `patch20_reuse12`: plain vLLM `953.216251` tok/s, vLLM prefix-cache
+  `4083.576373` tok/s, SCDPreloaded `2870.665243` tok/s,
+  SCD/plain `3.011557`, SCD/prefix `0.702978`.
+  `patch26_reuse6`: plain vLLM `963.863263` tok/s, vLLM prefix-cache
+  `4327.769903` tok/s, SCDPreloaded `2823.938822` tok/s,
+  SCD/plain `2.929813`, SCD/prefix `0.652516`.
+- Analysis:
+  This is now the main Mistral vLLM connector benchmark gate. It supports a
+  plug-in external connector and a repeated-prefix throughput gain over plain
+  vLLM recomputation. It must still be framed below native vLLM prefix caching
+  for static repeated prefixes, so it is not a general serving-speed claim.
+- ResearchKB:
+  Harvest recorded `harvest_c45b6b2452fec2a4`,
+  `harvest_ab0ff9e6fc68db88`, `harvest_0a9274a41472e576`, and
+  `harvest_24d53dcae704e4ae`; structured runs recorded
+  `run_f8e2ff751fbc48cc` and `run_e51eba0f3920471b`.

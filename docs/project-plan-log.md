@@ -2838,3 +2838,30 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   below plain vLLM `6194.909625` tokens/s and vLLM prefix-cache
   `6786.831734` tokens/s, so the release can claim a functional external
   connector prototype and reduced overhead, not serving speedup.
+
+### 2026-06-18 update - gate Mistral SCDPreloadedConnector evidence
+
+- Change:
+  Ran the external `SCDPreloadedConnector` batch benchmark on the two main
+  MistralLite -> Mistral-7B release routes and added those artifacts to release
+  readiness.
+- Rationale:
+  The prior preloaded-connector gate was Qwen-only, which was useful for
+  portability but not enough for the main release path. The release gate should
+  verify the Mistral routes that carry the paper-facing code path.
+- Verification:
+  On A800mql with
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`,
+  GPUs `0` and `1` stayed at utilization `0` across repeated checks.
+  `patch20_reuse12` ran on GPU `0`; `patch26_reuse6` ran on GPU `1`.
+  Both produced `benchmark_pass=True`, `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `load_generation_ok=True`, `prefix_cache_generation_ok=True`,
+  `bundle_token_match=True`, and `storage_ready=True`.
+- Result boundary:
+  `patch20_reuse12` reached SCDPreloaded `2870.665243` tok/s versus plain
+  vLLM `953.216251` tok/s and vLLM prefix-cache `4083.576373` tok/s.
+  `patch26_reuse6` reached SCDPreloaded `2823.938822` tok/s versus plain
+  vLLM `963.863263` tok/s and vLLM prefix-cache `4327.769903` tok/s. This
+  supports plug-in integration and a repeated-prefix speedup over plain vLLM,
+  but native vLLM prefix caching remains the stronger static-prefix baseline.

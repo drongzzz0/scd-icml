@@ -95,6 +95,42 @@ Both runs used:
 - For `patch26_reuse6`, GPUs `0,1` were sampled for 60 seconds before launch
   and stayed at utilization `0`.
 
+## Mistral Batched SCDPreloadedConnector Evidence
+
+This is the release-facing repeated-prefix trusted microbenchmark for the two
+current MistralLite -> Mistral-7B routes. It checks plain vLLM, official vLLM
+prefix caching, and the repository-provided external
+`SCDPreloadedConnector`. It is not a production serving, multi-tenant,
+privacy, or arbitrary-routing claim.
+
+Artifacts:
+
+- `../../Experiment/results/a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache/`
+- `../../Experiment/results/a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache/`
+
+Run boundary:
+
+- Host: A800mql, `conda activate cache`, vLLM `0.18.0`.
+- Code snapshot: `runtime_repo_codex_preloaded_20260618_0634`.
+- Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
+- GPU selection: A800 GPUs `0` and `1` were sampled three times over 40
+  seconds and stayed at utilization `0`; the runs used `CUDA_VISIBLE_DEVICES=0`
+  for `patch20_reuse12` and `CUDA_VISIBLE_DEVICES=1` for `patch26_reuse6`.
+- vLLM load stage used `--disable-hybrid-kv-cache-manager` because the
+  connector path does not support HMA in this environment.
+
+| Route | Batch Pass | Plain vLLM tok/s | vLLM prefix-cache tok/s | SCDPreloaded tok/s | SCD/Plain | SCD/Prefix |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `patch20_reuse12` | true | `953.216251` | `4083.576373` | `2870.665243` | `3.011557` | `0.702978` |
+| `patch26_reuse6` | true | `963.863263` | `4327.769903` | `2823.938822` | `2.929813` | `0.652516` |
+
+Interpretation: for Mistral repeated-prefix batches, SCDPreloaded is faster
+than plain vLLM because it injects the cached prefix KV instead of recomputing
+the full prefix every request. Native vLLM prefix caching remains faster than
+SCDPreloaded for this static-prefix microbenchmark, so the release should
+claim functional plug-in integration and measured overhead boundaries, not a
+general serving speedup over vLLM's built-in prefix cache.
+
 ## Additional Model vLLM Baseline Evidence
 
 This is a plain official-vLLM compatibility and generation baseline for a

@@ -63,6 +63,35 @@ production-grade
 multi-tenant safety, privacy isolation, dynamic routing, or general vLLM
 throughput improvement under concurrent serving load.
 
+Mistral repeated-prefix batch benchmark evidence:
+
+- Batch benchmark artifacts:
+  `Experiment/results/a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache/`
+  and
+  `Experiment/results/a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache/`.
+- Model pair: MistralLite producer -> Mistral-7B consumer.
+- Runtime: A800mql,
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`,
+  vLLM `0.18.0`.
+- GPU selection: GPUs `0` and `1` were sampled three times over 40 seconds
+  and stayed at utilization `0`; `patch20_reuse12` used GPU `0` and
+  `patch26_reuse6` used GPU `1`.
+- Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
+- Result:
+  both routes report `benchmark_pass=True`,
+  `load_generation_ok=True`, `bundle_token_match=True`, `storage_ready=True`,
+  `prefix_cache_generation_ok=True`; connector `SCDPreloadedConnector` from
+  module `scd_vllm.preloaded_connector`.
+- `patch20_reuse12` throughput: plain vLLM `953.216251` tokens/s; vLLM
+  prefix-cache `4083.576373` tokens/s; SCDPreloaded `2870.665243` tokens/s.
+- `patch26_reuse6` throughput: plain vLLM `963.863263` tokens/s; vLLM
+  prefix-cache `4327.769903` tokens/s; SCDPreloaded `2823.938822` tokens/s.
+
+This is the main Mistral batch-command evidence. It supports an external
+plug-in connector and a repeated-prefix gain over plain vLLM recomputation,
+but native vLLM prefix caching remains faster on this static-prefix
+microbenchmark.
+
 Additional model-family vLLM baseline evidence:
 
 - Artifact:
@@ -150,5 +179,9 @@ risk, not a speedup result.
   improvement; it passed functionally and improves over the disk-backed
   ExampleConnector path, but it is still slower than both plain vLLM and vLLM
   prefix caching in the checked repeated-prefix microbenchmark.
+- Do not present the Mistral SCDPreloadedConnector batch benchmark as faster
+  than vLLM's native prefix caching. It is faster than plain vLLM in the
+  checked repeated-prefix shape, but prefix caching remains the stronger
+  built-in static-prefix baseline.
 - Use `patch20_reuse12` for the higher-Reuse/speed demo and `patch26_reuse6`
   for quality-first CMRC2018 and WikiText-2 demonstrations.
