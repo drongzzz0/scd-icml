@@ -2744,3 +2744,25 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Scope boundary:
   This is compatibility evidence only. It is not a Qwen SCD Reuse/Patch
   route-quality result and not a Qwen speedup claim.
+
+### 2026-06-18 update - Qwen3-1.7B gray SCD-vLLM plugin evidence
+
+- Change:
+  Copied the validated Qwen3-1.7B-gray consumer model and the strict Qwen
+  reuse/patch banks from ser to the A800 local project disk, then ran
+  `scd-vllm doctor` and the raw-bank-to-vLLM plugin smoke on A800 with
+  `conda activate cache`.
+- Rationale:
+  The previous Qwen evidence was only a plain vLLM self-model baseline. The
+  release goal needs evidence that the plug-and-play SCD-vLLM adapter can also
+  carry a second model family's reconstructed `reuse_patch` bundle.
+- Verification:
+  The Qwen route passed strict doctor checks with patch/reuse `6/22` and
+  fallback/recompute `0/0`. The plugin pipeline passed with
+  `adapter_smoke_pass=True`, `scd_injection_pass=True`,
+  `bundle_token_match=True`, `same_token_ids=True`, and
+  `loaded_generation_ok=True`.
+- Scope boundary:
+  This is adapter portability evidence. It still does not support a Qwen
+  speedup claim, because the strict Qwen full-dataset runtime evidence remains
+  cautionary on latency.

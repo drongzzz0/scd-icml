@@ -749,6 +749,64 @@ def check_quality_reference_route(root: Path, errors: list[str]) -> None:
         fail(errors, "quality reference route WikiText-2 PPL evidence is missing")
 
 
+def check_qwen_vllm_evidence(root: Path, errors: list[str]) -> None:
+    results_root = root.parent.parent / "results"
+    if not results_root.is_dir():
+        return
+    doctor_path = results_root / "a800_qwen17_scd_vllm_doctor_20260618_cache" / "doctor.json"
+    plugin_path = results_root / "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache" / "plugin_metrics.json"
+
+    def load_result_json(path: Path) -> dict:
+        if not path.is_file():
+            fail(errors, f"missing Qwen vLLM evidence artifact: {path}")
+            return {}
+        try:
+            return json.loads(path.read_text(encoding="utf-8-sig"))
+        except Exception as exc:
+            fail(errors, f"invalid Qwen vLLM evidence JSON {path}: {exc}")
+            return {}
+
+    doctor = load_result_json(doctor_path)
+    if doctor:
+        if doctor.get("pass") is not True:
+            fail(errors, "Qwen SCD-vLLM doctor must pass")
+        if int(doctor.get("failure_count", -1)) != 0:
+            fail(errors, "Qwen SCD-vLLM doctor failure_count must be 0")
+        route_checks = [
+            check
+            for check in doctor.get("checks", [])
+            if check.get("name") == "route_strictness"
+        ]
+        if not route_checks or route_checks[0].get("status") != "pass":
+            fail(errors, "Qwen SCD-vLLM route strictness check must pass")
+        else:
+            details = route_checks[0].get("details", {})
+            if int(details.get("num_layers", 0)) != 28:
+                fail(errors, "Qwen SCD-vLLM route must report 28 layers")
+            if int(details.get("patch_count", -1)) != 6 or int(details.get("reuse_count", -1)) != 22:
+                fail(errors, "Qwen SCD-vLLM route must be patch6/reuse22")
+            if int(details.get("fallback_count", -1)) != 0 or int(details.get("recompute_count", -1)) != 0:
+                fail(errors, "Qwen SCD-vLLM route must not use fallback or recompute")
+
+    plugin = load_result_json(plugin_path)
+    if plugin:
+        smoke = plugin.get("smoke", {})
+        export = plugin.get("export", {})
+        if plugin.get("pass") is not True:
+            fail(errors, "Qwen SCD-vLLM plugin smoke must pass")
+        for key in ("adapter_smoke_pass", "scd_injection_pass", "bundle_token_match", "same_token_ids", "loaded_generation_ok"):
+            if smoke.get(key) is not True:
+                fail(errors, f"Qwen SCD-vLLM smoke gate {key} must be true")
+        if export.get("route_name") != "paper_scd_reuse_patch_k6":
+            fail(errors, f"Qwen SCD-vLLM route_name should be paper_scd_reuse_patch_k6, got {export.get('route_name')!r}")
+        if int(export.get("num_layers", 0)) != 28:
+            fail(errors, "Qwen SCD-vLLM export must contain 28 layers")
+        if int(smoke.get("aligned_tokens", 0)) <= 0:
+            fail(errors, "Qwen SCD-vLLM smoke must load at least one aligned token block")
+        if int(export.get("payload_bytes", 0)) <= 0 or int(smoke.get("payload_bytes", 0)) <= 0:
+            fail(errors, "Qwen SCD-vLLM payload bytes must be positive")
+
+
 def check_model_template(root: Path, errors: list[str]) -> None:
     path = root / "configs" / "models_mistrallite_to_mistral7_template.json"
     if not path.is_file():
@@ -817,7 +875,7 @@ def check_docs(root: Path, errors: list[str]) -> None:
         "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "scd-vllm doctor", "src/scd_vllm_plugin/", "configs/scd_vllm_mvp.yaml", "scripts/scd_vllm/run_06_report.sh", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "NLL/PPL"],
         "docs/scd_vllm_plugin_mvp.md": ["scd-vllm doctor", "strict no-fallback/no-recompute", "scd-vllm run", "ExampleConnector", "patch26_reuse6"],
         "reports/scd_vllm_repo_audit.md": ["Existing entry points", "Proposed mapping to scd_vllm modules", "Implementation/release risks", "dataset-specific routes", "src/scd_vllm/injection.py"],
-        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "plain-vLLM compatibility", "Dataset Quality Evidence", "NLL/PPL", "not a production-grade vLLM connector"],
+        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache", "plain-vLLM compatibility", "Qwen raw-bank-to-vLLM", "Dataset Quality Evidence", "NLL/PPL", "not a production-grade vLLM connector"],
         "LICENSE": ["MIT License", "SCD reproduction team"],
     }
     for rel, snippets in docs.items():
@@ -923,6 +981,7 @@ def main() -> None:
         check_selected_route(root, errors)
         check_vllm_demo_route(root, errors)
         check_quality_reference_route(root, errors)
+        check_qwen_vllm_evidence(root, errors)
         check_model_template(root, errors)
         check_reuse_train_config(root, errors)
         check_patch_train_config(root, errors)

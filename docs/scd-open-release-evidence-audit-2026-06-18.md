@@ -79,10 +79,35 @@ Additional model-family vLLM baseline evidence:
 This Qwen run is plain-vLLM compatibility evidence for a second model family.
 It is not a Qwen SCD Reuse/Patch route-quality or speedup claim.
 
+Additional model-family SCD-vLLM plugin evidence:
+
+- Doctor artifact:
+  `Experiment/results/a800_qwen17_scd_vllm_doctor_20260618_cache/`.
+- Plugin smoke artifact:
+  `Experiment/results/a800_qwen17_scd_vllm_plugin_smoke_20260618_cache/`.
+- Model pair: Qwen3-1.7B producer -> Qwen3-1.7B-gray consumer.
+- Runtime: A800mql, `conda activate cache`, vLLM `0.18.0`,
+  `CUDA_VISIBLE_DEVICES=0,1`.
+- GPU selection: all A800 GPUs were sampled for 60 seconds and stayed at
+  utilization `0` before launch.
+- Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`, fallback/recompute
+  `0/0`.
+- Result:
+  `doctor_pass=True`, `plugin_pass=True`, `adapter_smoke_pass=True`,
+  `scd_injection_pass=True`, `bundle_token_match=True`,
+  `same_token_ids=True`, `loaded_generation_ok=True`.
+- Connector evidence: vLLM reported `External Cache Hit!` and injected
+  `16` aligned tokens through `ExampleConnector`.
+
+This improves portability evidence for the plug-and-play adapter, but it is
+still not a release-facing Qwen speedup claim. The Qwen strict runtime table
+remains cautionary because it does not support Qwen acceleration.
+
 ## Release Risk Notes
 
 - Do not present Qwen3-1.7B gray as a speedup result. It is additional-model
-  portability/risk evidence only.
+  portability/risk evidence only, even though the SCD-vLLM plugin smoke now
+  passes.
 - Do not present the Qwen3-1.7B plain-vLLM baseline as an SCD result. It only
   proves the current A800 vLLM environment can load and generate with that
   model family.

@@ -120,6 +120,53 @@ Run boundary:
 - The env probe reports Qwen KV compatibility with `num_layers=28`,
   `num_attention_heads=16`, `num_kv_heads=8`, and `head_dim=128`.
 
+## Additional Model SCD-vLLM Smoke Evidence
+
+This is Qwen raw-bank-to-vLLM connector evidence for the previously evaluated
+Qwen3-1.7B -> Qwen3-1.7B-gray strict route. It proves that the external
+SCD-vLLM adapter can export and load a reconstructed `reuse_patch` bundle for a
+second model family. It is not a Qwen speedup claim.
+
+Artifacts:
+
+- Doctor:
+  `../../Experiment/results/a800_qwen17_scd_vllm_doctor_20260618_cache/`
+- Plugin smoke:
+  `../../Experiment/results/a800_qwen17_scd_vllm_plugin_smoke_20260618_cache/`
+
+Run boundary:
+
+- Host: A800mql, `conda activate cache`, vLLM `0.18.0`.
+- Code snapshot: `runtime_repo_codex_f9f07b5`.
+- Producer:
+  `/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B`.
+- Consumer:
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`.
+- Reuse/Patch assets were copied from the ser strict Qwen run to A800 local
+  disk under `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/`.
+- GPU selection: all A800 GPUs were sampled for 60 seconds and stayed at
+  utilization `0`; the run used `CUDA_VISIBLE_DEVICES=0,1`.
+- The vLLM load stage required `--disable-hybrid-kv-cache-manager` because
+  vLLM `ExampleConnector` does not support HMA.
+
+| Check | Value |
+| --- | ---: |
+| `scd-vllm doctor` | `pass` |
+| Route | `paper_scd_reuse_patch_k6` |
+| Patch / Reuse layers | `6 / 22` |
+| Fallback / Recompute layers | `0 / 0` |
+| Exported layers | `28` |
+| Export payload bytes | `2,981,888` |
+| ExampleConnector aligned tokens | `16` |
+| ExampleConnector payload bytes | `1,837,472` |
+| Adapter smoke / SCD injection | `true / true` |
+| Token hash match / same token ids | `true / true` |
+
+The vLLM log reported `External Cache Hit!` and
+`Inject KV cache of 16 tokens to the paged memory` during the load stage.
+Greedy equality is not required for reconstructed SCD bundles in this smoke
+gate; full-dataset quality for Qwen remains the strict runtime result below.
+
 ## Dataset Quality Evidence
 
 Dataset quality is measured by the strict HF/SCD runtime, not by the vLLM
@@ -157,8 +204,9 @@ train/eval leakage artifact.
 - Do not claim a universal route across all datasets.
 - Qwen3-1.7B gray evidence is portability/risk evidence only; it is not a
   speedup claim.
-- Qwen3-1.7B plain-vLLM baseline evidence only proves that the current A800
-  vLLM environment can load and generate from the second model family.
+- Qwen3-1.7B plain-vLLM baseline and Qwen raw-bank-to-vLLM smoke evidence only
+  prove current A800 vLLM compatibility and adapter portability for the second
+  model family.
 - Model loading from NAS dominates smoke runtime and is not an SCD speed result.
 
 ## Reproduction Commands

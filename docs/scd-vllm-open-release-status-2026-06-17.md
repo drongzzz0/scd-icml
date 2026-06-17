@@ -277,9 +277,8 @@ Artifacts:
 `Experiment/results/a800_qwen17_vllm_baseline_20260618_0530/`
 
 This is a second-model-family vLLM compatibility and plain-generation check,
-not an SCD Reuse/Patch result. It used Qwen3-1.7B self -> self because the
-available A800 path has the base Qwen3-1.7B model but not a validated gray
-consumer model for the vLLM plugin path.
+not an SCD Reuse/Patch result. It used Qwen3-1.7B self -> self as the plain
+vLLM baseline before the Qwen gray plugin smoke below.
 
 Runtime boundary:
 
@@ -307,6 +306,50 @@ Interpretation: this closes a small part of the multi-model release risk by
 showing that the current A800 vLLM environment can load and generate with a
 second model family. It does not support a Qwen SCD speedup or route-quality
 claim.
+
+## Additional Qwen3-1.7B Gray SCD-vLLM Plugin Smoke
+
+Artifacts:
+
+- `Experiment/results/a800_qwen17_scd_vllm_doctor_20260618_cache/`
+- `Experiment/results/a800_qwen17_scd_vllm_plugin_smoke_20260618_cache/`
+
+This run validates the raw-bank-to-vLLM adapter path for the previously checked
+Qwen3-1.7B -> Qwen3-1.7B-gray strict route:
+
+- Host: A800mql.
+- Environment: `conda activate cache`.
+- Code snapshot: `runtime_repo_codex_f9f07b5`.
+- vLLM: `0.18.0`.
+- Producer:
+  `/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B`.
+- Consumer:
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`.
+- Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`.
+- Fallback/recompute: `0/0`.
+- GPU selection: all A800 GPUs were sampled for 60 seconds and stayed at
+  utilization `0`; the run used `CUDA_VISIBLE_DEVICES=0,1`.
+- vLLM load stage required `--disable-hybrid-kv-cache-manager` because
+  `ExampleConnector` does not support HMA in vLLM `0.18.0`.
+
+Result:
+
+| Check | Value |
+| --- | ---: |
+| `scd-vllm doctor` | `pass` |
+| Plugin pipeline | `pass` |
+| Adapter smoke / SCD injection | `true / true` |
+| Bundle token match / same token ids | `true / true` |
+| Loaded generation OK | `true` |
+| Exported layers | `28` |
+| Export payload bytes | `2,981,888` |
+| ExampleConnector aligned tokens | `16` |
+| ExampleConnector payload bytes | `1,837,472` |
+
+Interpretation: this improves the multi-model integration story because Qwen
+now has an actual SCD-vLLM raw-bank plugin smoke, not only a plain vLLM
+baseline. It still must not be reported as a Qwen speedup result; Qwen quality
+and speed remain bounded by the strict runtime table below.
 
 ## Additional Qwen3-1.7B Gray Risk Check
 

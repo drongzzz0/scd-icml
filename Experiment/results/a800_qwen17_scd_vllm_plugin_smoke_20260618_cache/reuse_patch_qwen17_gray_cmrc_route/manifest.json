@@ -1,0 +1,43 @@
+{
+  "producer_model": "/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B",
+  "consumer_model": "/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray",
+  "tokenizer_id": "/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray",
+  "token_hash": "ab6972a18f2ab2cc7d686681bb9d96acb59af0004159df679013ddc01287cba1",
+  "bundle_type": "reuse_patch",
+  "dtype": "bfloat16",
+  "num_tokens": 27,
+  "kv_spec": {
+    "model_id": "/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray",
+    "tokenizer_id": "/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray",
+    "num_layers": 28,
+    "num_attention_heads": 16,
+    "num_kv_heads": 8,
+    "head_dim": 128,
+    "hidden_size": 2048,
+    "dtype": "bfloat16",
+    "max_position_embeddings": 40960,
+    "rope_theta": null,
+    "rope_scaling": {
+      "rope_theta": 1000000,
+      "rope_type": "default"
+    },
+    "block_size": null,
+    "vllm_version": null,
+    "attention_backend": null,
+    "kv_layout": "hf_contiguous"
+  },
+  "created_at": "2026-06-17T21:46:43.656402+00:00",
+  "schema_version": "scd-cache-bundle-v1",
+  "prefix_text_hash": "f9be53e39c065d0a8a8823b26341ba2e8bf19fd1a2374eccacefd8948c07fedd",
+  "route_id": "paper_scd_reuse_patch_k6",
+  "route_hash": "cf603a3d79a1510399200f252df83214b3bbe0de1a12ae693fbc8ca817475f9f",
+  "device_origin": "producer=cuda:0;consumer=cuda:1",
+  "quality_gate": {
+    "gate_name": "strict_runtime_scd_full_reconstructed_export",
+    "thresholds": {
+      "fallback_layers": 0,
+      "recompute_layers": 0,
+      "cache_tokens": 26
+    }
+  }
+}

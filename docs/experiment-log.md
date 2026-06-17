@@ -6195,3 +6195,52 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - ResearchKB:
   Harvest recorded `harvest_04e0bf84b52a3611`; structured run recorded
   `run_92cfa0ed515947c1`.
+
+## 2026-06-18 - A800 Qwen3-1.7B Gray SCD-vLLM Plugin Smoke
+
+- Experiment id:
+  `a800_qwen17_scd_vllm_plugin_smoke_20260618_cache`.
+- Purpose:
+  Verify that the external SCD-vLLM adapter can export and load a reconstructed
+  `reuse_patch` KV bundle for Qwen3-1.7B -> Qwen3-1.7B-gray, using the already
+  trained strict Qwen reuse/patch banks.
+- Environment:
+  Host `A800mql`; activation `conda activate cache`; code snapshot
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_f9f07b5`;
+  Python `/home/c101-800-mql/.conda/envs/cache/bin/python`; PyTorch `2.10.0`;
+  Transformers `5.3.0`; vLLM `0.18.0`; `CUDA_VISIBLE_DEVICES=0,1`.
+- GPU selection:
+  All A800 GPUs were sampled every 10 seconds for 60 seconds before launch.
+  Every sample reported utilization `0`; GPUs `0,1` had the lowest resident
+  memory among the available cards and were selected.
+- Inputs:
+  Producer model
+  `/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B`; consumer model
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`; reuse
+  bank `ckpt_reuse_layerwise_seed42`; patch bank
+  `ckpt_patch_xnorm_alllayers_seed42`; route
+  `route_qwen17_gray_patch6_seed42.json`.
+- Method:
+  Copied the gray model and compact reuse/patch artifacts from ser to the A800
+  local project disk, ran `scd-vllm doctor --require-local-models`, then ran
+  `scd-vllm run` with a 27-token Chinese QA-style prefix. The first smoke run
+  failed because vLLM `ExampleConnector` does not support HMA; rerunning with
+  `--disable-hybrid-kv-cache-manager` passed.
+- Outputs:
+  `Experiment/results/a800_qwen17_scd_vllm_doctor_20260618_cache/` and
+  `Experiment/results/a800_qwen17_scd_vllm_plugin_smoke_20260618_cache/`.
+- Results:
+  Doctor passed with failure count `0`. Route strictness passed with
+  `num_layers=28`, patch/reuse `6/22`, fallback/recompute `0/0`. Plugin smoke
+  passed with `adapter_smoke_pass=True`, `scd_injection_pass=True`,
+  `bundle_token_match=True`, `same_token_ids=True`, and
+  `loaded_generation_ok=True`. Export payload bytes were `2,981,888`;
+  ExampleConnector loaded `16` aligned tokens with payload bytes `1,837,472`.
+- Analysis:
+  This closes the earlier Qwen plugin-evidence gap and supports the adapter's
+  portability to a second model family. It remains a smoke/integration result,
+  not a Qwen speedup or full-quality claim.
+- ResearchKB:
+  Harvest recorded `harvest_c6fa1d1d15daaf1b`,
+  `harvest_c11d19bd735cb841`, and `harvest_82d02c54a125e7ad`;
+  structured run recorded `run_aec7378b4554436b`.
