@@ -247,11 +247,17 @@ README.md
 REPRODUCING_SCD_ICML.md
 DATA_PREPARATION.md
 OPEN_SOURCE_RELEASE_MANIFEST.md
+docs/scd_vllm_plugin_mvp.md
+reports/scd_vllm_repo_audit.md
+reports/scd_vllm_status.md
 LICENSE
 ```
 
 `REPRODUCING_SCD_ICML.md` defines the no-fallback/no-recompute reproduction
 boundary. `DATA_PREPARATION.md` explains portable data/model paths.
+`reports/scd_vllm_status.md` is the release-facing vLLM evidence boundary and
+records the A800 `conda activate cache` environment, the two vLLM-smoke-checked
+routes, and the non-production connector limits.
 
 ## Release Check
 

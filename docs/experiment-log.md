@@ -6079,3 +6079,42 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Harvested the local result directory with
   `D:\ResearchKB\rk-harvest.cmd --project "KV Cache Reuse"`; 7 JSON records
   were recorded.
+
+## 2026-06-18 - A800 cache Env Probe and vLLM Status Packaging Gate
+
+- Experiment id:
+  `a800_env_probe_mistrallite_mistral7_20260618`.
+- Purpose:
+  Record the exact A800mql `conda activate cache` runtime environment used for
+  current vLLM evidence and bind that evidence into the release-facing status
+  report and release preview gate.
+- Environment:
+  Host `A800mql`; activation `conda activate cache`; Python
+  `/home/c101-800-mql/.conda/envs/cache/bin/python`; PyTorch `2.10.0+cu128`;
+  Transformers `5.3.0`; vLLM `0.18.0`; CUDA available on 8 x
+  `NVIDIA A800-SXM4-80GB`.
+- Inputs:
+  Producer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/MistralLite`;
+  consumer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/Mistral-7B-v0.1`;
+  dtype `bfloat16`.
+- Method:
+  Ran `python -m scd_vllm.env_probe` on A800mql, copied the generated
+  `env_probe.json` and Markdown status to the local release evidence tree, then
+  refreshed `reports/scd_vllm_status.md` and release preview/readiness checks.
+- Outputs:
+  `Experiment/results/a800_env_probe_mistrallite_mistral7_20260618/env_probe.json`
+  and `Experiment/results/a800_env_probe_mistrallite_mistral7_20260618/status.md`.
+- Results:
+  KV compatibility check passed with `compatible=True`; both producer and
+  consumer report 32 layers, 32 attention heads, 8 KV heads, head dim 128, and
+  hidden size 4096. vLLM `0.18.0` imports in the active cache environment.
+- Analysis:
+  The probe supports the current MistralLite to Mistral-7B vLLM smoke evidence
+  boundary. It is environment and compatibility evidence, not a dataset-quality
+  or throughput benchmark.
+- ResearchKB:
+  Recorded the experiment run as `run_c8494235f16247e7`; direct harvest found
+  no additional parseable JSON experiment records beyond the explicit probe
+  artifact.

@@ -2684,3 +2684,21 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Scope boundary:
   This is a packaging/release gate fix; it does not change route metrics or
   dataset quality claims.
+
+### 2026-06-18 update - A800 cache env probe and vLLM status report gate
+
+- Change:
+  Recorded the A800mql `conda activate cache` vLLM environment probe, refreshed
+  `reports/scd_vllm_status.md`, and made the release preview/readiness gate
+  include both vLLM reports.
+- Rationale:
+  The vLLM implementation spec requires a concrete environment probe and a
+  status report with phase results. Keeping these files inside the release
+  preview makes the open-source package auditable without relying on chat
+  history or remote-only logs.
+- Verification target:
+  Rebuild `release_preview/scd_icml_runtime_release`, run
+  `scripts/check_release_readiness.py`, and rerun the local test suite.
+- Scope boundary:
+  This changes packaging and evidence traceability only. It does not change
+  model weights, route metrics, or dataset quality claims.

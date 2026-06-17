@@ -21,6 +21,8 @@ REQUIRED_FILES = [
     "DATA_PREPARATION.md",
     "OPEN_SOURCE_RELEASE_MANIFEST.md",
     "docs/scd_vllm_plugin_mvp.md",
+    "reports/scd_vllm_repo_audit.md",
+    "reports/scd_vllm_status.md",
     "pyproject.toml",
     "configs/data_ser.yaml",
     "configs/eval_scd_icml_no_fallback_no_recompute.json",
@@ -761,6 +763,8 @@ def check_docs(root: Path, errors: list[str]) -> None:
         "DATA_PREPARATION.md": ["cmrc2018_train.json", "hotpot_dev_distractor_v1.json", "wiki.test.txt"],
         "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "scd-vllm doctor", "src/scd_vllm_plugin/", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "NLL/PPL"],
         "docs/scd_vllm_plugin_mvp.md": ["scd-vllm doctor", "strict no-fallback/no-recompute", "scd-vllm run", "ExampleConnector", "patch26_reuse6"],
+        "reports/scd_vllm_repo_audit.md": ["Existing entry points", "Proposed mapping to scd_vllm modules", "Risks before implementation", "dataset-specific routes"],
+        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "Dataset Quality Evidence", "NLL/PPL", "not a production-grade vLLM connector"],
         "LICENSE": ["MIT License", "SCD reproduction team"],
     }
     for rel, snippets in docs.items():

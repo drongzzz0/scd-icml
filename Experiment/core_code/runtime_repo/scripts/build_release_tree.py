@@ -15,6 +15,8 @@ ROOT_FILES = [
     "DATA_PREPARATION.md",
     "OPEN_SOURCE_RELEASE_MANIFEST.md",
     "docs/scd_vllm_plugin_mvp.md",
+    "reports/scd_vllm_repo_audit.md",
+    "reports/scd_vllm_status.md",
     "pyproject.toml",
 ]
 
