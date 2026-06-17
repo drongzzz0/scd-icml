@@ -2564,3 +2564,23 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   Local focused tests now cover bundle route-hash validation, and A800
   `cache` verified real `reuse19_patch13` and `patch20_reuse12` bundles plus a
   `patch20_reuse12` vLLM ExampleConnector smoke run.
+
+### 2026-06-18 update - raw-bank end-to-end plugin evidence
+
+- Change:
+  Verified the full raw-bank path for the current SCD-vLLM plugin: raw
+  CMRC-trained reuse and patch checkpoints, strict route preflight,
+  reconstructed bundle export, ExampleConnector storage conversion, and vLLM
+  cache-load smoke.
+- Rationale:
+  Bundle-only smoke tests prove deployment artifact loading, but the public
+  release also needs evidence that users can start from trained reuse/patch
+  banks and produce a usable plugin artifact without a forked vLLM codebase.
+- Verification:
+  A800mql with `conda activate cache` completed
+  `a800_scd_vllm_raw_bank_run_20260618_025602`: doctor pass, strict
+  `reuse19_patch13` route, `bundle_type=reuse_patch`, `aligned_tokens=224`,
+  `payload_bytes=29,362,944`, and plugin smoke `pass=True`.
+- Scope boundary:
+  Greedy continuation equality is still false for this aggressive route, so the
+  result is integration evidence rather than a standalone quality claim.

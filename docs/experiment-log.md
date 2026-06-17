@@ -5870,3 +5870,58 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   quality evidence.
 - Artifacts:
   `Experiment/results/a800_scd_vllm_bundle_doctor_smoke_20260618_024236/`.
+
+## 2026-06-18 - A800 SCD-vLLM Raw-Bank End-to-End Smoke
+
+- Experiment id:
+  `a800_scd_vllm_raw_bank_run_20260618_025602`.
+- Purpose:
+  Validate the full plug-and-play path from raw CMRC-trained reuse/patch banks
+  to a reconstructed SCD bundle, ExampleConnector storage conversion, and a
+  real vLLM cache-load smoke run.
+- Environment:
+  Host `A800mql`; working directory
+  `/home/c101-800-mql/maqianli/SCD-ICML`; environment
+  `conda activate cache`; runtime
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_ecbb130`; vLLM
+  `0.18.0`; `CUDA_VISIBLE_DEVICES=3,4`.
+- Inputs:
+  Producer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/MistralLite`;
+  consumer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/Mistral-7B-v0.1`;
+  reuse bank
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/layerwise_seed42`;
+  patch bank
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/native_alllayers_seed42`;
+  route
+  `scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json`.
+- Method:
+  Ran `scd-vllm doctor` against the raw reuse and patch banks, exported a
+  reconstructed strict reuse+patch bundle, converted it to vLLM
+  ExampleConnector storage, then executed the plugin smoke pipeline on the
+  consumer model.
+- Results:
+  - Raw-bank doctor passed with `failure_count=0`, `warning_count=0`.
+  - Route strictness passed: `patch_count=13`, `reuse_count=19`,
+    `fallback_count=0`, `recompute_count=0`, and `num_layers=32`.
+  - Bundle manifest reports `bundle_type=reuse_patch`, `num_tokens=229`,
+    `num_layers=32`, route hash
+    `8c0ba4475f4c194cdfe1fc64e6b845b093306273a04168b2ca5c2aaebb0dad3f`.
+  - ExampleConnector conversion reports `aligned_tokens=224` and
+    `payload_bytes=29,362,944`.
+  - vLLM plugin smoke reports `pass=True`, `adapter_smoke_pass=True`,
+    `scd_injection_pass=True`, `reconstructed_scd=True`,
+    `loaded_generation_ok=True`, `bundle_token_match=True`, and
+    `same_token_ids=True`.
+  - Greedy output equality remains `False` for 1-token and n-token checks.
+    This is treated as an approximate-route quality risk, not as a vLLM
+    adapter or cache-injection failure.
+- Analysis:
+  This run proves the current open-source plugin can consume raw trained
+  reuse/patch banks and drive the complete export-convert-inject path under the
+  corrected A800 `cache` conda environment. It is release-facing integration
+  evidence, while dataset-level F1/EM/PPL evaluations remain the source of
+  quality claims.
+- Artifacts:
+  `Experiment/results/a800_scd_vllm_raw_bank_run_20260618_025602/`.

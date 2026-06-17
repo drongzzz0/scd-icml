@@ -1,0 +1,13 @@
+{
+  "mode": "a800_scd_vllm_raw_bank_run",
+  "runtime": "/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_ecbb130",
+  "producer": "/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/MistralLite",
+  "consumer": "/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/Mistral-7B-v0.1",
+  "reuse_ckpt": "/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/layerwise_seed42",
+  "patch_ckpt": "/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/native_alllayers_seed42",
+  "route": "/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_ecbb130/configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
+  "prefix": "/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617/runs/scd_vllm/reconstructed_mistrallite_to_mistral7_patch20_reuse12_gpu34/prefix.txt",
+  "out": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_run_20260618_025602",
+  "doctor_raw_bank": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_run_20260618_025602/doctor_raw_bank.json",
+  "plugin_metrics": "/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_run_20260618_025602/plugin_run_reuse19_patch13/plugin_metrics.json"
+}

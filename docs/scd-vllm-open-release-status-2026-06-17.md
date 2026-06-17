@@ -49,6 +49,34 @@ The more aggressive `reuse19_patch13` route remains useful as a paper-aligned
 maximum-reuse reference, but the reconstructed vLLM greedy check did not match
 on the long-prefix test. Treat that as route-quality risk, not adapter failure.
 
+### A800 Raw-Bank Plugin E2E Smoke
+
+Artifacts:
+
+`Experiment/results/a800_scd_vllm_raw_bank_run_20260618_025602/`
+
+This run validates the source-to-plugin path rather than only a prebuilt bundle:
+
+- Raw reuse bank:
+  `open_build_native_fixedroute_cmrc200_20260616_133222/layerwise_seed42`.
+- Raw patch bank:
+  `open_build_native_fixedroute_cmrc200_20260616_133222/native_alllayers_seed42`.
+- Route: `reuse19_patch13`, strict reuse+patch only.
+- `scd-vllm doctor`: pass, `failure_count=0`, `warning_count=0`.
+- Route strictness: patch/reuse `13/19`, fallback `0`, recompute `0`,
+  `num_layers=32`.
+- Exported bundle: `bundle_type=reuse_patch`, `num_tokens=229`.
+- ExampleConnector conversion: `aligned_tokens=224`, payload bytes
+  `29,362,944`.
+- vLLM plugin smoke: `pass=True`, `adapter_smoke_pass=True`,
+  `scd_injection_pass=True`, `reconstructed_scd=True`,
+  `loaded_generation_ok=True`, `bundle_token_match=True`,
+  `same_token_ids=True`.
+
+The greedy continuation check is still false for this aggressive route, so this
+is integration evidence for the raw-bank workflow. Quality claims should still
+come from the full dataset F1/EM/PPL runs below.
+
 ## Full CMRC2018 Dev Result
 
 Run root:
