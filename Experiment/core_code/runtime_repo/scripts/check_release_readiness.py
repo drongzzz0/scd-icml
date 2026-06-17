@@ -820,6 +820,7 @@ def check_batch_benchmark_metrics(
     artifact_dir: str,
     label: str,
     expected_route_id: str,
+    require_preloaded_stats: bool = False,
 ) -> None:
     results_root = root.parent.parent / "results"
     if not results_root.is_dir():
@@ -862,22 +863,35 @@ def check_batch_benchmark_metrics(
     ):
         if float(metrics.get(key, 0.0)) <= 0.0:
             fail(errors, f"{label} SCD-vLLM batch benchmark metric {key} must be positive")
+    if require_preloaded_stats:
+        stats = metrics.get("preloaded_connector_stats") or {}
+        if stats.get("exists") is not True:
+            fail(errors, f"{label} SCD-vLLM preloaded connector stats must exist")
+        if int(stats.get("invalid_files", 0) or 0) != 0:
+            fail(errors, f"{label} SCD-vLLM preloaded connector stats must not contain invalid files")
+        for key in ("worker_count", "cache_hits", "cache_misses", "cache_events", "cached_files", "cached_bytes"):
+            if int(stats.get(key, 0) or 0) <= 0:
+                fail(errors, f"{label} SCD-vLLM preloaded connector stats {key} must be positive")
+        if float(stats.get("cache_hit_rate", 0.0) or 0.0) <= 0.0:
+            fail(errors, f"{label} SCD-vLLM preloaded connector cache_hit_rate must be positive")
 
 
 def check_mistral_batch_benchmark_evidence(root: Path, errors: list[str]) -> None:
     check_batch_benchmark_metrics(
         root=root,
         errors=errors,
-        artifact_dir="a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache",
+        artifact_dir="a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache",
         label="Mistral patch20/reuse12",
         expected_route_id="scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200",
+        require_preloaded_stats=True,
     )
     check_batch_benchmark_metrics(
         root=root,
         errors=errors,
-        artifact_dir="a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache",
+        artifact_dir="a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache",
         label="Mistral patch26/reuse6",
         expected_route_id="scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200",
+        require_preloaded_stats=True,
     )
 
 
@@ -956,10 +970,10 @@ def check_docs(root: Path, errors: list[str]) -> None:
             "reuse08_patch24",
         ],
         "DATA_PREPARATION.md": ["cmrc2018_train.json", "hotpot_dev_distractor_v1.json", "wiki.test.txt"],
-        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "scd-vllm doctor", "scd-vllm batch-benchmark", "src/scd_vllm_plugin/", "configs/scd_vllm_mvp.yaml", "scripts/scd_vllm/run_06_report.sh", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache", "a800_qwen17_scd_vllm_preloadedbench_20260618_cache", "SCDPreloadedConnector", "kv-connector-module-path", "prefix-cache", "repeated-prefix trusted microbenchmark", "NLL/PPL"],
+        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "scd-vllm doctor", "scd-vllm batch-benchmark", "src/scd_vllm_plugin/", "configs/scd_vllm_mvp.yaml", "scripts/scd_vllm/run_06_report.sh", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "cache_hits", "a800_qwen17_scd_vllm_preloadedbench_20260618_cache", "SCDPreloadedConnector", "kv-connector-module-path", "prefix-cache", "repeated-prefix trusted microbenchmark", "NLL/PPL"],
         "docs/scd_vllm_plugin_mvp.md": ["scd-vllm doctor", "strict no-fallback/no-recompute", "scd-vllm run", "scd-vllm batch-benchmark", "ExampleConnector", "SCDPreloadedConnector", "kv-connector-module-path", "patch26_reuse6"],
         "reports/scd_vllm_repo_audit.md": ["Existing entry points", "Proposed mapping to scd_vllm modules", "Implementation/release risks", "dataset-specific routes", "src/scd_vllm/injection.py"],
-        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache", "a800_qwen17_scd_vllm_preloadedbench_20260618_cache", "plain-vLLM compatibility", "Qwen raw-bank-to-vLLM", "SCDPreloadedConnector", "prefix-cache", "repeated-prefix trusted microbenchmark", "Dataset Quality Evidence", "NLL/PPL", "not a production-grade vLLM connector"],
+        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "Cache Hits", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache", "a800_qwen17_scd_vllm_preloadedbench_20260618_cache", "plain-vLLM compatibility", "Qwen raw-bank-to-vLLM", "SCDPreloadedConnector", "prefix-cache", "repeated-prefix trusted microbenchmark", "Dataset Quality Evidence", "NLL/PPL", "not a production-grade vLLM connector"],
         "LICENSE": ["MIT License", "SCD reproduction team"],
     }
     for rel, snippets in docs.items():

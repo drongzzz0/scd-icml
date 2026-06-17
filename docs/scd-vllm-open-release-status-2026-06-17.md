@@ -155,8 +155,8 @@ raw-bank-to-vLLM validated routes, with different quality/speed trade-offs.
 
 Artifacts:
 
-- `Experiment/results/a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache/`
-- `Experiment/results/a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache/`
+- `Experiment/results/a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache/`
+- `Experiment/results/a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache/`
 
 This run validates the public `scd-vllm batch-benchmark` command on the two
 main MistralLite -> Mistral-7B routes. It compares plain vLLM, official vLLM
@@ -168,17 +168,19 @@ Runtime boundary:
 - Host: A800mql.
 - Environment:
   `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`.
-- Code snapshot: `runtime_repo_codex_preloaded_20260618_0634`.
+- Code snapshot: `runtime_repo_codex_stats_20260618_0717`.
 - vLLM: `0.18.0`.
 - Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
-- GPU selection: A800 GPUs `0` and `1` were sampled three times over 40
-  seconds and stayed at utilization `0`. `patch20_reuse12` used GPU `0`;
-  `patch26_reuse6` used GPU `1`.
+- GPU selection: A800 GPUs `0` and `1` were sampled for 60 seconds and stayed
+  at utilization `0`. `patch20_reuse12` used GPU `0`; `patch26_reuse6` used
+  GPU `1`.
+- The benchmark code now automatically disables vLLM HMA for
+  `SCDPreloadedConnector`, matching the vLLM `0.18.0` connector constraint.
 
-| Route | Plain vLLM tok/s | vLLM prefix-cache tok/s | SCDPreloaded tok/s | SCD/Plain | SCD/Prefix |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `patch20_reuse12` | `953.216251` | `4083.576373` | `2870.665243` | `3.011557` | `0.702978` |
-| `patch26_reuse6` | `963.863263` | `4327.769903` | `2823.938822` | `2.929813` | `0.652516` |
+| Route | Plain vLLM tok/s | vLLM prefix-cache tok/s | SCDPreloaded tok/s | SCD/Plain | SCD/Prefix | Hits | Misses | Hit Rate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `patch20_reuse12` | `969.093202` | `4103.775535` | `2773.109399` | `2.861551` | `0.675746` | `16352` | `32` | `0.998047` |
+| `patch26_reuse6` | `988.035039` | `4233.686187` | `2657.446443` | `2.689628` | `0.627691` | `16352` | `32` | `0.998047` |
 
 Interpretation:
 
@@ -187,6 +189,9 @@ Interpretation:
   `kv_connector_module_path=scd_vllm.preloaded_connector`,
   `load_generation_ok=True`, `prefix_cache_generation_ok=True`,
   `bundle_token_match=True`, and `storage_ready=True`.
+- The stats artifact confirms actual preloaded tensor reuse in the worker:
+  one connector worker per route, `32` first-touch layer misses, and `16352`
+  subsequent cache hits.
 - SCDPreloaded is faster than plain vLLM on this repeated-prefix benchmark
   because it loads the already reconstructed prefix KV instead of recomputing
   the full prefix for every request.

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import atexit
 import importlib
+import json
+import os
+import time
+from pathlib import Path
 from typing import Any
 
 _IMPORT_ERROR: Exception | None = None
@@ -58,6 +63,9 @@ class SCDPreloadedConnector(ExampleConnector):
         self._scd_tensor_cache: dict[str, Any] = {}
         self._scd_cache_hits = 0
         self._scd_cache_misses = 0
+        self._scd_stats_dir = os.environ.get("SCD_PRELOADED_STATS_DIR", "")
+        if self._scd_stats_dir:
+            atexit.register(self._write_scd_stats, True)
 
     def start_load_kv(self, forward_context: Any, **kwargs: Any) -> None:
         """Load cached KV tensors into vLLM's paged KV buffer."""
@@ -124,7 +132,44 @@ class SCDPreloadedConnector(ExampleConnector):
             cached = tensor
         else:
             self._scd_cache_hits += 1
+        self._maybe_write_scd_stats()
 
         if getattr(cached, "device", None) != target_device:
             return cached.to(device=target_device, non_blocking=True)
         return cached
+
+    def _maybe_write_scd_stats(self) -> None:
+        if not self._scd_stats_dir:
+            return
+        total = self._scd_cache_hits + self._scd_cache_misses
+        if total <= 1 or total % 1024 == 0:
+            self._write_scd_stats(False)
+
+    def _write_scd_stats(self, final: bool = False) -> None:
+        if not self._scd_stats_dir:
+            return
+        stats_dir = Path(self._scd_stats_dir)
+        stats_dir.mkdir(parents=True, exist_ok=True)
+        pid = os.getpid()
+        payload = {
+            "connector": "SCDPreloadedConnector",
+            "pid": pid,
+            "cache_device": self._scd_cache_device,
+            "cache_hits": int(self._scd_cache_hits),
+            "cache_misses": int(self._scd_cache_misses),
+            "cached_files": int(len(self._scd_tensor_cache)),
+            "cached_bytes": int(sum(_tensor_nbytes(tensor) for tensor in self._scd_tensor_cache.values())),
+            "final": bool(final),
+            "timestamp_unix": time.time(),
+        }
+        target = stats_dir / f"scd_preloaded_connector_{pid}.json"
+        tmp = target.with_suffix(".tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(target)
+
+
+def _tensor_nbytes(tensor: Any) -> int:
+    try:
+        return int(tensor.numel()) * int(tensor.element_size())
+    except Exception:
+        return 0

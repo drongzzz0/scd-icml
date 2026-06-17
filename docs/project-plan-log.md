@@ -2865,3 +2865,33 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   vLLM `963.863263` tok/s and vLLM prefix-cache `4327.769903` tok/s. This
   supports plug-in integration and a repeated-prefix speedup over plain vLLM,
   but native vLLM prefix caching remains the stronger static-prefix baseline.
+
+### 2026-06-18 update - add SCDPreloadedConnector cache stats gate
+
+- Change:
+  Added worker-side cache hit/miss JSON stats to
+  `scd_vllm.preloaded_connector.SCDPreloadedConnector`, aggregated those stats
+  into `scd-vllm batch-benchmark` metrics, and made the batch benchmark
+  automatically disable vLLM's hybrid KV cache manager when the preloaded
+  connector is used.
+- Rationale:
+  The previous benchmark evidence was timing-only. For release review, it is
+  stronger to prove actual connector-side tensor reuse and to avoid a fragile
+  user-facing requirement to remember `--disable-hybrid-kv-cache-manager` for
+  vLLM `0.18.0`.
+- Verification:
+  On A800mql with
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`,
+  GPUs `0` and `1` stayed at utilization `0` for 60 seconds before launch.
+  The first load attempt failed with vLLM's HMA error; after the automatic HMA
+  fix, the load stages passed and produced stats artifacts.
+- Result boundary:
+  `patch20_reuse12` now has `benchmark_pass=True`, SCDPreloaded
+  `2773.109399` tok/s, plain vLLM `969.093202` tok/s, prefix-cache
+  `4103.775535` tok/s, `cache_hits=16352`, `cache_misses=32`, and
+  `cache_hit_rate=0.998047`. `patch26_reuse6` now has `benchmark_pass=True`,
+  SCDPreloaded `2657.446443` tok/s, plain vLLM `988.035039` tok/s,
+  prefix-cache `4233.686187` tok/s, `cache_hits=16352`,
+  `cache_misses=32`, and `cache_hit_rate=0.998047`. This strengthens the
+  plug-in/cache-reuse evidence but still does not support a general speedup
+  claim over vLLM native prefix caching.

@@ -349,15 +349,17 @@ directories:
   for higher-Reuse raw-bank-to-vLLM plugin evidence.
 - `../../Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`
   for quality-first raw-bank-to-vLLM plugin evidence.
-- `../../Experiment/results/a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache/`
+- `../../Experiment/results/a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache/`
   and
-  `../../Experiment/results/a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache/`
+  `../../Experiment/results/a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache/`
   for the main Mistral repeated-prefix trusted microbenchmark. These compare
   plain vLLM, vLLM `prefix-cache`, and Mistral `SCDPreloadedConnector` batch
   load for the current `patch20_reuse12` and `patch26_reuse6` routes.
-  SCDPreloaded is faster than plain vLLM on this repeated-prefix shape, but it
-  remains slower than native vLLM prefix caching; do not report it as a general
-  serving-speed claim over vLLM.
+  The artifact also records worker-side preloaded-cache stats:
+  `cache_misses=32`, `cache_hits=16352`, and `cache_hit_rate=0.998047` for
+  each route. SCDPreloaded is faster than plain vLLM on this repeated-prefix
+  shape, but it remains slower than native vLLM prefix caching; do not report
+  it as a general serving-speed claim over vLLM.
 - `../../Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`
   for additional-model repeated-prefix trusted microbenchmark evidence. It
   compares plain vLLM, vLLM `prefix-cache`, and Qwen

@@ -66,31 +66,36 @@ throughput improvement under concurrent serving load.
 Mistral repeated-prefix batch benchmark evidence:
 
 - Batch benchmark artifacts:
-  `Experiment/results/a800_mistral_patch20_scd_vllm_preloadedbench_20260618_cache/`
+  `Experiment/results/a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache/`
   and
-  `Experiment/results/a800_mistral_patch26_scd_vllm_preloadedbench_20260618_cache/`.
+  `Experiment/results/a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache/`.
 - Model pair: MistralLite producer -> Mistral-7B consumer.
 - Runtime: A800mql,
   `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`,
   vLLM `0.18.0`.
-- GPU selection: GPUs `0` and `1` were sampled three times over 40 seconds
-  and stayed at utilization `0`; `patch20_reuse12` used GPU `0` and
-  `patch26_reuse6` used GPU `1`.
+- GPU selection: GPUs `0` and `1` were sampled for 60 seconds and stayed at
+  utilization `0`; `patch20_reuse12` used GPU `0` and `patch26_reuse6` used
+  GPU `1`. Both cards had resident low-priority python server memory but
+  sufficient free memory.
 - Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
 - Result:
   both routes report `benchmark_pass=True`,
   `load_generation_ok=True`, `bundle_token_match=True`, `storage_ready=True`,
   `prefix_cache_generation_ok=True`; connector `SCDPreloadedConnector` from
   module `scd_vllm.preloaded_connector`.
-- `patch20_reuse12` throughput: plain vLLM `953.216251` tokens/s; vLLM
-  prefix-cache `4083.576373` tokens/s; SCDPreloaded `2870.665243` tokens/s.
-- `patch26_reuse6` throughput: plain vLLM `963.863263` tokens/s; vLLM
-  prefix-cache `4327.769903` tokens/s; SCDPreloaded `2823.938822` tokens/s.
+- `patch20_reuse12` throughput: plain vLLM `969.093202` tokens/s; vLLM
+  prefix-cache `4103.775535` tokens/s; SCDPreloaded `2773.109399` tokens/s.
+  Connector stats: `cache_hits=16352`, `cache_misses=32`,
+  `cache_hit_rate=0.998047`.
+- `patch26_reuse6` throughput: plain vLLM `988.035039` tokens/s; vLLM
+  prefix-cache `4233.686187` tokens/s; SCDPreloaded `2657.446443` tokens/s.
+  Connector stats: `cache_hits=16352`, `cache_misses=32`,
+  `cache_hit_rate=0.998047`.
 
 This is the main Mistral batch-command evidence. It supports an external
-plug-in connector and a repeated-prefix gain over plain vLLM recomputation,
-but native vLLM prefix caching remains faster on this static-prefix
-microbenchmark.
+plug-in connector, worker-side preloaded-cache reuse, and a repeated-prefix
+gain over plain vLLM recomputation, but native vLLM prefix caching remains
+faster on this static-prefix microbenchmark.
 
 Additional model-family vLLM baseline evidence:
 

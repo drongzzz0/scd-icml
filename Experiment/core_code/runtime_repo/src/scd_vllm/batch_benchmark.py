@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import os
+import shutil
 import subprocess
 import sys
 import time
@@ -131,6 +133,13 @@ def run_batch_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         stages.insert(1, "prefix-cache")
     for stage in stages:
         stage_out = out_dir / f"{stage}.json"
+        env = None
+        stats_dir = None
+        if stage == "load" and _uses_preloaded_connector(args):
+            stats_dir = out_dir / "preloaded_connector_stats"
+            _reset_preloaded_connector_stats_dir(stats_dir, out_dir)
+            env = os.environ.copy()
+            env["SCD_PRELOADED_STATS_DIR"] = str(stats_dir)
         cmd = [
             sys.executable,
             "-m",
@@ -141,8 +150,13 @@ def run_batch_benchmark(args: argparse.Namespace) -> dict[str, Any]:
             str(stage_out),
             *common,
         ]
-        subprocess.run(cmd, check=True)
-        records[stage] = json.loads(stage_out.read_text(encoding="utf-8"))
+        subprocess.run(cmd, check=True, env=env)
+        record = json.loads(stage_out.read_text(encoding="utf-8"))
+        if stats_dir is not None:
+            record["preloaded_connector_stats_dir"] = str(stats_dir)
+            record["preloaded_connector_stats"] = _collect_preloaded_connector_stats(stats_dir)
+            stage_out.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        records[stage] = record
 
     metrics = build_batch_benchmark_metrics(
         model=args.model,
@@ -176,7 +190,7 @@ def run_stage(args: argparse.Namespace) -> dict[str, Any]:
         "enforce_eager": args.enforce_eager,
         "enable_prefix_caching": bool(args.enable_prefix_caching or args.stage == "prefix-cache"),
         "enable_chunked_prefill": args.enable_chunked_prefill,
-        "disable_hybrid_kv_cache_manager": args.disable_hybrid_kv_cache_manager,
+        "disable_hybrid_kv_cache_manager": _effective_disable_hybrid_kv_cache_manager(args),
     }
     if args.stage == "load":
         if not args.storage_dir:
@@ -244,6 +258,8 @@ def run_stage(args: argparse.Namespace) -> dict[str, Any]:
         "kv_connector": args.kv_connector if args.stage == "load" else "",
         "kv_connector_module_path": args.kv_connector_module_path if args.stage == "load" else "",
         "connector_cache_device": args.connector_cache_device if args.stage == "load" else "",
+        "disable_hybrid_kv_cache_manager": bool(llm_kwargs["disable_hybrid_kv_cache_manager"]),
+        "preloaded_connector_stats_dir": os.environ.get("SCD_PRELOADED_STATS_DIR", "") if args.stage == "load" else "",
         "prompt_text_hash": text_sha256(prompt),
         "prompt_token_count": len(prompt_token_ids),
         "prompt_token_ids": prompt_token_ids,
@@ -295,6 +311,13 @@ def build_batch_benchmark_metrics(
     token_match = bool(load.get("prompt_token_hash") and load.get("prompt_token_hash") == manifest.get("token_hash"))
     storage_ready = bool(storage.get("exists") and int(storage.get("safetensor_files", 0) or 0) > 0)
     benchmark_pass = bool(load_generation_ok and token_match and storage_ready)
+    preloaded_stats = load.get("preloaded_connector_stats") or {}
+    preloaded_cache_hits = _optional_int(preloaded_stats.get("cache_hits")) if preloaded_stats else None
+    preloaded_cache_misses = _optional_int(preloaded_stats.get("cache_misses")) if preloaded_stats else None
+    preloaded_cache_events = _optional_int(preloaded_stats.get("cache_events")) if preloaded_stats else None
+    preloaded_worker_count = _optional_int(preloaded_stats.get("worker_count")) if preloaded_stats else None
+    preloaded_cached_files = _optional_int(preloaded_stats.get("cached_files")) if preloaded_stats else None
+    preloaded_cached_bytes = _optional_int(preloaded_stats.get("cached_bytes")) if preloaded_stats else None
     speedup_tokens_per_second: float | None = None
     speedup_requests_per_second: float | None = None
     if baseline:
@@ -356,6 +379,15 @@ def build_batch_benchmark_metrics(
         "load_generation_ok": load_generation_ok,
         "bundle_token_match": token_match,
         "storage_ready": storage_ready,
+        "preloaded_connector_stats": preloaded_stats or None,
+        "preloaded_connector_stats_dir": load.get("preloaded_connector_stats_dir") or None,
+        "preloaded_connector_worker_count": preloaded_worker_count,
+        "preloaded_connector_cache_hits": preloaded_cache_hits,
+        "preloaded_connector_cache_misses": preloaded_cache_misses,
+        "preloaded_connector_cache_events": preloaded_cache_events,
+        "preloaded_connector_cache_hit_rate": preloaded_stats.get("cache_hit_rate") if preloaded_stats else None,
+        "preloaded_connector_cached_files": preloaded_cached_files,
+        "preloaded_connector_cached_bytes": preloaded_cached_bytes,
         "load_tokens_per_second": load.get("tokens_per_second"),
         "load_requests_per_second": load.get("requests_per_second"),
         "baseline_tokens_per_second": baseline.get("tokens_per_second") if baseline else None,
@@ -371,6 +403,66 @@ def build_batch_benchmark_metrics(
         "load_vs_prefix_cache_requests_per_second": load_vs_prefix_cache_requests_per_second,
         "records": records,
     }
+
+
+def _uses_preloaded_connector(args: argparse.Namespace) -> bool:
+    module_path = str(getattr(args, "kv_connector_module_path", "") or "")
+    connector = str(getattr(args, "kv_connector", "") or "")
+    return connector == "SCDPreloadedConnector" or module_path.endswith("preloaded_connector")
+
+
+def _effective_disable_hybrid_kv_cache_manager(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "disable_hybrid_kv_cache_manager", False) or (
+        getattr(args, "stage", "") == "load" and _uses_preloaded_connector(args)
+    ))
+
+
+def _reset_preloaded_connector_stats_dir(stats_dir: Path, out_dir: Path) -> None:
+    out_root = out_dir.resolve()
+    stats_root = stats_dir.resolve()
+    try:
+        stats_root.relative_to(out_root)
+    except ValueError as exc:
+        raise SCDBatchBenchmarkError(
+            f"refusing to reset stats dir outside benchmark output: {stats_root}"
+        ) from exc
+    if stats_dir.exists():
+        shutil.rmtree(stats_dir)
+    stats_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _collect_preloaded_connector_stats(stats_dir: Path) -> dict[str, Any]:
+    stats = {
+        "exists": stats_dir.is_dir(),
+        "worker_count": 0,
+        "invalid_files": 0,
+        "cache_hits": 0,
+        "cache_misses": 0,
+        "cache_events": 0,
+        "cache_hit_rate": 0.0,
+        "cached_files": 0,
+        "cached_bytes": 0,
+        "final_workers": 0,
+        "files": [],
+    }
+    if not stats_dir.is_dir():
+        return stats
+    for path in sorted(stats_dir.glob("scd_preloaded_connector_*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            stats["invalid_files"] += 1
+            continue
+        stats["worker_count"] += 1
+        stats["cache_hits"] += int(payload.get("cache_hits", 0) or 0)
+        stats["cache_misses"] += int(payload.get("cache_misses", 0) or 0)
+        stats["cached_files"] += int(payload.get("cached_files", 0) or 0)
+        stats["cached_bytes"] += int(payload.get("cached_bytes", 0) or 0)
+        stats["final_workers"] += 1 if payload.get("final") else 0
+        stats["files"].append(path.name)
+    stats["cache_events"] = int(stats["cache_hits"]) + int(stats["cache_misses"])
+    stats["cache_hit_rate"] = _safe_div(int(stats["cache_hits"]), int(stats["cache_events"]))
+    return stats
 
 
 def _resolve_prompt(bundle_dir: Path, prompt: str, prefix_file: str) -> str:
@@ -417,6 +509,12 @@ def _safe_div(numerator: float | int, denominator: float | int) -> float:
     if denominator_f <= 0.0:
         return 0.0
     return float(numerator) / denominator_f
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
 
 
 def _np_array_2d(token_ids: list[int]) -> Any:

@@ -6453,3 +6453,71 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   `harvest_ab0ff9e6fc68db88`, `harvest_0a9274a41472e576`, and
   `harvest_24d53dcae704e4ae`; structured runs recorded
   `run_f8e2ff751fbc48cc` and `run_e51eba0f3920471b`.
+
+## 2026-06-18 - A800 Mistral SCDPreloadedConnector Cache Stats Benchmarks
+
+- Experiment ids:
+  `a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache` and
+  `a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache`.
+- Purpose:
+  Strengthen the Mistral SCD-vLLM benchmark from timing-only evidence to
+  direct worker-side cache-reuse evidence. Also verify that the benchmark code
+  can run `SCDPreloadedConnector` without requiring users to manually pass the
+  vLLM HMA-disable flag.
+- Environment:
+  Host `A800mql`; activation
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`;
+  code snapshot
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_stats_20260618_0717`;
+  vLLM `0.18.0`.
+- GPU selection:
+  A800 GPUs `0` and `1` were sampled for 60 seconds and stayed at utilization
+  `0`. Both had resident low-priority python server memory, but enough free
+  memory for the Mistral run. `patch20_reuse12` used
+  `CUDA_VISIBLE_DEVICES=0`; `patch26_reuse6` used `CUDA_VISIBLE_DEVICES=1`.
+- Inputs:
+  Consumer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/Mistral-7B-v0.1`.
+  `patch20_reuse12` bundle/storage came from
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_patch20_run_20260618_032217/plugin_run_patch20_reuse12/`.
+  `patch26_reuse6` bundle/storage came from
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/plugin_run_patch26_reuse6/`.
+- Method:
+  First ran the full batch benchmark with the new stats-enabled connector. The
+  load stage failed with vLLM `ValueError: Connector SCDPreloadedConnector
+  does not support HMA but HMA is enabled`. Updated the code so the load stage
+  automatically disables `disable_hybrid_kv_cache_manager` whenever
+  `SCDPreloadedConnector` is selected. Then reran only the failed load stages
+  and merged the already completed baseline/prefix-cache records with the new
+  load and stats records.
+- Outputs:
+  `Experiment/results/a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache/`
+  and
+  `Experiment/results/a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache/`.
+- Results:
+  Both runs reported `benchmark_pass=True`,
+  `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `load_generation_ok=True`, `prefix_cache_generation_ok=True`,
+  `bundle_token_match=True`, `storage_ready=True`,
+  `preloaded_connector_worker_count=1`, `cache_hits=16352`,
+  `cache_misses=32`, `cache_events=16384`, `cache_hit_rate=0.998047`,
+  `cached_files=32`, and `cached_bytes=29360128`.
+  `patch20_reuse12`: plain vLLM `969.093202` tok/s, vLLM prefix-cache
+  `4103.775535` tok/s, SCDPreloaded `2773.109399` tok/s,
+  SCD/plain `2.861551`, SCD/prefix `0.675746`.
+  `patch26_reuse6`: plain vLLM `988.035039` tok/s, vLLM prefix-cache
+  `4233.686187` tok/s, SCDPreloaded `2657.446443` tok/s,
+  SCD/plain `2.689628`, SCD/prefix `0.627691`.
+- Analysis:
+  The new stats confirm actual connector-side tensor reuse after the first
+  per-layer load: `32` layer files are loaded once, then reused for the
+  repeated-prefix batches. The evidence supports plug-in integration,
+  cache-reuse behavior, and a repeated-prefix gain over plain vLLM
+  recomputation. It still must be framed below native vLLM prefix caching and
+  is not production multi-tenant serving evidence.
+- ResearchKB:
+  Harvest recorded `harvest_d5bbf3b43d13f3f7`,
+  `harvest_1d60c78b5ce98e8b`, `harvest_106d8c86e09bb862`, and
+  `harvest_af30d0edb4c7fa8a`; structured runs recorded
+  `run_1e09f65397f648ab` and `run_bdaec275945942e6`.
