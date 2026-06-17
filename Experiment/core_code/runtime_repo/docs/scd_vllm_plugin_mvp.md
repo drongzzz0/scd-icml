@@ -142,10 +142,31 @@ reads for identical prefixes inside a batch. It is still an experimental
 connector prototype and does not solve multi-tenant isolation or dynamic route
 selection.
 
+For direct integration with official vLLM Python code, emit a launch spec:
+
+```bash
+scd-vllm launch-spec \
+  --bundle-dir runs/scd_vllm/my_plugin_run/reuse_patch_bundle \
+  --storage-dir runs/scd_vllm/my_plugin_run/example_connector_storage \
+  --model /path/to/consumer \
+  --stats-dir runs/scd_vllm/my_preloaded_connector_bench/preloaded_connector_stats \
+  --out runs/scd_vllm/launch_spec.json
+```
+
+The JSON contains `llm_kwargs` for `vllm.LLM(**llm_kwargs)`, a
+`kv_transfer_config` using `SCDPreloadedConnector`, and the optional
+`SCD_PRELOADED_STATS_DIR` environment setting. It automatically sets
+`disable_hybrid_kv_cache_manager=True` for the preloaded connector because
+vLLM `0.18.0` rejects that connector when HMA is enabled. This spec is a
+single-tenant trusted-bundle launch contract: verify `token_hash` and
+`route_id` before routing a request to it.
+
 ## Python API
 
 ```python
-from scd_vllm_plugin import SCDVLLMConfig, SCDVLLMEngine
+import os
+
+from scd_vllm_plugin import SCDVLLMConfig, SCDVLLMEngine, build_preloaded_launch_spec
 
 engine = SCDVLLMEngine(
     SCDVLLMConfig(
@@ -164,6 +185,19 @@ metrics = engine.run_smoke_pipeline(
     disable_hybrid_kv_cache_manager=True,
     overwrite=True,
 )
+
+launch_spec = build_preloaded_launch_spec(
+    model="/path/to/consumer",
+    bundle_dir="runs/scd_vllm/my_plugin_run/reuse_patch_bundle",
+    storage_dir="runs/scd_vllm/my_plugin_run/example_connector_storage",
+    stats_dir="runs/scd_vllm/my_preloaded_connector_bench/preloaded_connector_stats",
+)
+
+# In the same Python process:
+# from vllm import LLM
+# for key, value in launch_spec["environment"].items():
+#     os.environ[key] = value
+# llm = LLM(**launch_spec["llm_kwargs"])
 ```
 
 ## Current Boundary

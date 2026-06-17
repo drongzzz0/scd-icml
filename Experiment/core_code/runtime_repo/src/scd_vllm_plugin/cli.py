@@ -9,7 +9,13 @@ from typing import Sequence
 from scd_vllm import batch_benchmark, injection, reconstructed_export
 
 from . import doctor
-from .engine import SCDVLLMConfig, SCDVLLMEngine
+from .engine import (
+    DEFAULT_PRELOADED_CONNECTOR,
+    DEFAULT_PRELOADED_CONNECTOR_MODULE,
+    SCDVLLMConfig,
+    SCDVLLMEngine,
+    build_preloaded_launch_spec,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -28,6 +34,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return batch_benchmark.main(rest)
     if command == "doctor":
         return doctor.main(rest)
+    if command == "launch-spec":
+        return _launch_spec(rest)
     if command == "run":
         return _run_pipeline(rest)
     print(f"unknown command: {command}", file=sys.stderr)
@@ -79,6 +87,34 @@ def _run_pipeline(argv: list[str]) -> int:
     return 0 if metrics.get("pass") else 1
 
 
+def _launch_spec(argv: list[str]) -> int:
+    args = _build_launch_spec_parser().parse_args(argv)
+    payload = build_preloaded_launch_spec(
+        model=args.model,
+        tokenizer=args.tokenizer,
+        bundle_dir=args.bundle_dir,
+        storage_dir=args.storage_dir,
+        dtype=args.dtype,
+        max_model_len=args.max_model_len,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        seed=args.seed,
+        enforce_eager=args.enforce_eager,
+        enable_prefix_caching=args.enable_prefix_caching,
+        enable_chunked_prefill=args.enable_chunked_prefill,
+        kv_connector=args.kv_connector,
+        kv_connector_module_path=args.kv_connector_module_path,
+        connector_cache_device=args.connector_cache_device,
+        stats_dir=args.stats_dir,
+        require_storage=not args.allow_missing_storage,
+    )
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0 if payload.get("launch_spec_pass") else 1
+
+
 def _build_run_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="scd-vllm run",
@@ -117,6 +153,35 @@ def _build_run_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_launch_spec_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="scd-vllm launch-spec",
+        description="Emit official-vLLM LLM kwargs for loading a trusted SCD bundle with the external connector.",
+    )
+    parser.add_argument("--model", required=True, help="vLLM consumer model id or local path")
+    parser.add_argument("--tokenizer", default="", help="Tokenizer id/path; defaults to --model")
+    parser.add_argument("--bundle-dir", required=True, help="SCD bundle directory with manifest.json")
+    parser.add_argument("--storage-dir", required=True, help="ExampleConnector-compatible storage directory")
+    parser.add_argument("--out", default="", help="Optional JSON file to write the launch spec")
+    parser.add_argument("--dtype", default="bfloat16")
+    parser.add_argument("--max-model-len", type=int, default=512)
+    parser.add_argument("--gpu-memory-utilization", type=float, default=0.85)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--enforce-eager", action="store_true")
+    parser.add_argument("--enable-prefix-caching", action="store_true")
+    parser.add_argument("--enable-chunked-prefill", action="store_true")
+    parser.add_argument("--kv-connector", default=DEFAULT_PRELOADED_CONNECTOR)
+    parser.add_argument("--kv-connector-module-path", default=DEFAULT_PRELOADED_CONNECTOR_MODULE)
+    parser.add_argument("--connector-cache-device", default="cuda", choices=["cuda", "gpu", "cpu"])
+    parser.add_argument("--stats-dir", default="", help="Optional SCD_PRELOADED_STATS_DIR for connector stats")
+    parser.add_argument(
+        "--allow-missing-storage",
+        action="store_true",
+        help="Emit a spec without requiring storage safetensors; intended only for templates/docs.",
+    )
+    return parser
+
+
 def _print_help(file=None) -> None:
     stream = sys.stdout if file is None else file
     stream.write(
@@ -130,6 +195,7 @@ def _print_help(file=None) -> None:
                 "  smoke-test      Run vLLM baseline/load smoke test for an existing bundle",
                 "  batch-benchmark Run repeated-prefix batched vLLM load benchmark for an existing bundle/storage pair",
                 "  doctor          Check plugin prerequisites and strict route coverage",
+                "  launch-spec     Emit official-vLLM LLM kwargs for a trusted SCD bundle/storage pair",
                 "  run             Export a bundle, convert it, and run the smoke test",
                 "",
                 "Examples:",
@@ -139,6 +205,7 @@ def _print_help(file=None) -> None:
                 "  scd-vllm convert-bundle --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --overwrite",
                 "  scd-vllm smoke-test --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --out runs/scd_vllm/my_smoke --overwrite",
                 "  scd-vllm batch-benchmark --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --batch-size 64 --out runs/scd_vllm/my_batch_bench",
+                "  scd-vllm launch-spec --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --out runs/scd_vllm/launch_spec.json",
             ]
         )
         + "\n"

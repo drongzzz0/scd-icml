@@ -2895,3 +2895,26 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   `cache_misses=32`, and `cache_hit_rate=0.998047`. This strengthens the
   plug-in/cache-reuse evidence but still does not support a general speedup
   claim over vLLM native prefix caching.
+
+### 2026-06-18 update - add official-vLLM launch spec contract
+
+- Change:
+  Added `scd-vllm launch-spec` and the corresponding Python API
+  `build_preloaded_launch_spec`. The command emits JSON containing official
+  `vllm.LLM(**llm_kwargs)` inputs, `SCDPreloadedConnector` KV transfer config,
+  optional `SCD_PRELOADED_STATS_DIR`, bundle metadata, storage summary, and
+  explicit safety boundaries.
+- Rationale:
+  The previous plugin interface proved export/smoke/batch behavior but still
+  required users to manually assemble vLLM kwargs and remember that vLLM
+  `0.18.0` rejects the connector if HMA is enabled. A launch-spec contract
+  makes the adapter more plug-and-play while preserving the no-vLLM-fork
+  design.
+- Verification:
+  Added unit tests for the launch-spec API and CLI JSON output. Targeted tests
+  `tests/test_scd_vllm_plugin.py` and `tests/test_scd_vllm_batch_benchmark.py`
+  passed, and release readiness passed.
+- Scope boundary:
+  The launch spec is a single-tenant trusted-bundle contract. It does not claim
+  multi-tenant safety, arbitrary request routing, or production lifecycle
+  management.

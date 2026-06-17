@@ -324,14 +324,27 @@ scd-vllm doctor --reuse-ckpt <reuse-bank> --patch-ckpt <patch-bank> \
 
 scd-vllm doctor --reuse-ckpt <reuse-bank> --patch-ckpt <patch-bank> \
   --route configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json
+
+scd-vllm launch-spec \
+  --bundle-dir <validated-reuse-patch-bundle> \
+  --storage-dir <example-connector-storage> \
+  --model <consumer-model> \
+  --stats-dir <optional-stats-dir> \
+  --out runs/scd_vllm/launch_spec.json
 ```
+
+`launch-spec` emits JSON containing official `vllm.LLM(**llm_kwargs)` inputs,
+the `SCDPreloadedConnector` KV transfer config, the HMA-disable vLLM kwarg
+required by vLLM `0.18.0`, and optional connector stats environment variables.
+It is a single-tenant trusted-bundle contract, not a dynamic request router.
 
 ## Next Steps
 
 - Continue replacing disk-backed `ExampleConnector` storage with a dedicated
   SCD connector. The current `SCDPreloadedConnector` removes repeated
-  per-request disk reads inside a worker but still performs connector-side KV
-  injection for every request.
+  per-request disk reads inside a worker and `launch-spec` makes it easier to
+  consume from official vLLM, but it still performs connector-side KV injection
+  for every request.
 - Add a true serving benchmark only if the release wants throughput claims.
 - Keep dataset-quality reporting tied to strict full-dataset evaluations, not
   single-prefix vLLM smoke tests.

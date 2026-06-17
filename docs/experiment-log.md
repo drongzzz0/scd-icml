@@ -6521,3 +6521,37 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   `harvest_1d60c78b5ce98e8b`, `harvest_106d8c86e09bb862`, and
   `harvest_af30d0edb4c7fa8a`; structured runs recorded
   `run_1e09f65397f648ab` and `run_bdaec275945942e6`.
+
+## 2026-06-18 - SCD-vLLM Official Launch Spec API
+
+- Experiment id:
+  `local_scd_vllm_launch_spec_api_20260618`.
+- Purpose:
+  Convert the working external connector path into a more plug-and-play
+  integration contract for official vLLM, without forking vLLM or expanding
+  the claim to production multi-tenant serving.
+- Method:
+  Added `build_preloaded_launch_spec` and `scd-vllm launch-spec`. The launch
+  spec reads the SCD bundle manifest, checks ExampleConnector-compatible
+  storage, emits `vllm.LLM(**llm_kwargs)` inputs with
+  `SCDPreloadedConnector`, automatically sets
+  `disable_hybrid_kv_cache_manager=True` for the preloaded connector, and
+  optionally emits `SCD_PRELOADED_STATS_DIR`.
+- Inputs:
+  Unit-test synthetic `reuse_patch` bundle manifest and dummy
+  `.safetensors` storage artifact. No GPU was required.
+- Outputs:
+  Updated `src/scd_vllm_plugin/engine.py`, `src/scd_vllm_plugin/cli.py`,
+  `src/scd_vllm_plugin/__init__.py`, `docs/scd_vllm_plugin_mvp.md`,
+  `OPEN_SOURCE_RELEASE_MANIFEST.md`, and `reports/scd_vllm_status.md`.
+- Results:
+  Targeted tests passed:
+  `PYTHONPATH=.;src pytest tests/test_scd_vllm_plugin.py tests/test_scd_vllm_batch_benchmark.py -q`
+  reported `12 passed`. Release readiness also passed.
+- Analysis:
+  This does not add new throughput evidence, but it improves publishability:
+  users can now generate an auditable JSON launch contract for official vLLM
+  instead of copying benchmark internals. The artifact remains explicitly
+  single-tenant and trusted-prefix only.
+- ResearchKB:
+  Structured run recorded `run_59ff8dacd10f4ffa`.
