@@ -14,6 +14,24 @@ companion adapter instead of a vLLM fork.
 
 ## CLI
 
+Run a static preflight first. This does not launch GPU work; it checks that
+the package can import vLLM, required artifacts exist, and the route is a
+strict no-fallback/no-recompute mixed reuse+patch route:
+
+```bash
+scd-vllm doctor \
+  --producer-model /path/to/producer \
+  --consumer-model /path/to/consumer \
+  --reuse-ckpt /path/to/reuse \
+  --patch-ckpt /path/to/patch \
+  --route configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json \
+  --out runs/scd_vllm/doctor.json
+```
+
+Use `--skip-vllm-import` only for documentation or CI environments that do not
+install the optional `vllm` extra. Use `--require-local-models` when producer
+and consumer model arguments must be local directories rather than model IDs.
+
 ```bash
 scd-vllm export-bundle \
   --producer-model /path/to/producer \

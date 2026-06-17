@@ -20,6 +20,7 @@ REQUIRED_FILES = [
     "REPRODUCING_SCD_ICML.md",
     "DATA_PREPARATION.md",
     "OPEN_SOURCE_RELEASE_MANIFEST.md",
+    "docs/scd_vllm_plugin_mvp.md",
     "pyproject.toml",
     "configs/data_ser.yaml",
     "configs/eval_scd_icml_no_fallback_no_recompute.json",
@@ -91,6 +92,7 @@ REQUIRED_FILES = [
     "tests/test_route_serialization.py",
     "tests/test_selector.py",
     "tests/test_text_benchmarks.py",
+    "tests/test_scd_vllm_doctor.py",
     "src/scd_repro/text_benchmarks.py",
     "src/scd_repro/adapters.py",
     "src/scd_repro/direct_kv_residual_patch.py",
@@ -98,6 +100,9 @@ REQUIRED_FILES = [
     "src/scd_repro/cli/capture_pair.py",
     "src/scd_repro/cli/eval_text_strict.py",
     "src/scd_repro/cli/summarize_mistral_repro.py",
+    "src/scd_vllm_plugin/cli.py",
+    "src/scd_vllm_plugin/doctor.py",
+    "src/scd_vllm_plugin/engine.py",
 ]
 
 JSON_FILES = [
@@ -127,6 +132,9 @@ PY_COMPILE_FILES = [
     "src/scd_repro/cli/capture_pair.py",
     "src/scd_repro/cli/eval_text_strict.py",
     "src/scd_repro/cli/summarize_mistral_repro.py",
+    "src/scd_vllm_plugin/cli.py",
+    "src/scd_vllm_plugin/doctor.py",
+    "src/scd_vllm_plugin/engine.py",
     "scripts/make_paper_scd_route.py",
     "scripts/make_paper_scd_candidate_routes.py",
     "scripts/merge_patch_ckpts.py",
@@ -172,6 +180,7 @@ PY_COMPILE_FILES = [
     "tests/test_route_serialization.py",
     "tests/test_selector.py",
     "tests/test_text_benchmarks.py",
+    "tests/test_scd_vllm_doctor.py",
 ]
 
 EXPECTED_METHODS = {
@@ -340,6 +349,7 @@ def check_pyproject(root: Path, errors: list[str]) -> None:
     expected = {
         "eval-text-strict": "scd_repro.cli.eval_text_strict:main",
         "summarize-mistral-repro": "scd_repro.cli.summarize_mistral_repro:main",
+        "scd-vllm": "scd_vllm_plugin.cli:main",
     }
     for name, target in expected.items():
         if scripts.get(name) != target:
@@ -665,7 +675,8 @@ def check_docs(root: Path, errors: list[str]) -> None:
             "reuse08_patch24",
         ],
         "DATA_PREPARATION.md": ["cmrc2018_train.json", "hotpot_dev_distractor_v1.json", "wiki.test.txt"],
-        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity"],
+        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "scd-vllm doctor", "src/scd_vllm_plugin/", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity"],
+        "docs/scd_vllm_plugin_mvp.md": ["scd-vllm doctor", "strict no-fallback/no-recompute", "scd-vllm run", "ExampleConnector"],
         "LICENSE": ["MIT License", "SCD reproduction team"],
     }
     for rel, snippets in docs.items():

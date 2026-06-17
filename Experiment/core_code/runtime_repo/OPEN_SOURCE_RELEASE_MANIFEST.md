@@ -25,6 +25,18 @@ src/scd_repro/
 
 Other package modules imported by these files are also required.
 
+The release also includes the experimental vLLM adapter facade:
+
+```text
+src/scd_vllm/
+src/scd_vllm_plugin/
+docs/scd_vllm_plugin_mvp.md
+```
+
+The public plugin entry point is `scd-vllm`. Run `scd-vllm doctor` before GPU
+work to verify that local artifacts exist, vLLM can import, and the selected
+route is a strict no-fallback/no-recompute mixed reuse+patch route.
+
 ## Required Lightweight Tests
 
 ```text

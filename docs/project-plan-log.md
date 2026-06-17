@@ -2525,3 +2525,28 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   - Materialize the correct text Qwen2.5-32B base/instruct checkpoints at the
     configured paths or update the config to their real paths, then rerun the
     guarded A800 wrapper when enough idle GPU memory is available.
+
+## 2026-06-18 - SCD-vLLM Plugin Doctor Preflight
+
+- Scope: add a static preflight step for the plug-and-play SCD-vLLM package so
+  users can validate route, checkpoint, model, and vLLM environment assumptions
+  before launching a serving or injection run.
+- Goal:
+  Reduce release risk by making strict no-fallback/no-recompute validation
+  explicit and machine-readable through a `scd-vllm doctor` command.
+- Constraints:
+  Keep the command non-destructive and lightweight. It should not require GPU
+  execution or model loading by default. A stricter local-model check is exposed
+  as an opt-in flag for deployment environments.
+- Design choices:
+  Treat fallback and recompute layers as hard failures, require patch+reuse
+  layers to cover all transformer layers without overlap, and warn rather than
+  fail when vLLM is unavailable unless the user is preparing a real serving
+  environment.
+- Implementation approach:
+  Add `src/scd_vllm_plugin/doctor.py`, expose it through the `scd-vllm` CLI,
+  document the preflight flow, and cover the route checks with focused tests.
+- Verification plan:
+  Run release readiness, focused `scd_vllm_plugin` tests, and the full runtime
+  unittest suite before committing. Do not push the branch until the user
+  explicitly authorizes it.
