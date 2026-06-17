@@ -23,6 +23,7 @@ The paper-facing evidence boundary is:
 
 - `Experiment/core_code/runtime_repo/REPRODUCING_SCD_ICML.md`
 - `Experiment/core_code/runtime_repo/OPEN_SOURCE_RELEASE_MANIFEST.md`
+- `docs/scd-vllm-open-release-status-2026-06-17.md`
 - `docs/scd-icml-final-nonqwen-completion-audit-2026-06-11.md`
 - `docs/scd-icml-full-paper-reproduction-matrix-2026-06-11.md`
 - `docs/scd-icml-reproduction-coverage-audit-2026-06-11.md`
@@ -50,7 +51,9 @@ The supported claim is narrower than the older camera-ready text:
 
 - Supported: current MistralLite -> Mistral-7B non-Qwen release path with
   dataset-specific quality gates and checked release artifacts.
+- Current vLLM demo route: `Patch20/Reuse12`, because it passes the
+  reconstructed SCD injection greedy checks in the checked vLLM 0.18.0
+  environment.
 - Not supported on this branch: Qwen32B, one universal `k=6` route across all
   datasets, full-context HotpotQA quality preservation, or exact byte-identical
   regeneration of all historical figure sweeps.
-
