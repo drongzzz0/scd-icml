@@ -1,0 +1,85 @@
+{
+  "route_version": "teacher_aligned_patch_reuse_v1",
+  "name": "scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200",
+  "num_layers": 32,
+  "layers": [
+    {"consumer_layer": 0, "action": "patch", "source_layer": 0},
+    {"consumer_layer": 1, "action": "patch", "source_layer": 1},
+    {"consumer_layer": 2, "action": "patch", "source_layer": 2},
+    {"consumer_layer": 3, "action": "patch", "source_layer": 3},
+    {"consumer_layer": 4, "action": "patch", "source_layer": 4},
+    {"consumer_layer": 5, "action": "patch", "source_layer": 5},
+    {"consumer_layer": 6, "action": "patch", "source_layer": 6},
+    {"consumer_layer": 7, "action": "patch", "source_layer": 7},
+    {"consumer_layer": 8, "action": "patch", "source_layer": 8},
+    {"consumer_layer": 9, "action": "patch", "source_layer": 9},
+    {"consumer_layer": 10, "action": "patch", "source_layer": 10},
+    {"consumer_layer": 11, "action": "patch", "source_layer": 11},
+    {"consumer_layer": 12, "action": "patch", "source_layer": 12},
+    {"consumer_layer": 13, "action": "patch", "source_layer": 13},
+    {"consumer_layer": 14, "action": "reuse", "source_layer": 14},
+    {"consumer_layer": 15, "action": "patch", "source_layer": 15},
+    {"consumer_layer": 16, "action": "patch", "source_layer": 16},
+    {"consumer_layer": 17, "action": "reuse", "source_layer": 17},
+    {"consumer_layer": 18, "action": "patch", "source_layer": 18},
+    {"consumer_layer": 19, "action": "patch", "source_layer": 19},
+    {"consumer_layer": 20, "action": "reuse", "source_layer": 20},
+    {"consumer_layer": 21, "action": "reuse", "source_layer": 21},
+    {"consumer_layer": 22, "action": "reuse", "source_layer": 22},
+    {"consumer_layer": 23, "action": "reuse", "source_layer": 23},
+    {"consumer_layer": 24, "action": "reuse", "source_layer": 24},
+    {"consumer_layer": 25, "action": "reuse", "source_layer": 25},
+    {"consumer_layer": 26, "action": "patch", "source_layer": 26},
+    {"consumer_layer": 27, "action": "reuse", "source_layer": 27},
+    {"consumer_layer": 28, "action": "reuse", "source_layer": 28},
+    {"consumer_layer": 29, "action": "reuse", "source_layer": 29},
+    {"consumer_layer": 30, "action": "reuse", "source_layer": 30},
+    {"consumer_layer": 31, "action": "patch", "source_layer": 31}
+  ],
+  "source_layer_mapping": [
+    0, 1, 2, 3, 4, 5, 6, 7,
+    8, 9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23,
+    24, 25, 26, 27, 28, 29, 30, 31
+  ],
+  "route_semantics": "release_demo_sparse_patch_reuse_all_other_layers",
+  "reuse_layers": [
+    14, 17, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30
+  ],
+  "patch_layers": [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+    15, 16, 18, 19, 26, 31
+  ],
+  "selected_patch_layers": [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+    15, 16, 18, 19, 26, 31
+  ],
+  "fallback_layers": [],
+  "selected_recompute_layers": [],
+  "recompute_segment_length_by_layer": {},
+  "paper_constraints": {
+    "online_route_search": false,
+    "t_fill": 0,
+    "patch_and_reuse_cover_all_layers": true,
+    "selection_source": "cmrc200_route_ablation_quality_speed_tradeoff",
+    "fallback_layers_allowed": false,
+    "recompute_allowed": false
+  },
+  "metadata": {
+    "model_pair": "MistralLite_to_Mistral-7B-v0.1",
+    "dataset": "CMRC2018 train-200 bank, full dev evaluation",
+    "eval_samples": 3219,
+    "selection_metric": "release_demo_route_with_strict_f1_em_retention_and_vllm_greedy_smoke",
+    "primary_quality_metrics": ["F1", "EM"],
+    "auxiliary_risk_metrics": ["avg_nll", "avg_ppl"],
+    "reference_result": {
+      "full_consumer_f1": 0.7442529548886166,
+      "full_consumer_em": 0.47778813296054673,
+      "scd_f1": 0.7918141128196258,
+      "scd_em": 0.5054364709537124,
+      "ttft_speedup": 2.345216770876336,
+      "total_speedup": 2.188713112601687,
+      "compression_ratio": 0.6153846153846154
+    }
+  }
+}

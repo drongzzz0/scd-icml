@@ -77,6 +77,42 @@ The greedy continuation check is still false for this aggressive route, so this
 is integration evidence for the raw-bank workflow. Quality claims should still
 come from the full dataset F1/EM/PPL runs below.
 
+### A800 Raw-Bank Plugin E2E Smoke - patch20/reuse12
+
+Artifacts:
+
+`Experiment/results/a800_scd_vllm_raw_bank_patch20_run_20260618_032217/`
+
+This run repeats the source-to-plugin validation for the current vLLM demo
+route selected from the CMRC200 bank:
+
+- Raw reuse bank:
+  `open_build_native_fixedroute_cmrc200_20260616_133222/layerwise_seed42`.
+- Raw patch bank:
+  `open_build_native_fixedroute_cmrc200_20260616_133222/native_alllayers_seed42`.
+- Route:
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`.
+- Runtime:
+  A800mql, `conda activate cache`, vLLM `0.18.0`,
+  `CUDA_VISIBLE_DEVICES=0,1`.
+- `scd-vllm doctor`: pass, `failure_count=0`, `warning_count=0`.
+- Route strictness: patch/reuse `20/12`, fallback `0`, recompute `0`,
+  `num_layers=32`.
+- Reconstructed bundle: `bundle_type=reuse_patch`, `num_tokens=229`,
+  `num_layers=32`.
+- ExampleConnector conversion: `aligned_tokens=224`, payload bytes
+  `29,362,944`.
+- vLLM plugin smoke: `pass=True`, `adapter_smoke_pass=True`,
+  `scd_injection_pass=True`, `reconstructed_scd=True`,
+  `loaded_generation_ok=True`, `bundle_token_match=True`,
+  `same_token_ids=True`.
+- Greedy output equality:
+  `greedy_1tok_match=True`, `greedy_ntok_match=True`.
+
+This is the strongest current plug-and-play integration evidence because it
+starts from raw trained reuse/patch banks and still reaches the reconstructed
+vLLM injection path with deterministic greedy agreement on the checked prompt.
+
 ## Full CMRC2018 Dev Result
 
 Run root:

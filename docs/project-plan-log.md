@@ -2584,3 +2584,24 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Scope boundary:
   Greedy continuation equality is still false for this aggressive route, so the
   result is integration evidence rather than a standalone quality claim.
+
+### 2026-06-18 update - patch20/reuse12 raw-bank vLLM demo evidence
+
+- Change:
+  Added `configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`
+  to the release tree and validated it through the full raw-bank SCD-vLLM
+  export-convert-inject path.
+- Rationale:
+  The earlier raw-bank run proved the pipeline on the more aggressive
+  `reuse19_patch13` route, but that route failed the greedy continuation check.
+  The open-source plugin needs a demo route that is strict reuse+patch-only,
+  has dataset-level QA evidence, and passes reconstructed vLLM smoke checks.
+- Verification:
+  A800mql with `conda activate cache` completed
+  `a800_scd_vllm_raw_bank_patch20_run_20260618_032217`: doctor pass, strict
+  `patch20_reuse12` route, `bundle_type=reuse_patch`, `aligned_tokens=224`,
+  `payload_bytes=29,362,944`, plugin smoke `pass=True`,
+  `greedy_1tok_match=True`, and `greedy_ntok_match=True`.
+- Scope boundary:
+  This remains integration evidence for the vLLM plugin path. Dataset quality
+  claims should continue to cite the full CMRC2018 and HotpotQA F1/EM runs.

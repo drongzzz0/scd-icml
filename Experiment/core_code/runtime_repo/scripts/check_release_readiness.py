@@ -39,6 +39,7 @@ REQUIRED_FILES = [
     "configs/route_selection.yaml",
     "configs/route_reuse_patchonly_all32_20260404.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
+    "configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
     "scripts/run_ser_scd_icml_mistral_repro.sh",
     "scripts/run_ser_scd_icml_patchonly_anchor.sh",
     "scripts/run_ser_scd_icml_parallel_patch_shards.sh",
@@ -122,6 +123,7 @@ JSON_FILES = [
     "configs/mistral_self_patch_xnorm_nativekv_linear_parallel_20260404.json",
     "configs/route_reuse_patchonly_all32_20260404.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
+    "configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
 ]
 
 PY_COMPILE_FILES = [
@@ -610,6 +612,37 @@ def check_selected_route(root: Path, errors: list[str]) -> None:
         fail(errors, "selected Reuse19 route reference EM retention must be at least 0.95")
 
 
+def check_vllm_demo_route(root: Path, errors: list[str]) -> None:
+    path = root / "configs" / "routes" / "scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json"
+    if not path.is_file():
+        return
+    route = json.loads(path.read_text(encoding="utf-8-sig"))
+    patch_layers = [int(layer) for layer in route.get("patch_layers", [])]
+    reuse_layers = [int(layer) for layer in route.get("reuse_layers", [])]
+    num_layers = int(route.get("num_layers", 0))
+    if route.get("route_semantics") != "release_demo_sparse_patch_reuse_all_other_layers":
+        fail(errors, f"vLLM demo route has wrong semantics: {route.get('route_semantics')!r}")
+    if len(reuse_layers) != 12 or len(patch_layers) != 20:
+        fail(errors, f"vLLM demo route should be Reuse12/Patch20, got reuse={len(reuse_layers)} patch={len(patch_layers)}")
+    if route.get("fallback_layers") != []:
+        fail(errors, f"vLLM demo route fallback_layers must be empty, got {route.get('fallback_layers')}")
+    if route.get("selected_recompute_layers") != [] or route.get("recompute_segment_length_by_layer") != {}:
+        fail(errors, "vLLM demo route must not use recompute")
+    if set(patch_layers) & set(reuse_layers):
+        fail(errors, f"vLLM demo route has patch/reuse overlap: {sorted(set(patch_layers) & set(reuse_layers))}")
+    if num_layers and set(patch_layers) | set(reuse_layers) != set(range(num_layers)):
+        fail(errors, "vLLM demo route patch+reuse layers must cover all layers")
+    ref = route.get("metadata", {}).get("reference_result", {})
+    full_f1 = float(ref.get("full_consumer_f1", 0.0))
+    full_em = float(ref.get("full_consumer_em", 0.0))
+    scd_f1 = float(ref.get("scd_f1", 0.0))
+    scd_em = float(ref.get("scd_em", 0.0))
+    if full_f1 <= 0.0 or scd_f1 < 0.95 * full_f1:
+        fail(errors, "vLLM demo route reference F1 retention must be at least 0.95")
+    if full_em <= 0.0 or scd_em < 0.95 * full_em:
+        fail(errors, "vLLM demo route reference EM retention must be at least 0.95")
+
+
 def check_model_template(root: Path, errors: list[str]) -> None:
     path = root / "configs" / "models_mistrallite_to_mistral7_template.json"
     if not path.is_file():
@@ -780,6 +813,7 @@ def main() -> None:
         check_eval_config(root, errors)
         check_paper_scd_route_semantics(root, errors)
         check_selected_route(root, errors)
+        check_vllm_demo_route(root, errors)
         check_model_template(root, errors)
         check_reuse_train_config(root, errors)
         check_patch_train_config(root, errors)

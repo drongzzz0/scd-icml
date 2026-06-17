@@ -5925,3 +5925,62 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   quality claims.
 - Artifacts:
   `Experiment/results/a800_scd_vllm_raw_bank_run_20260618_025602/`.
+
+## 2026-06-18 - A800 SCD-vLLM Raw-Bank E2E Smoke for patch20/reuse12
+
+- Experiment id:
+  `a800_scd_vllm_raw_bank_patch20_run_20260618_032217`.
+- Purpose:
+  Validate the current vLLM demo route from raw CMRC-trained reuse/patch banks
+  through reconstructed bundle export, ExampleConnector storage conversion, and
+  real vLLM cache-load smoke.
+- Environment:
+  Host `A800mql`; working directory
+  `/home/c101-800-mql/maqianli/SCD-ICML`; environment
+  `conda activate cache`; runtime
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_ecbb130`; vLLM
+  `0.18.0`; `CUDA_VISIBLE_DEVICES=0,1`. GPUs 0 and 1 were selected only after
+  a 60-second zero-utilization check.
+- Inputs:
+  Producer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/MistralLite`;
+  consumer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/Mistral-7B-v0.1`;
+  reuse bank
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/layerwise_seed42`;
+  patch bank
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/native_alllayers_seed42`;
+  route
+  `scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`.
+- Method:
+  Ran `scd-vllm doctor` against the raw reuse and patch banks, exported a
+  reconstructed strict reuse+patch bundle, converted it to vLLM
+  ExampleConnector storage, then executed the plugin smoke pipeline on the
+  consumer model.
+- Results:
+  - Raw-bank doctor passed with `failure_count=0`, `warning_count=0`.
+  - Route strictness passed: `patch_count=20`, `reuse_count=12`,
+    `fallback_count=0`, `recompute_count=0`, and `num_layers=32`.
+  - Bundle manifest reports `bundle_type=reuse_patch`, `num_tokens=229`,
+    and `num_layers=32`.
+  - ExampleConnector conversion reports `aligned_tokens=224` and
+    `payload_bytes=29,362,944`.
+  - vLLM plugin smoke reports `pass=True`, `adapter_smoke_pass=True`,
+    `scd_injection_pass=True`, `reconstructed_scd=True`,
+    `loaded_generation_ok=True`, `bundle_token_match=True`, and
+    `same_token_ids=True`.
+  - Greedy output equality passed for both checks:
+    `greedy_1tok_match=True`, `greedy_ntok_match=True`.
+- Analysis:
+  This is the strongest current plug-and-play evidence for the open-source
+  plugin path because it starts from raw trained reuse/patch banks and reaches
+  deterministic vLLM injection agreement for the checked prompt. It complements
+  dataset-level CMRC2018 and HotpotQA F1/EM evidence for the same
+  `patch20_reuse12` route.
+- Artifact note:
+  The remote script exited non-zero after successful plugin execution because a
+  collection step looked for the old file name `injection_metrics.json`. The
+  actual file was `injection_smoke/metrics.json`; the collected artifact set
+  was rebuilt with stable local names.
+- Artifacts:
+  `Experiment/results/a800_scd_vllm_raw_bank_patch20_run_20260618_032217/`.

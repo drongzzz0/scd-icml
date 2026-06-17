@@ -11,6 +11,10 @@ companion adapter instead of a vLLM fork.
 - It does not patch vLLM core and is not a production serving backend.
 - Dataset-level quality evidence remains the strict runtime evaluation; vLLM
   smoke tests prove connector loading and generation.
+- The current vLLM demo route is
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`.
+  The `reuse19_patch13` route remains available as a paper-aligned
+  maximum-Reuse reference.
 
 ## CLI
 
@@ -24,7 +28,7 @@ scd-vllm doctor \
   --consumer-model /path/to/consumer \
   --reuse-ckpt /path/to/reuse \
   --patch-ckpt /path/to/patch \
-  --route configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json \
+  --route configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json \
   --out runs/scd_vllm/doctor.json
 ```
 
@@ -50,7 +54,7 @@ scd-vllm export-bundle \
   --consumer-model /path/to/consumer \
   --reuse-ckpt /path/to/reuse \
   --patch-ckpt /path/to/patch \
-  --route configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json \
+  --route configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json \
   --prefix-file prompts/prefix.txt \
   --out runs/scd_vllm/my_bundle
 
@@ -77,7 +81,7 @@ scd-vllm run \
   --consumer-model /path/to/consumer \
   --reuse-ckpt /path/to/reuse \
   --patch-ckpt /path/to/patch \
-  --route configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json \
+  --route configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json \
   --prefix-file prompts/prefix.txt \
   --out-dir runs/scd_vllm/my_plugin_run \
   --enforce-eager \
@@ -96,7 +100,7 @@ engine = SCDVLLMEngine(
         consumer_model="/path/to/consumer",
         reuse_ckpt="/path/to/reuse",
         patch_ckpt="/path/to/patch",
-        route="configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
+        route="configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
     )
 )
 

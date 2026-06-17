@@ -63,6 +63,11 @@ scd-vllm doctor \
   --route configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json
 ```
 
+For the current vLLM demo route, use
+`configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`.
+It keeps strict reuse+patch-only semantics and is the route with the strongest
+raw-bank-to-vLLM smoke evidence in this branch.
+
 For an already reconstructed SCD bundle, check the bundle artifact instead:
 
 ```bash

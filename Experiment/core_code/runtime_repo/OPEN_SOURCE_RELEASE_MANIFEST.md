@@ -69,6 +69,7 @@ configs/mistral_self_patch_xnorm_nativekv_linear_parallel_20260404.json
 configs/route_selection.yaml
 configs/route_reuse_patchonly_all32_20260404.json
 configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json
+configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json
 ```
 
 `eval_scd_icml_no_fallback_no_recompute.json` is the release-facing aggregate
@@ -81,6 +82,12 @@ they are not part of the default open-source release preview.
 The `models_ser_*_mql.json` files document the verified local run. Users on a
 new machine should copy `models_mistrallite_to_mistral7_template.json` and pass
 it through `MODELS_CONFIG_LITE_TO_7B`.
+
+The `reuse19_patch13` route is the paper-aligned maximum-Reuse reference for
+the current Mistral evidence package. The `patch20_reuse12` route is the
+current vLLM plugin demo route because it has full CMRC2018/HotpotQA quality
+evidence and passes the reconstructed vLLM greedy smoke check from raw trained
+Reuse/Patch banks.
 
 ## Required Scripts
 

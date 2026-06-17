@@ -34,6 +34,7 @@ CONFIG_FILES = [
     "configs/route_selection.yaml",
     "configs/route_reuse_patchonly_all32_20260404.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
+    "configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
 ]
 
 SCRIPT_FILES = [
