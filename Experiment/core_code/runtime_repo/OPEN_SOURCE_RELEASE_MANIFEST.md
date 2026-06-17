@@ -61,6 +61,7 @@ configs/models_mistrallite_to_mistral7_template.json
 configs/models_ser_mistrallite_to_mistral7_mql.json
 configs/models_ser_mistrallite_to_mistral7_mql_single_gpu.json
 configs/models_ser_mistral7_to_mistrallite_mql.json
+configs/scd_vllm_mvp.yaml
 configs/train_reuse_mistral_self_layerwise_20260404.json
 configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_alllayers_e1_h2048_r512_b2_20260404.json
 configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_paper_k6_e1_h2048_r512_b2_20260404.json
@@ -131,6 +132,14 @@ scripts/validate_scd_route.py
 scripts/check_release_readiness.py
 scripts/check_release_smoke_status.py
 scripts/build_release_tree.py
+scripts/scd_vllm/run_00_repo_audit.sh
+scripts/scd_vllm/run_01_env_probe.sh
+scripts/scd_vllm/run_02_hf_export.sh
+scripts/scd_vllm/run_03_vllm_baseline.sh
+scripts/scd_vllm/run_04_truekv_oracle.sh
+scripts/scd_vllm/run_05_reconstructed_export.sh
+scripts/scd_vllm/run_05_scd_injection.sh
+scripts/scd_vllm/run_06_report.sh
 ```
 
 `run_ser_scd_icml_mistral_repro.sh` is the main claim-facing entry point. It
@@ -239,6 +248,12 @@ figure names, has an `ok` artifact-bundle manifest, and can enforce literal
 claim-boundary text such as the restored neighboring-baseline table label, the
 HotpotQA full7405 selected-route statement, and the current claim-facing table
 labels.
+The `scripts/scd_vllm/run_00_*.sh` through `run_06_*.sh` wrappers are the
+release-facing vLLM integration phase commands. They drive the repo audit,
+environment probe, HF bundle export, plain vLLM baseline, TrueKV oracle,
+reconstructed SCD bundle export, SCD injection smoke, and final status report.
+The default knobs live in `configs/scd_vllm_mvp.yaml`, while host/model-specific
+paths should be supplied through environment variables.
 
 ## Required Documentation
 

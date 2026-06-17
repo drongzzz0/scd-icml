@@ -2702,3 +2702,24 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Scope boundary:
   This changes packaging and evidence traceability only. It does not change
   model weights, route metrics, or dataset quality claims.
+
+### 2026-06-18 update - vLLM phase-script release surface
+
+- Change:
+  Added the `scripts/scd_vllm/run_00_*.sh` through `run_06_*.sh` phase
+  commands and `configs/scd_vllm_mvp.yaml` to the release preview/readiness
+  surface, and refreshed `reports/scd_vllm_repo_audit.md`.
+- Rationale:
+  `reports/scd_vllm_status.md` tells users to run the vLLM phase scripts, so a
+  release preview that omitted those scripts was not self-contained. The repo
+  audit also still named a stale `src/scd_vllm/scd_injection.py` file and
+  described TrueKV as an unresolved blocker, which conflicted with the current
+  A800 smoke evidence.
+- Verification:
+  Source readiness and release-preview readiness both pass. The generated
+  release preview contains all eight `scripts/scd_vllm` phase wrappers,
+  includes `configs/scd_vllm_mvp.yaml`, and has `0` `__pycache__` directories.
+  Full local tests remain `94 passed`.
+- Scope boundary:
+  This is release-surface hardening only. It does not alter route selection,
+  model artifacts, or dataset metric values.

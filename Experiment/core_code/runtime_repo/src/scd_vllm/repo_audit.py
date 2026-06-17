@@ -64,7 +64,15 @@ def _relative_files(root: Path, subdir: str, pattern: str) -> list[str]:
     base = root / subdir
     if not base.exists():
         return []
-    return sorted(str(path.relative_to(root)).replace("\\", "/") for path in base.rglob(pattern) if path.is_file())
+    files = []
+    for path in base.rglob(pattern):
+        if not path.is_file():
+            continue
+        rel = str(path.relative_to(root)).replace("\\", "/")
+        if "__pycache__/" in rel or rel.endswith((".pyc", ".pyo")):
+            continue
+        files.append(rel)
+    return sorted(files)
 
 
 def _missing_pieces(root: Path) -> list[str]:
@@ -75,7 +83,7 @@ def _missing_pieces(root: Path) -> list[str]:
         "src/scd_vllm/hf_export.py",
         "src/scd_vllm/vllm_baseline.py",
         "src/scd_vllm/truekv_oracle.py",
-        "src/scd_vllm/scd_injection.py",
+        "src/scd_vllm/injection.py",
         "configs/scd_vllm_mvp.yaml",
         "scripts/scd_vllm/run_02_hf_export.sh",
         "scripts/scd_vllm/run_03_vllm_baseline.sh",
@@ -93,7 +101,7 @@ def render_markdown(audit: RepoAudit) -> str:
     lines = [
         "# SCD vLLM Repo Audit",
         "",
-        f"- repo_root: `{audit.repo_root}`",
+        "- repo_root: `.`",
         f"- python: `{sys.version.split()[0]}`",
         "",
         "## Existing entry points",
@@ -142,14 +150,14 @@ def render_markdown(audit: RepoAudit) -> str:
         "- `src/scd_vllm/hf_export.py`: HF full-consumer reference bundle exporter.",
         "- `src/scd_vllm/vllm_baseline.py`: plain official vLLM baseline latency runner.",
         "- `src/scd_vllm/truekv_oracle.py`: vLLM TrueKV API inspection and future save/load correctness oracle.",
-        "- `src/scd_vllm/scd_injection.py`: future SCD reconstructed KV injection path, gated on TrueKV oracle pass.",
+        "- `src/scd_vllm/injection.py`: SCD reconstructed KV injection smoke path, gated by TrueKV and greedy decode checks.",
         "",
-        "## Risks before implementation",
+        "## Implementation/release risks",
         "",
         "- vLLM runtime phases require a Linux CUDA host; Windows local work should stay static/unit-test only.",
-        "- vLLM KVConnector APIs are version-sensitive; Phase 4 must inspect the installed vLLM source before coding against method names.",
+        "- vLLM KVConnector APIs are version-sensitive; keep Phase 4 inspection/oracle gates version-pinned to the installed vLLM source.",
         "- Current SCD evidence uses dataset-specific routes; the vLLM MVP must not assume a universal route.",
-        "- TrueKV oracle is the main blocker. SCD injection must remain skipped until TrueKV save/load is proven or fails loudly.",
+        "- This is not a production connector yet; KV lifecycle, concurrency, multi-tenant isolation, and request-level routing still need explicit engineering before serving claims.",
         "",
     ]
     return "\n".join(lines)
@@ -186,11 +194,15 @@ def main(argv: list[str] | None = None) -> int:
     audit = run_audit(args.repo_root)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_markdown(audit), encoding="utf-8")
+    out.write_text(render_markdown(audit), encoding="utf-8", newline="\n")
     if args.json_out:
         json_path = Path(args.json_out)
         json_path.parent.mkdir(parents=True, exist_ok=True)
-        json_path.write_text(json.dumps(audit_to_dict(audit), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        json_path.write_text(
+            json.dumps(audit_to_dict(audit), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
     print(f"wrote {out}")
     return 0
 

@@ -6118,3 +6118,37 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Recorded the experiment run as `run_c8494235f16247e7`; direct harvest found
   no additional parseable JSON experiment records beyond the explicit probe
   artifact.
+
+## 2026-06-18 - vLLM Phase-Script Release Surface Verification
+
+- Experiment id:
+  `release_vllm_phase_script_surface_20260618`.
+- Purpose:
+  Verify that the release preview is self-contained for the documented vLLM
+  integration phases, not only for the plugin Python modules.
+- Environment:
+  Windows local release tree verification in
+  `Experiment/core_code/runtime_repo`; static checks only. GPU runtime behavior
+  remains covered by the A800 `conda activate cache` smoke artifacts.
+- Inputs:
+  `scripts/scd_vllm/run_00_repo_audit.sh` through
+  `scripts/scd_vllm/run_06_report.sh`, `configs/scd_vllm_mvp.yaml`,
+  `reports/scd_vllm_repo_audit.md`, and `reports/scd_vllm_status.md`.
+- Method:
+  Expanded `build_release_tree.py` and `check_release_readiness.py` so the
+  vLLM phase wrappers, MVP config, complete vLLM modules, and vLLM tests are
+  part of the required release surface. Regenerated the repo audit after fixing
+  stale `scd_injection.py` naming and filtering local cache files.
+- Verification commands:
+  `python scripts\check_release_readiness.py`;
+  `python scripts\build_release_tree.py --out release_preview\scd_icml_runtime_release --force`;
+  `Get-ChildItem release_preview\scd_icml_runtime_release\scripts\scd_vllm`;
+  `$env:PYTHONPATH='src'; python -m pytest tests -q`.
+- Results:
+  Source readiness passed; release-preview readiness passed; all eight vLLM
+  phase wrappers are present in the preview; `configs/scd_vllm_mvp.yaml` is
+  present; preview `__pycache__` count is `0`; full tests report `94 passed`.
+- Analysis:
+  The release preview is now consistent with the vLLM status report's
+  reproduction commands. This is a packaging and traceability check, not a new
+  quality or latency benchmark.
