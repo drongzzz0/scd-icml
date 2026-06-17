@@ -39,6 +39,12 @@ route is a strict no-fallback/no-recompute mixed reuse+patch route. The doctor
 supports both raw `--reuse-ckpt/--patch-ckpt` paths and existing
 `--bundle-dir` artifacts.
 
+After converting a validated SCD bundle to `ExampleConnector` storage, use
+`scd-vllm batch-benchmark` for repeated-prefix connector throughput checks.
+This benchmark is intentionally narrow: it is a trusted/static-prefix
+microbenchmark and must not be reported as a general multi-tenant serving,
+privacy, arbitrary-routing, or dataset-quality claim.
+
 ## Required Lightweight Tests
 
 ```text
@@ -335,6 +341,11 @@ directories:
   for higher-Reuse raw-bank-to-vLLM plugin evidence.
 - `../../Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`
   for quality-first raw-bank-to-vLLM plugin evidence.
+- `../../Experiment/results/a800_qwen17_scd_vllm_batchbench_20260618_cache/`
+  for repeated-prefix trusted microbenchmark evidence. It shows the Qwen
+  `ExampleConnector` batch load path runs, but the measured SCD load throughput
+  is lower than the plain vLLM baseline and must not be used as a speedup
+  claim.
 - `../../Experiment/results/scd_vllm_multidataset_full_strict_20260617/` for
   full CMRC2018 and HotpotQA strict QA evidence.
 - `../../Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`

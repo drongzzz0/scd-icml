@@ -81,13 +81,16 @@ def test_plugin_cli_delegates_existing_commands(monkeypatch) -> None:
 
     monkeypatch.setattr("scd_vllm_plugin.cli.reconstructed_export.main", lambda argv: calls.append(("export", list(argv))) or 0)
     monkeypatch.setattr("scd_vllm_plugin.cli.injection.main", lambda argv: calls.append(("inject", list(argv))) or 0)
+    monkeypatch.setattr("scd_vllm_plugin.cli.batch_benchmark.main", lambda argv: calls.append(("batch", list(argv))) or 0)
 
     assert main(["export-bundle", "--out", "bundle"]) == 0
     assert main(["convert-bundle", "--bundle-dir", "bundle"]) == 0
     assert main(["smoke-test", "--bundle-dir", "bundle"]) == 0
+    assert main(["batch-benchmark", "--bundle-dir", "bundle"]) == 0
 
     assert calls == [
         ("export", ["--out", "bundle"]),
         ("inject", ["convert", "--bundle-dir", "bundle"]),
         ("inject", ["run", "--bundle-dir", "bundle"]),
+        ("batch", ["--bundle-dir", "bundle"]),
     ]

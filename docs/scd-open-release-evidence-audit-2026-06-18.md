@@ -103,6 +103,30 @@ This improves portability evidence for the plug-and-play adapter, but it is
 still not a release-facing Qwen speedup claim. The Qwen strict runtime table
 remains cautionary because it does not support Qwen acceleration.
 
+Additional Qwen batched SCD-vLLM evidence:
+
+- Batch benchmark artifact:
+  `Experiment/results/a800_qwen17_scd_vllm_batchbench_20260618_cache/`.
+- Model pair: Qwen3-1.7B producer -> Qwen3-1.7B-gray consumer.
+- Runtime: A800mql, `conda activate cache`, vLLM `0.18.0`,
+  `CUDA_VISIBLE_DEVICES=0`.
+- GPU selection: A800 GPUs `3,4,6,7` were busy during the 60-second idle check;
+  GPUs `0,1,2,5` were idle, so GPU `0` was used.
+- Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`, fallback/recompute
+  `0/0`.
+- Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
+- Result:
+  `benchmark_pass=True`, `load_generation_ok=True`,
+  `bundle_token_match=True`, `storage_ready=True`.
+- Throughput: SCD load `2000.185735` tokens/s; plain vLLM baseline
+  `6514.906148` tokens/s; load/baseline ratio `0.307017`.
+
+This proves the repeated-prefix `scd-vllm batch-benchmark` command and
+ExampleConnector load path work for the Qwen bundle. It also shows the current
+disk-backed connector path is slower than plain vLLM for this microbenchmark,
+so it should be reported as integration evidence and overhead risk, not a
+speedup result.
+
 ## Release Risk Notes
 
 - Do not present Qwen3-1.7B gray as a speedup result. It is additional-model
@@ -116,5 +140,8 @@ remains cautionary because it does not support Qwen acceleration.
 - Do not use F1/EM as the WikiText-2 acceptance metric.
 - Do not claim privacy or multi-tenant safety for reused KV caches without a
   separate isolation design and evaluation.
+- Do not present the Qwen batched ExampleConnector run as a throughput
+  improvement; it passed functionally but was slower than plain vLLM in the
+  checked repeated-prefix microbenchmark.
 - Use `patch20_reuse12` for the higher-Reuse/speed demo and `patch26_reuse6`
   for quality-first CMRC2018 and WikiText-2 demonstrations.

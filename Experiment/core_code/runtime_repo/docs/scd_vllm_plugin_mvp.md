@@ -91,6 +91,27 @@ scd-vllm run \
   --overwrite
 ```
 
+After a bundle has been converted to `ExampleConnector` storage, run a
+repeated-prefix batch microbenchmark:
+
+```bash
+scd-vllm batch-benchmark \
+  --bundle-dir runs/scd_vllm/my_plugin_run/reuse_patch_bundle \
+  --storage-dir runs/scd_vllm/my_plugin_run/example_connector_storage \
+  --model /path/to/consumer \
+  --batch-size 64 \
+  --num-batches 3 \
+  --warmup-batches 1 \
+  --max-new-tokens 16 \
+  --out runs/scd_vllm/my_batch_bench \
+  --enforce-eager \
+  --disable-hybrid-kv-cache-manager
+```
+
+This benchmark intentionally repeats one validated prefix. Treat it as a
+trusted, static-prefix connector throughput check. It is not evidence for
+multi-tenant safety, arbitrary prompt routing, or dataset-level quality.
+
 ## Python API
 
 ```python
@@ -124,5 +145,5 @@ The plugin is useful as a reproducible integration layer:
 3. Load it through vLLM and verify deterministic smoke generation.
 
 The next production step is replacing disk-backed `ExampleConnector` storage
-with a dedicated SCD connector that can manage in-memory KV lifecycle, batching,
-and request-level routing.
+with a dedicated SCD connector that can manage in-memory KV lifecycle,
+concurrent request isolation, and request-level routing.

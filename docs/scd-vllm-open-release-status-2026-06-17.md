@@ -351,6 +351,42 @@ now has an actual SCD-vLLM raw-bank plugin smoke, not only a plain vLLM
 baseline. It still must not be reported as a Qwen speedup result; Qwen quality
 and speed remain bounded by the strict runtime table below.
 
+## Additional Qwen3-1.7B Gray Batched SCD-vLLM Benchmark
+
+Artifact:
+
+- `Experiment/results/a800_qwen17_scd_vllm_batchbench_20260618_cache/`
+
+This run validates the public `scd-vllm batch-benchmark` command on the same
+Qwen3-1.7B -> Qwen3-1.7B-gray bundle as a repeated-prefix trusted
+microbenchmark:
+
+- Host: A800mql.
+- Environment: `conda activate cache`.
+- Code snapshot: `runtime_repo_codex_batchbench_20260618`.
+- vLLM: `0.18.0`.
+- Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`.
+- Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
+- GPU selection: A800 GPUs `3,4,6,7` were busy during a 60-second check; GPUs
+  `0,1,2,5` stayed at `0` utilization; the run used `CUDA_VISIBLE_DEVICES=0`.
+
+Result:
+
+| Check | Value |
+| --- | ---: |
+| Batch benchmark pass | `true` |
+| Load generation OK | `true` |
+| Bundle token match | `true` |
+| Storage ready | `true` |
+| Load tokens/s | `2000.185735` |
+| Plain vLLM baseline tokens/s | `6514.906148` |
+| Load/Baseline tokens/s ratio | `0.307017` |
+
+Interpretation: this closes the missing batched-command evidence gap for the
+plugin, but it does not support a Qwen speedup claim. In this checked
+ExampleConnector microbenchmark, SCD load is slower than plain vLLM, so this
+result should be framed as integration evidence and an overhead warning.
+
 ## Additional Qwen3-1.7B Gray Risk Check
 
 Artifacts:

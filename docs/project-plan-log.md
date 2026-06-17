@@ -2766,3 +2766,25 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   This is adapter portability evidence. It still does not support a Qwen
   speedup claim, because the strict Qwen full-dataset runtime evidence remains
   cautionary on latency.
+
+### 2026-06-18 update - Qwen SCD-vLLM batch benchmark gate
+
+- Change:
+  Added a public `scd-vllm batch-benchmark` command, tests, release-readiness
+  checks, and A800 evidence for the Qwen3-1.7B -> Qwen3-1.7B-gray
+  `paper_scd_reuse_patch_k6` bundle.
+- Rationale:
+  The plug-and-play vLLM story had doctor and single-prefix smoke evidence but
+  no batched command evidence. The new gate checks the repeated-prefix
+  `ExampleConnector` load path without turning it into a production serving or
+  multi-tenant safety claim.
+- Verification:
+  On A800mql with `conda activate cache`, GPUs `3,4,6,7` were busy during the
+  idle check; GPUs `0,1,2,5` stayed idle, so the benchmark used GPU `0`.
+  `batch_size=128`, `num_batches=3`, expected requests `384`;
+  `benchmark_pass=True`, `load_generation_ok=True`,
+  `bundle_token_match=True`, and `storage_ready=True`.
+- Scope boundary:
+  The measured SCD load path reached `2000.185735` tokens/s versus plain vLLM
+  baseline `6514.906148` tokens/s, so this is integration/overhead evidence
+  only. It must not be advertised as a Qwen throughput speedup.

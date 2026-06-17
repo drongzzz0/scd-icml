@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from scd_vllm import injection, reconstructed_export
+from scd_vllm import batch_benchmark, injection, reconstructed_export
 
 from . import doctor
 from .engine import SCDVLLMConfig, SCDVLLMEngine
@@ -24,6 +24,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return injection.main(["convert", *rest])
     if command == "smoke-test":
         return injection.main(["run", *rest])
+    if command == "batch-benchmark":
+        return batch_benchmark.main(rest)
     if command == "doctor":
         return doctor.main(rest)
     if command == "run":
@@ -126,6 +128,7 @@ def _print_help(file=None) -> None:
                 "  export-bundle   Forward to scd_vllm.reconstructed_export",
                 "  convert-bundle  Convert an SCD bundle to vLLM ExampleConnector storage",
                 "  smoke-test      Run vLLM baseline/load smoke test for an existing bundle",
+                "  batch-benchmark Run repeated-prefix batched vLLM load benchmark for an existing bundle/storage pair",
                 "  doctor          Check plugin prerequisites and strict route coverage",
                 "  run             Export a bundle, convert it, and run the smoke test",
                 "",
@@ -135,6 +138,7 @@ def _print_help(file=None) -> None:
                 "  scd-vllm export-bundle --producer-model ... --consumer-model ... --reuse-ckpt ... --patch-ckpt ... --route ... --out runs/scd_vllm/my_bundle",
                 "  scd-vllm convert-bundle --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --overwrite",
                 "  scd-vllm smoke-test --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --out runs/scd_vllm/my_smoke --overwrite",
+                "  scd-vllm batch-benchmark --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --batch-size 64 --out runs/scd_vllm/my_batch_bench",
             ]
         )
         + "\n"

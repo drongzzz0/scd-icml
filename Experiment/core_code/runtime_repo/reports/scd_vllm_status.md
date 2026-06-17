@@ -167,6 +167,47 @@ The vLLM log reported `External Cache Hit!` and
 Greedy equality is not required for reconstructed SCD bundles in this smoke
 gate; full-dataset quality for Qwen remains the strict runtime result below.
 
+## Additional Model Batched vLLM Benchmark Evidence
+
+This is a repeated-prefix trusted microbenchmark for the same Qwen3-1.7B ->
+Qwen3-1.7B-gray `paper_scd_reuse_patch_k6` bundle. It checks the public
+`scd-vllm batch-benchmark` command and the vLLM `ExampleConnector` load path
+under a batched request shape. It is not a general serving-speed,
+multi-tenant, privacy, or dataset-quality claim.
+
+Artifact:
+
+- `../../Experiment/results/a800_qwen17_scd_vllm_batchbench_20260618_cache/`
+
+Run boundary:
+
+- Host: A800mql, `conda activate cache`, vLLM `0.18.0`.
+- Code snapshot: `runtime_repo_codex_batchbench_20260618`.
+- GPU selection: A800 GPUs `3,4,6,7` were sampled for 60 seconds and stayed
+  busy; GPUs `0,1,2,5` stayed at `0` utilization, so the run used
+  `CUDA_VISIBLE_DEVICES=0`.
+- vLLM load stage used `--disable-hybrid-kv-cache-manager` because
+  `ExampleConnector` does not support HMA.
+
+| Check | Value |
+| --- | ---: |
+| Batch benchmark | `pass` |
+| Route | `paper_scd_reuse_patch_k6` |
+| Patch / Reuse layers | `6 / 22` |
+| Batch size / batches | `128 / 3` |
+| Expected requests | `384` |
+| Load generation OK | `true` |
+| Bundle token match | `true` |
+| Storage ready | `true` |
+| Load tokens/s | `2000.185735` |
+| Baseline tokens/s | `6514.906148` |
+| Load/Baseline tokens/s ratio | `0.307017` |
+
+Interpretation: batched SCD-vLLM loading works and reports positive throughput,
+but the current disk-backed `ExampleConnector` path is slower than plain vLLM
+for this Qwen repeated-prefix microbenchmark. This strengthens integration
+evidence, not a speedup claim.
+
 ## Dataset Quality Evidence
 
 Dataset quality is measured by the strict HF/SCD runtime, not by the vLLM
@@ -207,6 +248,9 @@ train/eval leakage artifact.
 - Qwen3-1.7B plain-vLLM baseline and Qwen raw-bank-to-vLLM smoke evidence only
   prove current A800 vLLM compatibility and adapter portability for the second
   model family.
+- Qwen3-1.7B batched benchmark evidence proves the repeated-prefix
+  `ExampleConnector` path runs, but the measured load path is slower than
+  plain vLLM in the checked microbenchmark.
 - Model loading from NAS dominates smoke runtime and is not an SCD speed result.
 
 ## Reproduction Commands

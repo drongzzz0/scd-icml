@@ -6244,3 +6244,49 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Harvest recorded `harvest_c6fa1d1d15daaf1b`,
   `harvest_c11d19bd735cb841`, and `harvest_82d02c54a125e7ad`;
   structured run recorded `run_aec7378b4554436b`.
+
+## 2026-06-18 - A800 Qwen3-1.7B Gray SCD-vLLM Batch Benchmark
+
+- Experiment id:
+  `a800_qwen17_scd_vllm_batchbench_20260618_cache`.
+- Purpose:
+  Validate the public `scd-vllm batch-benchmark` command and the batched
+  repeated-prefix `ExampleConnector` load path for the Qwen3-1.7B ->
+  Qwen3-1.7B-gray strict SCD bundle.
+- Environment:
+  Host `A800mql`; activation `conda activate cache`; code snapshot
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_batchbench_20260618`;
+  vLLM `0.18.0`; `CUDA_VISIBLE_DEVICES=0`.
+- GPU selection:
+  A800 GPUs `3,4,6,7` were sampled for 60 seconds and remained busy. GPUs
+  `0,1,2,5` stayed at `0` utilization, so GPU `0` was selected.
+- Inputs:
+  Consumer model
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`; bundle
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/reuse_patch_qwen17_gray_cmrc_route`;
+  storage
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/example_connector_storage`.
+- Method:
+  Ran `python -m scd_vllm_plugin.cli batch-benchmark` with
+  `batch_size=128`, `num_batches=3`, `warmup_batches=1`,
+  `max_new_tokens=16`, `dtype=bfloat16`, `max_model_len=256`,
+  `gpu_memory_utilization=0.35`, `enforce_eager=True`, and
+  `--disable-hybrid-kv-cache-manager`. The command measured a plain vLLM
+  baseline stage and an SCD load stage in separate subprocesses.
+- Outputs:
+  `Experiment/results/a800_qwen17_scd_vllm_batchbench_20260618_cache/`.
+- Results:
+  `benchmark_pass=True`; `route_id=paper_scd_reuse_patch_k6`; patch/reuse
+  `6/22`; expected requests `384`; `load_generation_ok=True`;
+  `bundle_token_match=True`; `storage_ready=True`. SCD load throughput was
+  `2000.185735` tokens/s and `125.011608` requests/s. Plain vLLM baseline
+  throughput was `6514.906148` tokens/s and `407.181634` requests/s. The
+  load/baseline ratio was `0.307017`.
+- Analysis:
+  The batch path functions and reports positive throughput, but the current
+  disk-backed `ExampleConnector` path is slower than plain vLLM in this
+  repeated-prefix microbenchmark. Treat this as integration and overhead-risk
+  evidence, not as a Qwen speedup result.
+- ResearchKB:
+  Harvest recorded `harvest_b686e6617ed38a60`; structured run recorded
+  `run_46116bf79b924d40`.
