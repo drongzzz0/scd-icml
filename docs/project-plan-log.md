@@ -2665,3 +2665,22 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Design choice:
   Keep `patch20_reuse12` as the higher-Reuse/speed demo route, but allow
   `patch26_reuse6` to be presented as the quality-first vLLM-validated route.
+
+### 2026-06-18 update - release preview vLLM packaging gate
+
+- Change:
+  Fixed `scripts/build_release_tree.py` so the release preview includes
+  `docs/scd_vllm_plugin_mvp.md`, `src/scd_vllm/`, and
+  `src/scd_vllm_plugin/`; added `tests/test_release_tree_script.py` to build
+  the preview and assert the vLLM plugin surface is present.
+- Rationale:
+  The source tree readiness check passed, but the generated preview omitted
+  the vLLM plugin files required by the `scd-vllm` console script. This made
+  the release artifact weaker than the checked source tree.
+- Verification:
+  `python scripts/build_release_tree.py --out release_preview/scd_icml_runtime_release --force`
+  now passes preview readiness and leaves `0` `__pycache__` directories.
+  Full local tests now report `94 passed`.
+- Scope boundary:
+  This is a packaging/release gate fix; it does not change route metrics or
+  dataset quality claims.

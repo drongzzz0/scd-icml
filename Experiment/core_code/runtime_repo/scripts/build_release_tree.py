@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,7 @@ ROOT_FILES = [
     "REPRODUCING_SCD_ICML.md",
     "DATA_PREPARATION.md",
     "OPEN_SOURCE_RELEASE_MANIFEST.md",
+    "docs/scd_vllm_plugin_mvp.md",
     "pyproject.toml",
 ]
 
@@ -79,6 +81,8 @@ SCRIPT_FILES = [
 
 COPY_DIRS = [
     "src/scd_repro",
+    "src/scd_vllm",
+    "src/scd_vllm_plugin",
     "tests",
 ]
 
@@ -170,7 +174,9 @@ def write_report(root: Path, out: Path, included: list[str]) -> None:
 
 def run_check(out: Path) -> None:
     cmd = [sys.executable, str(out / "scripts" / "check_release_readiness.py"), "--root", str(out)]
-    subprocess.run(cmd, check=True)
+    env = dict(os.environ)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    subprocess.run(cmd, check=True, env=env)
 
 
 def main() -> None:
