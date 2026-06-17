@@ -9,6 +9,8 @@ can support.
 
 - Model path: MistralLite producer -> Mistral-7B consumer.
 - Qwen32B is not release-facing in this branch.
+- Qwen3-1.7B -> Qwen3-1.7B-gray is tracked only as additional-model risk
+  evidence, not as release-facing speedup evidence.
 - Routes are dataset- and objective-specific. Do not claim one universal route.
 - Strict SCD evidence must use reuse+patch only:
   - `fallback_layers=[]`
@@ -124,3 +126,24 @@ Interpretation:
 - Do not claim privacy or multi-tenant safety for reused KV caches. The release
   should frame SCD-vLLM as suitable for trusted or controlled deployments unless
   isolation and policy checks are added.
+
+## Additional Qwen3-1.7B Gray Risk Check
+
+Artifacts:
+
+`Experiment/results/qwen17_gray_full_strict_microsharded_20260617/`
+
+This strict no-fallback/no-recompute route uses Qwen3-1.7B ->
+Qwen3-1.7B-gray with patch layers `[0, 22, 24, 25, 26, 27]` and reuse layers
+covering the remaining 22 layers. Calibration/training used CMRC2018 train
+samples; evaluation used full CMRC2018 dev, HotpotQA dev, and WikiText-2 test.
+
+| Dataset | Samples | Full F1 / EM | SCD F1 / EM | Delta F1 / EM | Total Speedup | TTFT Speedup |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CMRC2018 | 3219 | `0.748358 / 0.440509` | `0.782770 / 0.504815` | `+0.034411 / +0.064306` | `0.950x` | `0.592x` |
+| HotpotQA | 7405 | `0.033071 / 0.007292` | `0.038549 / 0.010533` | `+0.005479 / +0.003241` | `0.802x` | `0.268x` |
+| WikiText-2 | 763 | `0.245261 / 0.000000` | `0.236718 / 0.000000` | `-0.008543 / +0.000000` | `1.007x` | `1.123x` |
+
+Interpretation: this result supports strict route coverage and split discipline
+on an additional model pair, but it does not support a Qwen speedup claim.
+Keep it as cautionary evidence for route portability.

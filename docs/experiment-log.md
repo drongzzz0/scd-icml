@@ -5785,3 +5785,38 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   - The correct next step is to materialize or point to the actual text
     Qwen2.5-32B base/instruct checkpoints, then rerun the guarded wrapper when
     at least two A800 GPUs remain idle with sufficient free memory.
+
+## 2026-06-18 - Qwen3-1.7B Gray Full Strict Evaluation
+
+- Experiment id:
+  `extra_model_qwen17_gray_full_strict_20260617_223703`.
+- Purpose:
+  Add a strict no-fallback/no-recompute extra-model check for
+  Qwen3-1.7B -> Qwen3-1.7B-gray on full evaluation datasets.
+- Data split discipline:
+  CMRC2018 train samples were used for calibration/training. Evaluation used
+  CMRC2018 dev, HotpotQA dev, and WikiText-2 test.
+- Route:
+  `route_qwen17_gray_patch6_seed42.json`, with patch layers
+  `[0, 22, 24, 25, 26, 27]` and reuse layers
+  `[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23]`.
+  The route has no fallback layers and no recompute layers.
+- CMRC2018 dev (`3219` samples):
+  Full Consumer F1/EM `0.748358 / 0.440509`; SCD reuse+patch F1/EM
+  `0.782770 / 0.504815`; total speedup `0.950069`; TTFT speedup
+  `0.591745`.
+- HotpotQA dev (`7405` samples):
+  Full Consumer F1/EM `0.033071 / 0.007292`; SCD reuse+patch F1/EM
+  `0.038549 / 0.010533`; total speedup `0.801846`; TTFT speedup
+  `0.267766`.
+- WikiText-2 test (`763` samples):
+  Full Consumer F1-like/EM `0.245261 / 0.000000`; SCD reuse+patch
+  F1-like/EM `0.236718 / 0.000000`; total speedup `1.007005`; TTFT speedup
+  `1.122838`.
+- Interpretation:
+  This is not release-facing speedup evidence. It is a strictness and risk
+  result: QA F1/EM is preserved or improved, but QA latency is worse and
+  NLL/PPL deteriorates. Only WikiText-2 shows a small speed win with a small
+  quality drop.
+- Artifacts:
+  `Experiment/results/qwen17_gray_full_strict_microsharded_20260617/`.

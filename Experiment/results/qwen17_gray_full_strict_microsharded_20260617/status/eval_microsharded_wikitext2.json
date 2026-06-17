@@ -1,0 +1,9 @@
+{
+  "stage": "eval_microsharded_wikitext2",
+  "success": true,
+  "exit_code": 0,
+  "start_epoch_sec": 1781718747,
+  "end_epoch_sec": 1781719419,
+  "wall_clock_sec": 672,
+  "written_at": "2026-06-18T02:03:39+0800"
+}

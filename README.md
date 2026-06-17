@@ -10,6 +10,8 @@ The release-facing runtime is:
 The paper-facing evidence boundary is:
 
 - Non-Qwen only. Qwen32B is explicitly out of scope for this branch.
+- Qwen3-1.7B -> Qwen3-1.7B-gray artifacts are retained only as additional
+  risk/portability evidence, not as release-facing speedup claims.
 - Dataset-specific routes are used instead of one universal route:
   - CMRC2018: `Reuse19/Patch13`
   - HotpotQA-compressed full7405: `Reuse06/Patch26`
@@ -28,6 +30,7 @@ The paper-facing evidence boundary is:
 - `docs/scd-icml-full-paper-reproduction-matrix-2026-06-11.md`
 - `docs/scd-icml-reproduction-coverage-audit-2026-06-11.md`
 - `Experiment/results/paper_artifact_bundle_final_neighboring_checked_20260611_001/`
+- `Experiment/results/qwen17_gray_full_strict_microsharded_20260617/`
 
 ## Verification Snapshot
 
