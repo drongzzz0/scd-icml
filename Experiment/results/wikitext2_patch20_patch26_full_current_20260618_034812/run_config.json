@@ -1,0 +1,19 @@
+{
+  "root": "/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618",
+  "data_root": "/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854",
+  "source_run": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222",
+  "reuse_dir": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222/ckpt_reuse/layerwise_seed42",
+  "patch_dir": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222/ckpt_patch/native_alllayers_seed42",
+  "patch20_route": "/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
+  "patch26_route": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/route_ablation_cmrcbank_20260617_1253/routes/patch26_reuse6.json",
+  "datasets": "wikitext2",
+  "eval_limit": 0,
+  "cmrc_split": "dev",
+  "method_config": "configs/eval_scd_icml_full_scd_no_fallback_no_recompute.json",
+  "fallback_allowed": false,
+  "recompute_allowed": false,
+  "gpu_assignment": {
+    "patch20_reuse12": "0,1",
+    "patch26_reuse6": "2,3"
+  }
+}

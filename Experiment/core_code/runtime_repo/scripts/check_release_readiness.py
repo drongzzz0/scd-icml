@@ -40,6 +40,7 @@ REQUIRED_FILES = [
     "configs/route_reuse_patchonly_all32_20260404.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
+    "configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json",
     "scripts/run_ser_scd_icml_mistral_repro.sh",
     "scripts/run_ser_scd_icml_patchonly_anchor.sh",
     "scripts/run_ser_scd_icml_parallel_patch_shards.sh",
@@ -124,6 +125,7 @@ JSON_FILES = [
     "configs/route_reuse_patchonly_all32_20260404.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
+    "configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json",
 ]
 
 PY_COMPILE_FILES = [
@@ -643,6 +645,43 @@ def check_vllm_demo_route(root: Path, errors: list[str]) -> None:
         fail(errors, "vLLM demo route reference EM retention must be at least 0.95")
 
 
+def check_quality_reference_route(root: Path, errors: list[str]) -> None:
+    path = root / "configs" / "routes" / "scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json"
+    if not path.is_file():
+        return
+    route = json.loads(path.read_text(encoding="utf-8-sig"))
+    patch_layers = [int(layer) for layer in route.get("patch_layers", [])]
+    reuse_layers = [int(layer) for layer in route.get("reuse_layers", [])]
+    num_layers = int(route.get("num_layers", 0))
+    if route.get("route_semantics") != "paper_scd_sparse_patch_reuse_all_other_layers":
+        fail(errors, f"quality reference route has wrong semantics: {route.get('route_semantics')!r}")
+    if len(reuse_layers) != 6 or len(patch_layers) != 26:
+        fail(errors, f"quality reference route should be Reuse6/Patch26, got reuse={len(reuse_layers)} patch={len(patch_layers)}")
+    if route.get("fallback_layers") != []:
+        fail(errors, f"quality reference route fallback_layers must be empty, got {route.get('fallback_layers')}")
+    if route.get("selected_recompute_layers") != [] or route.get("recompute_segment_length_by_layer") != {}:
+        fail(errors, "quality reference route must not use recompute")
+    if set(patch_layers) & set(reuse_layers):
+        fail(errors, f"quality reference route has patch/reuse overlap: {sorted(set(patch_layers) & set(reuse_layers))}")
+    if num_layers and set(patch_layers) | set(reuse_layers) != set(range(num_layers)):
+        fail(errors, "quality reference route patch+reuse layers must cover all layers")
+    ref = route.get("metadata", {}).get("reference_result", {})
+    cmrc = ref.get("cmrc2018", {})
+    full_f1 = float(cmrc.get("full_consumer_f1", 0.0))
+    full_em = float(cmrc.get("full_consumer_em", 0.0))
+    scd_f1 = float(cmrc.get("scd_f1", 0.0))
+    scd_em = float(cmrc.get("scd_em", 0.0))
+    if full_f1 <= 0.0 or scd_f1 < 0.95 * full_f1:
+        fail(errors, "quality reference route CMRC F1 retention must be at least 0.95")
+    if full_em <= 0.0 or scd_em < 0.95 * full_em:
+        fail(errors, "quality reference route CMRC EM retention must be at least 0.95")
+    wikitext = ref.get("wikitext2", {})
+    full_ppl = float(wikitext.get("full_consumer_ppl", 0.0))
+    scd_ppl = float(wikitext.get("scd_ppl", 0.0))
+    if full_ppl <= 0.0 or scd_ppl <= 0.0:
+        fail(errors, "quality reference route WikiText-2 PPL evidence is missing")
+
+
 def check_model_template(root: Path, errors: list[str]) -> None:
     path = root / "configs" / "models_mistrallite_to_mistral7_template.json"
     if not path.is_file():
@@ -814,6 +853,7 @@ def main() -> None:
         check_paper_scd_route_semantics(root, errors)
         check_selected_route(root, errors)
         check_vllm_demo_route(root, errors)
+        check_quality_reference_route(root, errors)
         check_model_template(root, errors)
         check_reuse_train_config(root, errors)
         check_patch_train_config(root, errors)

@@ -70,6 +70,7 @@ configs/route_selection.yaml
 configs/route_reuse_patchonly_all32_20260404.json
 configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json
 configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json
+configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json
 ```
 
 `eval_scd_icml_no_fallback_no_recompute.json` is the release-facing aggregate
@@ -87,7 +88,8 @@ The `reuse19_patch13` route is the paper-aligned maximum-Reuse reference for
 the current Mistral evidence package. The `patch20_reuse12` route is the
 current vLLM plugin demo route because it has full CMRC2018/HotpotQA quality
 evidence and passes the reconstructed vLLM greedy smoke check from raw trained
-Reuse/Patch banks.
+Reuse/Patch banks. The `patch26_reuse6` route is the current quality-first
+reference route for CMRC2018 and WikiText-2.
 
 ## Required Scripts
 

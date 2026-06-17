@@ -5984,3 +5984,46 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   was rebuilt with stable local names.
 - Artifacts:
   `Experiment/results/a800_scd_vllm_raw_bank_patch20_run_20260618_032217/`.
+
+## 2026-06-18 - Full WikiText-2 Strict Evaluation for patch20/reuse12 and patch26/reuse6
+
+- Experiment id:
+  `wikitext2_patch20_patch26_full_current_20260618_034812`.
+- Purpose:
+  Complete the MistralLite -> Mistral-7B three-dataset evidence matrix by
+  evaluating strict reuse+patch routes on full WikiText-2 test data.
+- Environment:
+  Host `ser`; runtime directory
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618`;
+  environment activated through
+  `/disk_n/c101-3-mql/venvs/A800/bin/activate`; GPUs `0,1,2,3` were sampled
+  for 60 seconds with zero utilization before launch. `patch20_reuse12` used
+  GPUs `0,1`; `patch26_reuse6` used GPUs `2,3`.
+- Inputs:
+  WikiText-2 data
+  `/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854/data/wikitext-2/wiki.test.txt`;
+  reuse bank
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222/ckpt_reuse/layerwise_seed42`;
+  patch bank
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222/ckpt_patch/native_alllayers_seed42`.
+- Method:
+  Ran `scripts/run_ser_scd_icml_eval_existing_route.sh` twice in parallel with
+  `DATASETS=wikitext2`, `EVAL_LIMIT=0`,
+  `configs/eval_scd_icml_full_scd_no_fallback_no_recompute.json`, and strict
+  fixed routes. The route validator passed before launch for both routes.
+- Results:
+  - Both runs completed with exit code `0`.
+  - Samples: `763` for both routes.
+  - `patch20_reuse12`: Full NLL/PPL `1.983874 / 7.270854`; SCD NLL/PPL
+    `2.381655 / 10.822796`; delta NLL `+0.397781`; TTFT speedup `1.741x`;
+    total speedup `1.072x`; compression `0.615385`.
+  - `patch26_reuse6`: Full NLL/PPL `1.983874 / 7.270854`; SCD NLL/PPL
+    `2.206730 / 9.085953`; delta NLL `+0.222856`; TTFT speedup `1.642x`;
+    total speedup `1.076x`; compression `0.551724`.
+- Analysis:
+  WikiText-2 uses NLL/PPL as the relevant language-modeling quality metrics.
+  Both strict routes speed up TTFT but degrade PPL versus Full Consumer.
+  `patch26_reuse6` is the better quality route on WikiText-2, while
+  `patch20_reuse12` remains the faster and higher-Reuse vLLM demo route.
+- Artifacts:
+  `Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`.

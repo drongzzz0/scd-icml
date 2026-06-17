@@ -180,12 +180,51 @@ Interpretation:
 - GPU `7` was selected for the parallel patch26 run only after a 60-second idle
   check, and both routes validated strict reuse+patch-only before launch.
 
+## WikiText-2 Full Test Result
+
+Run root:
+
+`/disk_n/c101-3-mql/projects/SCD-ICML/runs/wikitext2_patch20_patch26_full_current_20260618_034812`
+
+Branch-local artifacts:
+
+`Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`
+
+Data:
+
+- WikiText-2 `wiki.test.txt`, loaded as `763` samples.
+- Reuse/patch banks are the CMRC train-200 banks. This is a cross-dataset
+  language-modeling generalization test, not WikiText-trained reuse/patch.
+- Full sample evaluation used `EVAL_LIMIT=0`.
+- Methods evaluated: Full Consumer and strict `reuse_patch` only.
+- The two routes were launched in parallel on ser GPUs `0,1` and `2,3` after a
+  60-second zero-utilization check.
+
+For WikiText-2, NLL/PPL are the primary quality metrics; F1/EM are not the
+acceptance metrics for language modeling.
+
+| Route | Full NLL / PPL | SCD NLL / PPL | Delta NLL | Full TTFT | SCD TTFT | TTFT Speedup | Total Speedup | Compression |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `patch20_reuse12` | `1.983874 / 7.270854` | `2.381655 / 10.822796` | `+0.397781` | `62.404 ms` | `35.840 ms` | `1.741x` | `1.072x` | `0.615385` |
+| `patch26_reuse6` | `1.983874 / 7.270854` | `2.206730 / 9.085953` | `+0.222856` | `61.302 ms` | `37.343 ms` | `1.642x` | `1.076x` | `0.551724` |
+
+Interpretation:
+
+- Both routes speed up TTFT on full WikiText-2 but degrade PPL versus Full
+  Consumer.
+- `patch26_reuse6` is the safer quality route for WikiText-2 because it has a
+  lower SCD NLL/PPL than `patch20_reuse12`.
+- `patch20_reuse12` remains faster and uses more Reuse, so it is still the
+  current vLLM plugin demo route rather than the quality-first WikiText route.
+
 ## Release Guidance
 
 - Keep `patch20_reuse12` as the current vLLM plugin demo route until a stricter
   or higher-reuse route passes the same reconstructed vLLM greedy checks. It
-  now has full CMRC and full HotpotQA F1/EM evidence.
+  now has full CMRC, full HotpotQA, and full WikiText-2 evidence.
 - For quality-first CMRC claims, prefer `patch26_reuse6`.
+- For quality-first WikiText-2 claims, prefer `patch26_reuse6`, while clearly
+  reporting that both strict routes increase PPL versus Full Consumer.
 - For speed/reuse-first CMRC claims, `patch20_reuse12` is a better trade-off.
 - Do not claim privacy or multi-tenant safety for reused KV caches. The release
   should frame SCD-vLLM as suitable for trusted or controlled deployments unless

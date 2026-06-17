@@ -1,0 +1,89 @@
+{
+  "route_version": "teacher_aligned_patch_reuse_v1",
+  "name": "scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200",
+  "num_layers": 32,
+  "route_semantics": "paper_scd_sparse_patch_reuse_all_other_layers",
+  "reuse_layers": [
+    24, 25, 27, 28, 29, 30
+  ],
+  "patch_layers": [
+    0, 1, 2, 3, 4, 5, 6, 7,
+    8, 9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23,
+    26, 31
+  ],
+  "selected_patch_layers": [
+    0, 1, 2, 3, 4, 5, 6, 7,
+    8, 9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23,
+    26, 31
+  ],
+  "fallback_layers": [],
+  "selected_recompute_layers": [],
+  "recompute_segment_length_by_layer": {},
+  "paper_constraints": {
+    "online_route_search": false,
+    "t_fill": 0,
+    "patch_and_reuse_cover_all_layers": true,
+    "selection_source": "cmrc200_route_ablation_quality_speed_tradeoff",
+    "fallback_layers_allowed": false,
+    "recompute_allowed": false
+  },
+  "source": {
+    "profile": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222/profile/profile_cmrc2018_train_seed42.json",
+    "patch_meta": "/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222/ckpt_patch/native_alllayers_seed42/meta.json",
+    "models_config": "configs/models_ser_mistrallite_to_mistral7_mql.json",
+    "selection_source": "profile_gain_top_k",
+    "patch_budget": 26,
+    "trained_patch_layers": [
+      0, 1, 2, 3, 4, 5, 6, 7,
+      8, 9, 10, 11, 12, 13, 14, 15,
+      16, 17, 18, 19, 20, 21, 22, 23,
+      24, 25, 26, 27, 28, 29, 30, 31
+    ]
+  },
+  "metadata": {
+    "model_pair": "MistralLite_to_Mistral-7B-v0.1",
+    "dataset": "CMRC2018 train-200 bank; full CMRC2018, HotpotQA, and WikiText-2 evaluation",
+    "selection_metric": "quality_first_route_with_strict_f1_em_retention_and_lower_wikitext2_ppl_than_patch20",
+    "primary_quality_metrics": ["F1", "EM", "avg_nll", "avg_ppl"],
+    "auxiliary_risk_metrics": ["ttft_ms", "payload_mb", "compression_ratio"],
+    "reference_result": {
+      "cmrc2018": {
+        "samples": 3219,
+        "full_consumer_f1": 0.7442529548886166,
+        "full_consumer_em": 0.47778813296054673,
+        "scd_f1": 0.8379654819422618,
+        "scd_em": 0.5852749301025163,
+        "ttft_speedup": 2.062,
+        "total_speedup": 2.422,
+        "compression_ratio": 0.5517241379310345
+      },
+      "hotpotqa": {
+        "samples": 7405,
+        "full_consumer_f1": 0.2861087162089188,
+        "full_consumer_em": 0.20810263335584065,
+        "scd_f1": 0.292555440942834,
+        "scd_em": 0.2237677245104659,
+        "full_consumer_nll": 1.6001613906333856,
+        "full_consumer_ppl": 4.953831861944399,
+        "scd_nll": 1.8457910028508977,
+        "scd_ppl": 6.333107315599301,
+        "ttft_speedup": 1.466,
+        "total_speedup": 6.109,
+        "compression_ratio": 0.5517241379310345
+      },
+      "wikitext2": {
+        "samples": 763,
+        "full_consumer_nll": 1.9838737528112034,
+        "full_consumer_ppl": 7.270853993556787,
+        "scd_nll": 2.206729559489034,
+        "scd_ppl": 9.085952681614671,
+        "ttft_speedup": 1.6416067061985415,
+        "total_speedup": 1.0756814205644061,
+        "payload_mb": 28.87291120576671,
+        "compression_ratio": 0.5517241379310345
+      }
+    }
+  }
+}

@@ -2605,3 +2605,23 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Scope boundary:
   This remains integration evidence for the vLLM plugin path. Dataset quality
   claims should continue to cite the full CMRC2018 and HotpotQA F1/EM runs.
+
+### 2026-06-18 update - full WikiText-2 evidence for Mistral release routes
+
+- Change:
+  Added full WikiText-2 strict evaluation evidence for `patch20_reuse12` and
+  `patch26_reuse6`, and added the `patch26_reuse6` route config to the release
+  tree as the quality-first reference route.
+- Rationale:
+  The release status already had full CMRC2018 and HotpotQA evidence, but the
+  Mistral three-dataset matrix lacked current full WikiText-2 evidence for the
+  same strict no-fallback/no-recompute routes.
+- Verification:
+  On `ser`, GPUs `0,1,2,3` were idle for 60 seconds before launch.
+  `wikitext2_patch20_patch26_full_current_20260618_034812` completed with
+  `763` samples for both routes. `patch20_reuse12` produced SCD NLL/PPL
+  `2.381655 / 10.822796` with TTFT speedup `1.741x`; `patch26_reuse6`
+  produced SCD NLL/PPL `2.206730 / 9.085953` with TTFT speedup `1.642x`.
+- Scope boundary:
+  WikiText-2 quality should be discussed via NLL/PPL, not F1/EM. Both strict
+  routes improve TTFT but worsen PPL relative to Full Consumer.
