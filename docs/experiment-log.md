@@ -7271,6 +7271,29 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   CMRC2018 dev `3219`, and WikiText-2 `763` before writing
   `aggregate_summary.json`.
 
+### 2026-06-18 13:12 +08:00 WikiText-2 full partial result
+
+- Result:
+  WikiText-2 full evaluation completed with `763` samples. The primary metric
+  for this dataset is PPL/NLL rather than F1. Full Consumer achieved
+  `ppl=7.2709`, `avg_nll=1.9839`, `ttft_ms=60.3179`. Reuse-only achieved
+  `ppl=927.3553`, `avg_nll=6.8323`, `ttft_ms=24.6725`. SCD achieved
+  `ppl=23.7634`, `avg_nll=3.1681`, `ttft_ms=30.4605`.
+- Analysis:
+  The current CMRC-trained `reuse19/patch13` route strongly improves over
+  reuse-only on WikiText-2 but is still far from the full-consumer PPL/NLL.
+  This is a release-risk signal for cross-dataset transfer quality, not a
+  completed full-result conclusion because HotpotQA and CMRC2018 dev are still
+  running.
+- Local artifacts:
+  `Experiment/results/ser_extra_datasets_full_cmrcbank_20260618/wikitext2_n0/`
+  and
+  `Experiment/results/ser_extra_datasets_full_cmrcbank_20260618/partial_results_summary.md`.
+- ResearchKB:
+  Harvested the partial result directory as `harvest_373a99c91efffa70`
+  (`summary.json`) and `harvest_14b5b0eef6bb2a6b`
+  (`per_mode_summary.json`).
+
 ### 2026-06-18 12:40 +08:00 A800 Qwen32 storage correction
 
 - Change:
