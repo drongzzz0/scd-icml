@@ -6,6 +6,8 @@ CONDA_ENV="${CONDA_ENV:-cache}"
 VENV="${VENV:-}"
 DATA_ROOT="${DATA_ROOT:-/home/c101-800-mql/maqianli/no4/data}"
 MODELS_CONFIG="${MODELS_CONFIG:-configs/models_a800_qwen25_32b_base_to_instruct_template.json}"
+SCD_STORAGE_ROOT="${SCD_STORAGE_ROOT:-/home/c101-800-mql/nas/SCD-ICML}"
+MODEL_CACHE_ROOT="${MODEL_CACHE_ROOT:-${SCD_STORAGE_ROOT}/model_cache}"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 choose_default_run_parent() {
@@ -13,23 +15,19 @@ choose_default_run_parent() {
     echo "${RUN_PARENT}"
     return
   fi
-  if [ -d /home/c101-800-mql/maqianli/SCD-ICML/runs ] && [ -w /home/c101-800-mql/maqianli/SCD-ICML/runs ]; then
-    echo "/home/c101-800-mql/maqianli/SCD-ICML/runs"
-    return
-  fi
-  if [ -d /dev/shm ] && [ -w /dev/shm ]; then
-    local shm_avail_mb
-    shm_avail_mb="$(df -Pm /dev/shm | awk 'NR==2 {print $4}')"
-    if [ "${shm_avail_mb:-0}" -ge "${MIN_RUN_PARENT_FREE_MB:-200000}" ]; then
-      echo "/dev/shm/SCD-ICML/runs"
+  local candidate
+  for candidate in \
+    "${SCD_STORAGE_ROOT}/runs" \
+    "/nas/mql/SCD-ICML/runs" \
+    "/data/SCD-ICML/runs"
+  do
+    if mkdir -p "${candidate}" 2>/dev/null && [ -w "${candidate}" ]; then
+      echo "${candidate}"
       return
     fi
-  fi
-  if [ -d /data ] && [ -w /data ]; then
-    echo "/data/SCD-ICML/runs"
-    return
-  fi
-  echo "/home/c101-800-mql/maqianli/SCD-ICML/runs"
+  done
+  echo "No writable storage run directory found. Set RUN_PARENT or SCD_STORAGE_ROOT to a storage/NAS path." >&2
+  exit 2
 }
 DEFAULT_RUN_PARENT="$(choose_default_run_parent)"
 RUN_ROOT="${RUN_ROOT:-${DEFAULT_RUN_PARENT}/scd_icml_qwen32_repro_${STAMP}}"
@@ -81,6 +79,16 @@ export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-4}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-4}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+mkdir -p "${MODEL_CACHE_ROOT}/hf_home" \
+  "${MODEL_CACHE_ROOT}/hf_hub" \
+  "${MODEL_CACHE_ROOT}/transformers" \
+  "${MODEL_CACHE_ROOT}/modelscope" \
+  "${MODEL_CACHE_ROOT}/torch"
+export HF_HOME="${HF_HOME:-${MODEL_CACHE_ROOT}/hf_home}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-${MODEL_CACHE_ROOT}/hf_hub}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-${MODEL_CACHE_ROOT}/transformers}"
+export MODELSCOPE_CACHE="${MODELSCOPE_CACHE:-${MODEL_CACHE_ROOT}/modelscope}"
+export TORCH_HOME="${TORCH_HOME:-${MODEL_CACHE_ROOT}/torch}"
 
 python scripts/preflight_qwen32_a800.py \
   --models-config "${MODELS_CONFIG}" \
@@ -100,9 +108,16 @@ cat > "${RUN_ROOT}/run_config.json" <<EOF
 {
   "root": "${ROOT}",
   "data_root": "${DATA_ROOT}",
+  "storage_root": "${SCD_STORAGE_ROOT}",
   "run_parent": "${DEFAULT_RUN_PARENT}",
   "run_root": "${RUN_ROOT}",
   "models_config": "${MODELS_CONFIG}",
+  "model_cache_root": "${MODEL_CACHE_ROOT}",
+  "hf_home": "${HF_HOME}",
+  "hf_hub_cache": "${HF_HUB_CACHE}",
+  "transformers_cache": "${TRANSFORMERS_CACHE}",
+  "modelscope_cache": "${MODELSCOPE_CACHE}",
+  "torch_home": "${TORCH_HOME}",
   "seed": ${SEED},
   "train_limit": ${TRAIN_LIMIT},
   "eval_limit": ${EVAL_LIMIT},

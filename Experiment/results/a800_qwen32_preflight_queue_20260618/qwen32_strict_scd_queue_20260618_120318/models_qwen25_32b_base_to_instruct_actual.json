@@ -5,7 +5,7 @@
   },
   "model_b": {
     "name": "Qwen2.5-32B-Instruct",
-    "path": "/home/cuihanshuai/models/Qwen2.5-32B-Instruct"
+    "path": "/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct"
   },
   "architecture": {
     "num_layers": 64,

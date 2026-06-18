@@ -3224,3 +3224,24 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   Verified the NAS Qwen2.5-32B directory contains `30` files, including `17`
   safetensors and a `config.json` with `model_type=qwen2` and architecture
   `Qwen2ForCausalLM`. Verified `/dev/shm/scd_models/Qwen2.5-32B` was removed.
+
+### 2026-06-18 update - make A800 Qwen32 storage placement the release default
+
+- Change:
+  Updated the A800 Qwen32 release script so the default run parent is a
+  writable storage path, not `/home` or `/dev/shm`. The script now exports
+  `HF_HOME`, `HF_HUB_CACHE`, `TRANSFORMERS_CACHE`, `MODELSCOPE_CACHE`, and
+  `TORCH_HOME` under `/home/c101-800-mql/nas/SCD-ICML/model_cache` unless the
+  caller overrides `MODEL_CACHE_ROOT`. Updated the Qwen2.5-32B base/instruct
+  model config template to point to `/home/c101-800-mql/nas/models`.
+- Rationale:
+  `/home` on A800 had only about 23G free, which is not enough for reliable
+  32B model materialization or repeated run artifacts. Open-source helper
+  scripts should default to the storage mount so future runs do not silently
+  fill the development disk.
+- Verification:
+  Parsed the updated JSON model configs successfully and validated the updated
+  shell scripts with `bash -n` on A800. Started copying the existing
+  Qwen2.5-32B-Instruct checkpoint from `/home/cuihanshuai/models` to
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct` before launching a new
+  Qwen32 run from the current account.

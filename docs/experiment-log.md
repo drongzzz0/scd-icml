@@ -7270,3 +7270,50 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   aggregate script will assert per-method sample counts for HotpotQA `7405`,
   CMRC2018 dev `3219`, and WikiText-2 `763` before writing
   `aggregate_summary.json`.
+
+### 2026-06-18 12:40 +08:00 A800 Qwen32 storage correction
+
+- Change:
+  Corrected the A800 Qwen32 execution defaults so heavy model artifacts,
+  Hugging Face caches, ModelScope caches, Torch caches, and run outputs target
+  `/home/c101-800-mql/nas`, not the nearly full `/home` development disk or
+  `/dev/shm`.
+- Evidence:
+  Live disk check showed `/home` had about `23G` free and was `99%` used,
+  while `/home/c101-800-mql/nas` had about `64T` free. The base
+  Qwen2.5-32B checkpoint already existed at
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B` with `30` files and `17`
+  safetensors. The instruct checkpoint did not yet exist on NAS, so a copy
+  from `/home/cuihanshuai/models/Qwen2.5-32B-Instruct` to
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct` was started as PID
+  `1999513`.
+- Verification:
+  The updated Qwen32 model JSON configs parse successfully. The updated
+  `run_a800_scd_icml_qwen32_repro.sh` and saved queue script pass `bash -n`
+  on A800.
+- Status:
+  This is an environment and artifact-placement fix only. No Qwen32 quality
+  metric should be reported from this entry. The older c101-owned Qwen32
+  waiting queue was stopped before it could launch with the previous instruct
+  path; a new queue should be launched from the current A800 account after the
+  NAS instruct copy is complete.
+
+### 2026-06-18 12:55 +08:00 A800 Qwen32 student_t storage queue
+
+- Change:
+  Started a new Qwen32 queue from the current A800 account `student_t`, using
+  local Conda environment `cache` and a local lightweight runtime repo at
+  `/home/student_t/maqianli/SCD-ICML/runtime_repo_codex_storage_20260618`.
+  Heavy outputs and caches remain under `/home/c101-800-mql/nas/SCD-ICML`.
+- Inputs:
+  Base model `/home/c101-800-mql/nas/models/Qwen2.5-32B`; instruct model
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`; CMRC2018 data root
+  `/home/c101-800-mql/maqianli/no4/data`.
+- Outputs:
+  Queue root
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_student_t_storage_queue_20260618_1252`;
+  wrapper PID `2020827`.
+- Status:
+  The queue is waiting for two sustained-idle A800 GPUs with at least `70000`
+  MB free each. Preflight attempt 1 failed only because no such GPU pair was
+  available; it confirmed the NAS model paths and data paths were reachable.

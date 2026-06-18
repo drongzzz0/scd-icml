@@ -7,6 +7,8 @@ QUEUE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_PARENT=/home/c101-800-mql/nas/SCD-ICML/runs
 MODELS_CONFIG="$QUEUE_ROOT/models_qwen25_32b_base_to_instruct_actual.json"
 DATA_ROOT=/home/c101-800-mql/maqianli/no4/data
+MODEL_CACHE_ROOT=/home/c101-800-mql/nas/SCD-ICML/model_cache
+NAS_QWEN32_INSTRUCT=/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct
 REQUIRED_GPUS=2
 REQUIRED_FREE_MB=70000
 MONITOR_SECONDS=60
@@ -62,10 +64,20 @@ while true; do
   echo "$(date -Is) waiting; selected='${selected}'"
   sleep 30
 done
+until [ -f "$NAS_QWEN32_INSTRUCT/config.json" ] && [ "$(find "$NAS_QWEN32_INSTRUCT" -maxdepth 1 -name '*.safetensors' 2>/dev/null | wc -l)" -ge 17 ]; do
+  echo "$(date -Is) waiting for NAS Qwen2.5-32B-Instruct copy at $NAS_QWEN32_INSTRUCT"
+  sleep 60
+done
 cd "$REPO"
 export RUN_PARENT="$RUN_PARENT"
 export MODELS_CONFIG="$MODELS_CONFIG"
 export DATA_ROOT="$DATA_ROOT"
+export MODEL_CACHE_ROOT="$MODEL_CACHE_ROOT"
+export HF_HOME="$MODEL_CACHE_ROOT/hf_home"
+export HF_HUB_CACHE="$MODEL_CACHE_ROOT/hf_hub"
+export TRANSFORMERS_CACHE="$MODEL_CACHE_ROOT/transformers"
+export MODELSCOPE_CACHE="$MODEL_CACHE_ROOT/modelscope"
+export TORCH_HOME="$MODEL_CACHE_ROOT/torch"
 export REQUIRED_GPUS=2
 export REQUIRED_FREE_MB=70000
 export GPU_MONITOR_SECONDS=60
