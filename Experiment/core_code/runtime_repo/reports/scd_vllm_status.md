@@ -152,7 +152,7 @@ Run boundary:
 
 - Host: A800, `conda activate cache`, vLLM `0.18.0`.
 - Code snapshot:
-  `/home/student_t/maqianli/SCD-ICML/runtime_repo_codex_launchsmoke_20260618_081014`.
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_launchsmoke_20260618_081014`.
 - GPU selection: GPUs `3/4/6/7` were busy with unrelated jobs. GPUs `0/1/2`
   were sampled for 60 seconds and stayed at utilization `0`; the final run
   used `CUDA_VISIBLE_DEVICES=2`.
@@ -306,7 +306,7 @@ Run boundary:
 
 - Host: A800, `conda activate cache`, vLLM `0.18.0`.
 - Code snapshot:
-  `/home/student_t/maqianli/SCD-ICML/runtime_repo_codex_launchsmoke_20260618_081014`.
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_launchsmoke_20260618_081014`.
 - GPU selection: A800 GPUs `3/4/6/7` were sampled for 60 seconds and stayed
   at utilization `0`; the final run used `CUDA_VISIBLE_DEVICES=7`.
 - Shape: `batch_size=128`, `warmup_batches=1`, `max_new_tokens=16`.

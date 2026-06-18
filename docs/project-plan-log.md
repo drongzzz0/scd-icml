@@ -3182,3 +3182,25 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Verification:
   Validated every mapped `instance.json` path as both a descendant of the
   current staging workspace and an existing filesystem path.
+
+### 2026-06-18 update - tighten A800 cache-env release hygiene
+
+- Change:
+  Confirmed A800 commands should use `conda activate cache`, with Python
+  resolving to `/home/c101-800-mql/.conda/envs/cache/bin/python`. Removed
+  remaining old-account paths from user-facing README/report text and model
+  config files. Removed two internal historical artifact migration scripts
+  that referenced stale `/home/student_t` and `/nas/mql` locations. Removed the
+  A800 Qwen32 helper's automatic NAS run-output fallback so the default stays
+  under `/home/c101-800-mql/maqianli`.
+- Rationale:
+  The open-source branch should not expose stale private machine paths, should
+  not encourage NAS-backed environments or hidden migration scripts, and should
+  be verifiable from a clean release preview.
+- Verification:
+  A fresh release preview was built under `Experiment/results` and its
+  readiness check passed. A user-visible preview scan found no stale
+  `/home/student_t`, `/disk_n/c101-3-1`, `/nas/mql`, train-to-dev copy pattern,
+  or forbidden vLLM safety claim. The preview test suite passed with
+  `107 passed`. The temporary preview directories were removed after
+  verification to avoid committing generated source copies.

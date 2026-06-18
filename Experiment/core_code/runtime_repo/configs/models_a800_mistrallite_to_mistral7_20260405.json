@@ -1,11 +1,11 @@
 {
   "model_a": {
     "name": "MistralLite",
-    "path": "/home/student_t/maqianli/no4/models/MistralLite"
+    "path": "/home/c101-800-mql/maqianli/no4/models/MistralLite"
   },
   "model_b": {
     "name": "Mistral-7B",
-    "path": "/home/student_t/maqianli/no4/models/Mistral-7B"
+    "path": "/home/c101-800-mql/maqianli/no4/models/Mistral-7B"
   },
   "architecture": {
     "num_layers": 32,

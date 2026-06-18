@@ -165,7 +165,7 @@ explicit guarded entry point:
 ```bash
 CONDA_ENV=cache \
 MODELS_CONFIG=configs/models_a800_qwen25_32b_base_to_instruct_template.json \
-DATA_ROOT=/home/student_t/maqianli/no4/data \
+DATA_ROOT=/home/c101-800-mql/maqianli/no4/data \
 DATASETS=cmrc2018 \
 bash scripts/run_a800_scd_icml_qwen32_repro.sh
 ```

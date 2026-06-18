@@ -17,10 +17,6 @@ choose_default_run_parent() {
     echo "/home/c101-800-mql/maqianli/SCD-ICML/runs"
     return
   fi
-  if [ -d /home/c101-800-mql/nas/mql ] && [ -w /home/c101-800-mql/nas/mql ]; then
-    echo "/home/c101-800-mql/nas/mql/SCD-ICML/runs"
-    return
-  fi
   if [ -d /dev/shm ] && [ -w /dev/shm ]; then
     local shm_avail_mb
     shm_avail_mb="$(df -Pm /dev/shm | awk 'NR==2 {print $4}')"

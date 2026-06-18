@@ -1,11 +1,11 @@
 {
   "model_a": {
     "name": "MistralLite",
-    "path": "/disk_n/c101-3-1/models/MistralLite"
+    "path": "/disk_n/c101-3-mql/models/MistralLite"
   },
   "model_b": {
     "name": "MistralLite",
-    "path": "/disk_n/c101-3-1/models/MistralLite"
+    "path": "/disk_n/c101-3-mql/models/MistralLite"
   },
   "architecture": {
     "num_layers": 32,

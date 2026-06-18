@@ -1,11 +1,11 @@
 {
   "model_a": {
     "name": "Qwen2.5-32B",
-    "path": "/home/student_t/maqianli/models/Qwen2.5-32B"
+    "path": "/home/c101-800-mql/maqianli/models/Qwen2.5-32B"
   },
   "model_b": {
     "name": "Qwen2.5-32B-Instruct",
-    "path": "/home/student_t/maqianli/models/Qwen2.5-32B-Instruct"
+    "path": "/home/c101-800-mql/maqianli/models/Qwen2.5-32B-Instruct"
   },
   "architecture": {
     "num_layers": 64,

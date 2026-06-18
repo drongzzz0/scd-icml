@@ -6965,3 +6965,58 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   runtime repo and recorded no additional parseable result artifact because the
   updated evidence is represented in this log entry and the release-readiness
   command output.
+
+## 2026-06-18 10:35 +08:00 - Release preview hygiene check after A800 cache-env correction
+
+- Experiment name or id:
+  `release_preview_cache_env_hygiene_20260618_1035`.
+- Purpose:
+  Verify that the open-release runtime package no longer exposes stale
+  `student_t`/old-ser paths, NAS defaults, train/eval leakage patterns, or
+  unsupported vLLM safety claims after switching A800 work to
+  `conda activate cache`.
+- Method:
+  Probed A800mql with `source /opt/miniconda3/etc/profile.d/conda.sh && conda
+  activate cache`, checked the selected Python executable and GPU visibility,
+  patched stale path references, built a fresh release preview, scanned the
+  preview excluding the readiness guard's own forbidden-string constants, and
+  ran the preview test suite.
+- Inputs:
+  Branch `codex/scd-icml-open-release-20260611`; runtime repo under
+  `Experiment/core_code/runtime_repo`; A800mql cache env; release preview output
+  path `Experiment/results/release_preview_scd_icml_runtime_20260618_103502`
+  before cleanup.
+- Environment:
+  Local Windows PowerShell for patching and pytest. A800mql `cache` conda env
+  for read-only environment and `bash -n` verification; `which python` resolved
+  to `/home/c101-800-mql/.conda/envs/cache/bin/python`; CUDA was available with
+  8 visible A800 GPUs.
+- Execution steps:
+  Updated README/report/config paths, removed two internal historical artifact
+  migration scripts, removed the Qwen32 helper's implicit NAS run-output
+  fallback, streamed the modified shell script to A800mql for `bash -n`, built a
+  fresh release preview, scanned the preview for forbidden release strings, and
+  ran `PYTHONPATH=.;src pytest tests -q` inside the preview.
+- Outputs:
+  Patched runtime repo files plus verification logs in this entry. The generated
+  preview directories were deleted after validation because they are
+  generated source copies and are not ignored by git.
+- Results:
+  A800 environment probe confirmed `cache` uses
+  `/home/c101-800-mql/.conda/envs/cache/bin/python` with torch
+  `2.10.0+cu128`. Source-tree scan found no `/home/student_t`,
+  `/disk_n/c101-3-1`, or `/nas/mql` outside the readiness guard. The fresh
+  release preview readiness check passed. Preview user-visible scan returned
+  `NO_HITS` for stale paths, train-to-dev copy pattern, and forbidden vLLM
+  safety claims. Preview tests passed with `107 passed in 30.94s`.
+- Analysis:
+  This is a release-hygiene validation, not a new model-quality or throughput
+  result. It reduces the risk that users reproduce with stale private paths or
+  contaminated split handling.
+- Conclusions:
+  The release branch is cleaner for local packaging and later push. Further
+  model/dataset experiments should use A800 `conda activate cache` or ser
+  `/disk_n/c101-3-mql/venvs/A800` after fresh GPU checks.
+- Next actions:
+  Commit the hygiene changes and, when requested, push the branch. Do not add
+  generated release preview directories to git.

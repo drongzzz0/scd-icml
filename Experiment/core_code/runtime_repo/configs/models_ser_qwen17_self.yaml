@@ -1,11 +1,11 @@
 {
   "model_a": {
     "name": "Qwen3-1.7B",
-    "path": "/disk_n/c101-3-1/models/Qwen3-1.7B"
+    "path": "/disk_n/c101-3-mql/models/Qwen3-1.7B"
   },
   "model_b": {
     "name": "Qwen3-1.7B",
-    "path": "/disk_n/c101-3-1/models/Qwen3-1.7B"
+    "path": "/disk_n/c101-3-mql/models/Qwen3-1.7B"
   },
   "architecture": {
     "num_layers": 28,
