@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 CONDA_ENV="${CONDA_ENV:-cache}"
 VENV="${VENV:-}"
-DATA_ROOT="${DATA_ROOT:-/home/c101-800-mql/maqianli/no4/data}"
+DATA_ROOT="${DATA_ROOT:-/home/c101-800-mql/nas/SCD-ICML/data}"
 MODELS_CONFIG="${MODELS_CONFIG:-configs/models_a800_qwen25_32b_base_to_instruct_template.json}"
 SCD_STORAGE_ROOT="${SCD_STORAGE_ROOT:-/home/c101-800-mql/nas/SCD-ICML}"
 MODEL_CACHE_ROOT="${MODEL_CACHE_ROOT:-${SCD_STORAGE_ROOT}/model_cache}"
@@ -38,7 +38,10 @@ EVAL_LIMIT="${EVAL_LIMIT:-200}"
 TRAIN_CMRC_SPLIT="${TRAIN_CMRC_SPLIT:-train}"
 EVAL_CMRC_SPLIT="${EVAL_CMRC_SPLIT:-dev}"
 DATASETS="${DATASETS:-cmrc2018}"
-MAX_LENGTH="${MAX_LENGTH:-0}"
+# Qwen32 single-GPU transformers capture has very little activation headroom on
+# partially occupied A800 cards. Use 512 by default for the release smoke/full
+# train-dev gate, and override MAX_LENGTH explicitly for full-context runs.
+MAX_LENGTH="${MAX_LENGTH:-512}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-32}"
 BANDWIDTH_GBPS="${BANDWIDTH_GBPS:-200}"
 QUANT_GROUP_SIZE="${QUANT_GROUP_SIZE:-128}"

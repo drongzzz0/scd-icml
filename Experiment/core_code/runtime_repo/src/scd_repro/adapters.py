@@ -93,16 +93,12 @@ class TransformersCaptureSession:
         self.hooks = []
         self.target_device = resolve_device(self.device, cpu_fallback=cpu_fallback)
 
-        def materialize_capture_tensor(value):
-            target = "cpu" if self.capture_store_device == "cpu" else self.target_device
-            return value.detach().to(device=target, dtype=self.torch.float32).contiguous()
-
         def make_hook(layer_idx: int):
             def _hook(_module, args, kwargs):
                 hidden_states = _resolve_hidden_states(args, kwargs)
                 if hidden_states is None:
                     return
-                self.xnorm_by_layer[layer_idx] = materialize_capture_tensor(hidden_states)
+                self.xnorm_by_layer[layer_idx] = self._materialize_capture_tensor(hidden_states)
 
             return _hook
 
@@ -111,7 +107,7 @@ class TransformersCaptureSession:
                 hidden_states = args[0] if args else None
                 if hidden_states is None:
                     return
-                self.residual_by_layer[layer_idx] = materialize_capture_tensor(hidden_states)
+                self.residual_by_layer[layer_idx] = self._materialize_capture_tensor(hidden_states)
 
             return _hook
 
@@ -121,6 +117,10 @@ class TransformersCaptureSession:
                 self.hooks.append(layer.self_attn.register_forward_pre_hook(make_hook(idx), with_kwargs=True))
             elif hasattr(layer, "attn"):
                 self.hooks.append(layer.attn.register_forward_pre_hook(make_hook(idx), with_kwargs=True))
+
+    def _materialize_capture_tensor(self, value):
+        target = "cpu" if self.capture_store_device == "cpu" else self.target_device
+        return value.detach().to(device=target, dtype=self.torch.float32).contiguous()
 
     def estimate_prompt_tokens(self, prompt: str, max_length: int | None = None) -> int:
         encoded = self.tokenizer(prompt, truncation=bool(max_length and max_length > 0), max_length=max_length)
@@ -167,8 +167,8 @@ class TransformersCaptureSession:
             if resid_tensor is None:
                 raise RuntimeError(f"层 {layer_idx} 无法提取 residual state（未命中 hook）")
             payload[layer_idx] = {
-                "k": materialize_capture_tensor(kv[0]),
-                "v": materialize_capture_tensor(kv[1]),
+                "k": self._materialize_capture_tensor(kv[0]),
+                "v": self._materialize_capture_tensor(kv[1]),
                 "xnorm": x_tensor.contiguous(),
                 "resid": resid_tensor.contiguous(),
             }

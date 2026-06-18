@@ -7858,3 +7858,70 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - Boundary:
   This result is a storage-backed full-model baseline only. It does not
   validate Qwen32 SCD reuse/patch quality, route selection, or speedup.
+
+### 2026-06-18 19:05 +08:00 Qwen32 SCD CMRC200 storage-backed retry launched
+
+- Purpose:
+  Start a Qwen2.5-32B -> Qwen2.5-32B-Instruct SCD reuse+patch validation run
+  after the earlier same-device run failed on a `742` token prompt with only
+  about `57MB` free on a partially occupied A800 GPU.
+- Data/storage correction:
+  CMRC2018 train/dev files were copied into
+  `/home/c101-800-mql/nas/SCD-ICML/data/cmrc2018`, and the Qwen32 A800 script
+  now defaults `DATA_ROOT` to `/home/c101-800-mql/nas/SCD-ICML/data`.
+  Model weights, cache roots, pair artifacts, checkpoints, and run outputs
+  remain under `/home/c101-800-mql/nas`.
+- Run:
+  Old waiting queue
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_wait78000_preflight_then_run_20260618_181043`
+  was stopped before it entered the main run because it still used the old
+  no4 data root. New run:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_20260618_190316`.
+- Settings:
+  `TRAIN_LIMIT=200`, `EVAL_LIMIT=200`, train split `train`, eval split `dev`,
+  `MAX_LENGTH=512`, `PATCH_BUDGET=6`, `SCD_CAPTURE_STORE_DEVICE=cpu`,
+  one GPU selected by sustained-idle preflight with `REQUIRED_FREE_MB=65000`.
+  Preflight selected physical GPU `2`.
+- Boundary:
+  This is an operational Qwen32 SCD quality gate under a 512-token capture/eval
+  cap. It should be reported separately from full-context baselines.
+
+### 2026-06-18 19:38 +08:00 Qwen32 SCD CMRC200 capture helper fixed and relaunched
+
+- Failure diagnosis:
+  The storage-backed retry
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_20260618_190316`
+  passed preflight and loaded Qwen32 on physical GPU `2`, but failed before
+  writing pair chunks with
+  `NameError: name 'materialize_capture_tensor' is not defined`. The helper
+  had been defined only inside `TransformersCaptureSession.__init__`, while
+  `capture()` also needed it for materializing K/V tensors.
+- Code fix:
+  `TransformersCaptureSession` now exposes `_materialize_capture_tensor()` as
+  an instance method. Hooks and K/V capture share that method, preserving
+  `SCD_CAPTURE_STORE_DEVICE=cpu` so captured tensors can be written through CPU
+  memory instead of accumulating on the Qwen32 GPU.
+- Verification:
+  Local staging validation passed:
+  `PYTHONPATH=src python -m pytest tests/test_adapters_capture_store_device.py tests/test_text_benchmarks.py tests/test_cmrc_split.py -q`
+  with `11 passed`, and
+  `PYTHONPATH=src python -m py_compile src/scd_repro/adapters.py` passed.
+  The synced A800 runtime also passed `py_compile` for `adapters.py` and
+  `bash -n scripts/run_a800_scd_icml_qwen32_repro.sh`.
+- Storage check:
+  A800 `/home` had only about `18G` free, so it is not a viable model/cache
+  target. The Qwen2.5-32B and Qwen2.5-32B-Instruct model directories are on
+  `/home/c101-800-mql/nas/models/` at about `62G` each. The active run config
+  records data, run outputs, HF hub/cache, transformers cache, vLLM cache, and
+  torch cache under `/home/c101-800-mql/nas/SCD-ICML/...`.
+- Relaunch:
+  New run:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_fix1_20260618_192206`.
+  It selected physical GPU `2`, loaded Qwen32 from NAS-backed storage, and
+  entered sequential same-device capture. By 19:37, `_a_stage` had written
+  `14/200` staged A chunks and the pair artifact directory had grown to about
+  `19G`.
+- Boundary:
+  This entry records a running capture-stage validation, not final SCD
+  F1/EM. Final quality should only be reported after pair capture, reuse/patch
+  training, route construction, and strict eval complete.
