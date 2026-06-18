@@ -7925,3 +7925,43 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   This entry records a running capture-stage validation, not final SCD
   F1/EM. Final quality should only be reported after pair capture, reuse/patch
   training, route construction, and strict eval complete.
+
+### 2026-06-18 19:55 +08:00 ser full three-dataset route comparison launched
+
+- Purpose:
+  Use the idle `ser` 4090D GPUs to compare two no-fallback/no-recompute
+  reuse+patch routes while the A800 Qwen32 capture continues. This targets the
+  practical release question: whether a more patch-heavy route can recover
+  HotpotQA/WikiText2 quality without abandoning layer reuse.
+- Routes:
+  `patch26_reuse6`:
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json`.
+  `patch20_reuse12`:
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`.
+  Both passed `scripts/validate_scd_route.py --require-mixed`; both have empty
+  `fallback_layers` and empty `selected_recompute_layers`.
+- Data and split:
+  Full `cmrc2018,hotpotqa,wikitext2` eval with `EVAL_LIMIT=0` and
+  `MAX_LENGTH=0`. CMRC uses `cmrc_split=dev`, while the reuse and patch banks
+  come from the CMRC train-200 calibration run
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222`.
+  This keeps train/eval separated.
+- Remote setup:
+  The old ser GitHub snapshot was missing the release eval wrapper, route JSONs,
+  `eval_text_strict.py`, current `cmrc.py`, `text_benchmarks.py`,
+  `eval_cmrc_strict.py`, `summarize_mistral_repro.py`, and two configs. These
+  exact files were synced into
+  `/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854/runtime_repo`.
+  Remote import/loader checks passed for CMRC dev, HotpotQA, and WikiText2.
+- Runs:
+  `patch26_reuse6` run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/full_three_datasets_patch26_reuse6_release_fixcfg_20260618_195217`,
+  using physical GPUs `0,1`.
+  `patch20_reuse12` run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/full_three_datasets_patch20_reuse12_release_fixcfg_20260618_195217`,
+  using physical GPUs `2,3`.
+- Initial evidence:
+  Both runs entered full CMRC dev strict eval. At 19:54, both logs reported
+  progress around `29/3219` samples. GPU1 and GPU3 were about `80%` utilized,
+  with producer-side GPUs 0 and 2 loaded but lighter. Final F1/EM/PPL should
+  be read only after all three dataset summaries are produced.
