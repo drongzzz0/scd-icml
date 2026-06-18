@@ -427,24 +427,47 @@ def build_hotpotqa_compressed_prompt(context: str, question: str) -> str:
     return HOTPOT_COMPRESSED_PROMPT_TEMPLATE.format(context=context.strip(), question=question.strip())
 
 
+def _load_hotpotqa_candidate(path: Path):
+    try:
+        return _load_json_or_jsonl(path)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _hotpotqa_question(row: dict) -> str:
+    return str(row.get("question") or row.get("input") or "").strip()
+
+
+def _hotpotqa_answers(row: dict) -> list[str]:
+    raw = row.get("answer")
+    if raw is None:
+        raw = row.get("answers")
+    if isinstance(raw, list):
+        answers = [str(item).strip() for item in raw if str(item).strip()]
+    else:
+        answer = str(raw or "").strip()
+        answers = [answer] if answer else []
+    return answers
+
+
 def load_hotpotqa_samples(data_root: str | Path, limit: int | None = None) -> list[StrictTextSample]:
     for path in _hotpotqa_candidate_paths(data_root):
         if not path.exists():
             continue
-        obj = _load_json_or_jsonl(path)
+        obj = _load_hotpotqa_candidate(path)
         if not isinstance(obj, list):
             continue
         samples: list[StrictTextSample] = []
         for idx, row in enumerate(obj):
             if not isinstance(row, dict):
                 continue
-            question = str(row.get("question", "")).strip()
-            answer = str(row.get("answer", "")).strip()
-            if not question or not answer:
+            question = _hotpotqa_question(row)
+            answers = _hotpotqa_answers(row)
+            if not question or not answers:
                 continue
             qid = str(row.get("_id") or row.get("id") or f"hotpotqa_{idx}")
             prompt, context = build_hotpotqa_prompt(row.get("context"), question, row.get("supporting_facts"))
-            samples.append(StrictTextSample(qid=qid, context=context, question=question, answers=[answer], prompt=prompt))
+            samples.append(StrictTextSample(qid=qid, context=context, question=question, answers=answers, prompt=prompt))
             if limit is not None and len(samples) >= limit:
                 return samples
         if samples:
@@ -456,16 +479,16 @@ def load_hotpotqa_compressed_samples(data_root: str | Path, limit: int | None = 
     for path in _hotpotqa_candidate_paths(data_root):
         if not path.exists():
             continue
-        obj = _load_json_or_jsonl(path)
+        obj = _load_hotpotqa_candidate(path)
         if not isinstance(obj, list):
             continue
         samples: list[StrictTextSample] = []
         for idx, row in enumerate(obj):
             if not isinstance(row, dict):
                 continue
-            question = str(row.get("question", "")).strip()
-            answer = str(row.get("answer", "")).strip()
-            if not question or not answer:
+            question = _hotpotqa_question(row)
+            answers = _hotpotqa_answers(row)
+            if not question or not answers:
                 continue
             qid = str(row.get("_id") or row.get("id") or row.get("qid") or f"hotpotqa_{idx}")
             context = _compress_hotpot_context(row.get("context"), question)
@@ -476,7 +499,7 @@ def load_hotpotqa_compressed_samples(data_root: str | Path, limit: int | None = 
                     qid=qid,
                     context=context,
                     question=question,
-                    answers=[answer],
+                    answers=answers,
                     prompt=build_hotpotqa_compressed_prompt(context, question),
                 )
             )

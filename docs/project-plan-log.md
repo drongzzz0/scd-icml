@@ -3445,3 +3445,25 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   It waits for one sustained-idle A800 GPU with at least `78000MB` free before
   launching CMRC2018 train/dev separated Qwen32 SCD with `TRAIN_LIMIT=200` and
   `EVAL_LIMIT=200`.
+
+### 2026-06-18 update - Qwen32 HotpotQA full baseline is storage-only
+
+- Change:
+  Added a HotpotQA loader hardening pass for the open release runtime so Git
+  LFS pointer files are skipped and droidspeak-style `{input, answers}` rows
+  remain supported. The fixed loader was synced to the A800 NAS runtime.
+- Storage policy:
+  Qwen32 experiments must continue using `/home/c101-800-mql/nas/models` for
+  checkpoints and `/home/c101-800-mql/nas/SCD-ICML/model_cache` for
+  Hugging Face, Transformers, ModelScope, Torch, XDG, and vLLM caches. The
+  nearly full `/home` filesystem is not acceptable for model downloads or
+  cache expansion.
+- Current run:
+  The active Qwen32 HotpotQA-compressed full consumer baseline is
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpotqa_compressed_full_tp2_20260618_182918`.
+  It uses the `cache` Conda environment via
+  `/home/c101-800-mql/.conda/envs/cache/bin/python`, Qwen2.5-32B-Instruct,
+  and GPUs 0/1 after a one-minute sustained `0%` utilization check.
+- Release boundary:
+  This run can update the Qwen32 Full Consumer reference table only. It does
+  not reduce the need for a separate Qwen32 SCD reuse/patch validation run.

@@ -113,6 +113,39 @@ class HotpotQAPromptTest(unittest.TestCase):
         self.assertIn("Evidence:\n[A] evidence", prompt)
         self.assertTrue(prompt.endswith("Answer:"))
 
+    def test_hotpotqa_loader_skips_lfs_pointer_and_accepts_droidspeak_schema(self) -> None:
+        row = {
+            "id": "case2",
+            "input": "Which case was brought to court first?",
+            "answers": ["Miller v. California"],
+            "context": "Passage 1:\nMiller v. California was decided in 1973.\nPassage 2:\nGates v. Collier was decided in 1974.",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw_dir = root / "HotpotQA" / "raw"
+            raw_dir.mkdir(parents=True)
+            (raw_dir / "hotpot_dev_distractor_v1.json").write_text(
+                "version https://git-lfs.github.com/spec/v1\n"
+                "oid sha256:deadbeef\n"
+                "size 46320117\n",
+                encoding="utf-8",
+            )
+            droidspeak_dir = root / "droidspeak"
+            droidspeak_dir.mkdir()
+            (droidspeak_dir / "hotpotqa.json").write_text(
+                json.dumps([row]),
+                encoding="utf-8",
+            )
+
+            full_sample = load_hotpotqa_samples(root, limit=1)[0]
+            compressed_sample = load_hotpotqa_compressed_samples(root, limit=1)[0]
+
+        self.assertEqual(full_sample.qid, "case2")
+        self.assertEqual(full_sample.question, "Which case was brought to court first?")
+        self.assertEqual(full_sample.answers, ["Miller v. California"])
+        self.assertEqual(compressed_sample.answers, ["Miller v. California"])
+        self.assertIn("Miller v. California", compressed_sample.prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

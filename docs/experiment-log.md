@@ -7800,3 +7800,40 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   `SCD_CAPTURE_STORE_DEVICE=cpu`). At launch time no GPU met the `78000MB`
   free threshold, so the queue was waiting rather than running on a partially
   occupied card.
+
+### 2026-06-18 18:32 +08:00 Qwen32 HotpotQA-compressed full baseline on storage
+
+- Purpose:
+  Re-run Qwen2.5-32B-Instruct through the open vLLM dataset-eval path on the
+  complete HotpotQA compressed protocol, while keeping model weights, caches,
+  data, and outputs on storage-backed A800 paths rather than the nearly full
+  `/home` filesystem.
+- Storage and environment:
+  A800mql `/home` had about `18G` free, while
+  `/home/c101-800-mql/nas` had about `64T` free. The selected model and all
+  runtime caches were explicitly storage-backed:
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct` and
+  `/home/c101-800-mql/nas/SCD-ICML/model_cache`. The run output directory is
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpotqa_compressed_full_tp2_20260618_182918`.
+- Loader fix:
+  `scd_repro.text_benchmarks` now skips invalid HotpotQA candidate files such
+  as Git LFS pointer stubs and accepts both official HotpotQA
+  `{question, answer}` rows and droidspeak-style `{input, answers}` rows.
+  This prevents a pointer file under a higher-priority data root from blocking
+  fallback to a valid HotpotQA file.
+- Verification before launch:
+  Local staging tests passed:
+  `PYTHONPATH=src python -m pytest tests/test_text_benchmarks.py tests/test_scd_vllm_dataset_eval.py -q`
+  with `12 passed`. Root-workspace loader tests passed with
+  `5 passed`. Remote A800 compile passed for the synced loader, and
+  `load_hotpotqa_compressed_samples('/home/c101-800-mql/nas/SCD-ICML/data')`
+  returned `7405` samples.
+- GPU selection:
+  GPUs 0 and 1 were monitored for one minute and stayed at `0%` utilization
+  with about `64.8G` and `65.7G` free. The Qwen32 full baseline was launched
+  with `CUDA_VISIBLE_DEVICES=0,1`, `tensor_parallel_size=2`,
+  `gpu_memory_utilization=0.45`, `batch_size=16`, `max_model_len=1024`,
+  `max_new_tokens=32`, and `limit=0`.
+- Boundary:
+  This run is a Full Consumer official-vLLM baseline. It is not an SCD
+  reuse/patch result and must not be reported as Qwen32 SCD evidence.
