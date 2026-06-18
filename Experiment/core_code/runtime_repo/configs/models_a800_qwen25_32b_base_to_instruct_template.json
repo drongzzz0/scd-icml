@@ -32,6 +32,6 @@
     "claim_anchor": "camera_ready_table_main_results_both_qwen32",
     "must_use_text_causal_lm": true,
     "do_not_use_vl_checkpoint": true,
-    "status": "template_paths_must_be_replaced_or_materialized_before_run"
+    "status": "default_paths_use_a800_storage; override this config if your deployment stores checkpoints elsewhere"
   }
 }
