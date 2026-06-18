@@ -1,0 +1,16 @@
+{
+  "code_root": "/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_c925185_20260618_1105",
+  "commit": "c925185",
+  "gpu": "6",
+  "conda_env": "cache",
+  "python": "/home/c101-800-mql/.conda/envs/cache/bin/python",
+  "model": "/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray",
+  "bundle_dir": "/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/reuse_patch_qwen17_gray_cmrc_route",
+  "storage_dir": "/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/example_connector_storage",
+  "batch_size": 256,
+  "num_batches": 5,
+  "warmup_batches": 1,
+  "max_new_tokens": 16,
+  "gpu_memory_utilization": 0.45,
+  "claim_boundary": "second-model-family repeated-prefix trusted microbenchmark; boundary evidence, not a Qwen speedup claim"
+}

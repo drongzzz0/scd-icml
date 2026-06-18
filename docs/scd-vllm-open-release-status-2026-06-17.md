@@ -461,6 +461,39 @@ SCDPreloaded is materially faster than the earlier disk-backed
 prefix caching, so this result should be framed as integration evidence and an
 overhead warning.
 
+Current snapshot high-batch rerun:
+
+- Artifact:
+  `Experiment/results/a800_qwen17_gray_c925185_b256_gpu6_20260618_110715/`.
+- Code snapshot: `c925185` local release branch runtime pushed to
+  `runtime_repo_codex_c925185_20260618_1105`.
+- Runtime: A800mql, `conda activate cache`, vLLM `0.18.0`,
+  `CUDA_VISIBLE_DEVICES=6`.
+- GPU selection: GPU `6` stayed at `0` utilization for the 70-second idle
+  check but already had `35844 MiB` resident memory, so the run used
+  `gpu_memory_utilization=0.45`.
+- Batch shape: `batch_size=256`, `num_batches=5`, expected requests `1280`.
+- Result:
+
+| Check | Value |
+| --- | ---: |
+| Batch benchmark pass | `true` |
+| Connector | `SCDPreloadedConnector` |
+| Connector module | `scd_vllm.preloaded_connector` |
+| Plain vLLM tokens/s | `13218.147026` |
+| vLLM prefix-cache tokens/s | `16298.884031` |
+| SCDPreloaded load tokens/s | `5944.215648` |
+| SCDPreloaded/Plain tokens/s ratio | `0.449701` |
+| SCDPreloaded/Prefix-cache tokens/s ratio | `0.364701` |
+| Cache hits / misses | `42980 / 28` |
+| Cache hit rate | `0.999349` |
+| Cached files / bytes | `28 / 1835008` |
+
+Interpretation: the current branch still runs the Qwen gray external connector
+at larger batch size, but this is negative throughput-boundary evidence. It
+confirms portability of the SCDPreloaded path on a second model family and
+should not be used as a Qwen acceleration claim.
+
 ## Additional Qwen3-1.7B Gray Risk Check
 
 Artifacts:

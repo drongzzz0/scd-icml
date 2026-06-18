@@ -168,6 +168,35 @@ still slower than both plain vLLM and vLLM prefix caching for this
 microbenchmark, so it should be reported as integration evidence and overhead
 risk, not a speedup result.
 
+Current-branch Qwen high-batch boundary evidence:
+
+- Artifact:
+  `Experiment/results/a800_qwen17_gray_c925185_b256_gpu6_20260618_110715/`.
+- Model pair: Qwen3-1.7B producer -> Qwen3-1.7B-gray consumer.
+- Runtime: A800mql, `conda activate cache`, vLLM `0.18.0`,
+  `CUDA_VISIBLE_DEVICES=6`, `gpu_memory_utilization=0.45`.
+- GPU selection: GPU `6` stayed at `0` utilization for the 70-second idle
+  check but already had `35844 MiB` resident memory, so the lower utilization
+  cap was used.
+- Code snapshot: local branch commit `c925185`, runtime copy
+  `runtime_repo_codex_c925185_20260618_1105`.
+- Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`, fallback/recompute
+  `0/0`.
+- Batch shape: `batch_size=256`, `num_batches=5`, expected requests `1280`.
+- Result:
+  `benchmark_pass=True`; connector `SCDPreloadedConnector` from module
+  `scd_vllm.preloaded_connector`.
+- Throughput: plain vLLM `13218.147026` tokens/s; vLLM prefix-cache baseline
+  `16298.884031` tokens/s; SCDPreloaded load `5944.215648` tokens/s.
+  SCDPreloaded/plain ratio is `0.449701`; SCDPreloaded/prefix-cache ratio is
+  `0.364701`.
+- Worker-side connector stats: `cache_hits=42980`, `cache_misses=28`,
+  `cache_hit_rate=0.999349`, `cached_files=28`, `cached_bytes=1835008`.
+
+This current-branch rerun strengthens the portability evidence but also
+strengthens the Qwen overhead warning: it is a passed functional benchmark and
+a negative throughput boundary, not a speedup result.
+
 ## Release Risk Notes
 
 - Do not present Qwen3-1.7B gray as a speedup result. It is additional-model
@@ -184,7 +213,8 @@ risk, not a speedup result.
 - Do not present the Qwen batched SCDPreloadedConnector run as a throughput
   improvement; it passed functionally and improves over the disk-backed
   ExampleConnector path, but it is still slower than both plain vLLM and vLLM
-  prefix caching in the checked repeated-prefix microbenchmark.
+  prefix caching in the checked repeated-prefix microbenchmarks, including the
+  current-branch high-batch rerun.
 - Do not present the Mistral SCDPreloadedConnector batch benchmark as faster
   than vLLM's native prefix caching. It is faster than plain vLLM in the
   checked repeated-prefix shape, but prefix caching remains the stronger

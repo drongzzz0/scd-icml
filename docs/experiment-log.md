@@ -7078,3 +7078,60 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Record the run in ResearchKB, keep the artifacts local under
   `Experiment/results`, and use these numbers as the primary release-facing
   vLLM throughput evidence.
+
+## 2026-06-18 11:07 +08:00 - Current c925185 Qwen3 gray SCD-vLLM high-batch boundary benchmark
+
+- Experiment name or id:
+  `a800_qwen17_gray_c925185_b256_gpu6_20260618_110715`.
+- Purpose:
+  Test the current release branch on a second model family with the public
+  SCD-vLLM preloaded connector path, and determine whether Qwen3-1.7B ->
+  Qwen3-1.7B-gray supports a speedup claim or only portability/risk evidence.
+- Method:
+  Pushed the current runtime repo to
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_c925185_20260618_1105`,
+  activated A800 `cache`, sampled GPU state for about 70 seconds, selected GPU
+  `6`, and ran `python -m scd_vllm.batch_benchmark` with plain vLLM, vLLM
+  prefix caching, and `SCDPreloadedConnector`.
+- Parameters:
+  `batch_size=256`, `num_batches=5`, `warmup_batches=1`,
+  `max_new_tokens=16`, `max_model_len=4096`, `dtype=bfloat16`,
+  `gpu_memory_utilization=0.45`, `CUDA_VISIBLE_DEVICES=6`,
+  `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `connector_cache_device=cuda`.
+- Inputs:
+  Model and tokenizer
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`;
+  bundle
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/reuse_patch_qwen17_gray_cmrc_route`;
+  connector storage
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/example_connector_storage`.
+- Environment:
+  A800mql, `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate
+  cache`; vLLM `0.18.0`; torch from the A800 cache environment.
+- Outputs:
+  Local artifact directory
+  `Experiment/results/a800_qwen17_gray_c925185_b256_gpu6_20260618_110715/`;
+  remote source run
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_qwen17_gray_c925185_b256_gpu6_20260618_110715`.
+- Results:
+  The benchmark passed with expected requests `1280`. Plain vLLM throughput was
+  `13218.147026` tok/s, vLLM prefix-cache throughput was `16298.884031`
+  tok/s, and SCDPreloaded load throughput was `5944.215648` tok/s.
+  SCDPreloaded/plain ratio was `0.449701`; SCDPreloaded/prefix-cache ratio was
+  `0.364701`. Connector stats reported `42980` hits, `28` misses, hit rate
+  `0.999349`, `28` cached files, and `1835008` cached bytes.
+- Analysis:
+  This validates that the current branch can run the Qwen gray SCDPreloaded
+  path through vLLM at high batch size, but the result is a negative throughput
+  boundary. It supports portability and overhead-risk documentation, not a Qwen
+  speedup claim.
+- Conclusions:
+  Mistral remains the release-facing positive throughput evidence. Qwen3 gray
+  should remain framed as second-model-family functional portability plus a
+  caution that the current connector path can be slower than both plain vLLM
+  and native prefix caching.
+- Next actions:
+  Record and harvest this run in ResearchKB, keep the artifact in
+  `Experiment/results`, and avoid presenting it as acceleration evidence.
