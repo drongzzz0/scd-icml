@@ -3045,3 +3045,24 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   This is still a single-tenant trusted-bundle launch helper. It does not add
   multi-tenant serving, dynamic routing, request authentication, or privacy
   isolation.
+
+### 2026-06-18 update - gate train/eval split evidence
+
+- Change:
+  Extended the release-readiness plan so `check_release_readiness.py` checks
+  train/eval split evidence in addition to route strictness, multidataset
+  quality metrics, vLLM connector evidence, and release-tree packaging.
+- Rationale:
+  The release branch should be open-source safe even after result cleanup. The
+  gate now fails if the branch-local evidence no longer proves that CMRC2018
+  train-200 is used as the calibration/training bank while CMRC2018 dev,
+  HotpotQA dev, and WikiText-2 test are used for evaluation.
+- Implementation boundary:
+  The new checks read route metadata, strict CMRC summary metadata, WikiText-2
+  run configs, and Qwen strict README/config/route artifacts. It does not
+  broaden claims beyond the existing trusted static-prefix SCD-vLLM boundary.
+- Verification:
+  `PYTHONPATH=.;src pytest tests -q` passed with `106 passed`;
+  `python scripts\check_release_readiness.py` passed; `git diff --check`
+  passed; and `python scripts\build_release_tree.py --out ..\..\..\release_preview --force`
+  built a preview whose own readiness check passed.

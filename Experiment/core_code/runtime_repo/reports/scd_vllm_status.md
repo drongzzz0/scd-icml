@@ -350,6 +350,11 @@ train/eval leakage artifact.
   WikiText-2 test (`763`), and the Qwen3-1.7B gray three-dataset risk
   aggregate. This prevents the publishable branch from relying only on
   prose-level dataset-quality claims.
+- Release readiness also gates train/eval split evidence: release routes must
+  declare the CMRC2018 train-200 calibration bank, CMRC strict summaries must
+  use full dev evaluation with an empty qid allowlist, WikiText-2 must use the
+  full test artifact, and Qwen must document CMRC2018 train calibration with
+  CMRC2018 dev, HotpotQA dev, and WikiText-2 test evaluation.
 
 ## Blockers And Limits
 

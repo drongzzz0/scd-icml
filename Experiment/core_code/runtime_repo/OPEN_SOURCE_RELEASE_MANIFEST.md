@@ -338,6 +338,14 @@ Mistral QA rows must preserve or improve F1/EM versus Full Consumer, WikiText-2
 is checked with NLL/TTFT rather than F1, and Qwen remains portability/risk
 evidence rather than a speedup claim.
 
+The same readiness command now gates train/eval split evidence. It checks that
+the release routes declare a CMRC2018 train-200 calibration bank, that strict
+CMRC/HotpotQA/WikiText-2 evaluations use full dev/test artifacts instead of a
+qid allowlist, and that the Qwen strict run records CMRC2018 train samples for
+calibration while evaluating CMRC2018 dev, HotpotQA dev, and WikiText-2 test.
+This prevents future cleanup from accidentally replacing the release evidence
+with a train-set evaluation or a stale partial-evaluation artifact.
+
 The default SCD method boundary is unchanged: non-patch layers are
 reconstructed by Reuse, selected transition layers are corrected by Patch,
 Patch and Reuse jointly cover all layers, and `fallback_layers` /

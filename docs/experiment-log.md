@@ -6776,3 +6776,53 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   This improves the open-source plug-and-play interface without broadening the
   claim. The helper validates a trusted static launch contract and remains
   explicitly outside production multi-tenant serving or dynamic request routing.
+
+## 2026-06-18 - Release Readiness Train/Eval Split Evidence Gate
+
+- Experiment id:
+  `release_readiness_train_eval_split_gate_20260618`.
+- Purpose:
+  Convert the no-data-leakage release boundary into executable checks so the
+  open-source branch cannot silently pass after replacing full dev/test
+  evaluation artifacts with train-set or partial-evaluation evidence.
+- Method:
+  Added `check_train_eval_split_evidence` to
+  `Experiment/core_code/runtime_repo/scripts/check_release_readiness.py`.
+  The gate reads Mistral route metadata, CMRC strict summary metadata,
+  WikiText-2 run configs, and Qwen strict README/config/route artifacts.
+- Parameters and inputs:
+  Mistral release routes:
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`
+  and
+  `configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json`.
+  Mistral evidence:
+  `Experiment/results/scd_vllm_multidataset_full_strict_20260617/` and
+  `Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`.
+  Qwen evidence:
+  `Experiment/results/qwen17_gray_full_strict_microsharded_20260617/`.
+- Acceptance checks:
+  Routes must declare a CMRC2018 train-200 calibration bank. CMRC strict
+  summaries must use strict mode, full dev evaluation, an empty qid allowlist,
+  Full Consumer plus reuse_patch methods, and zero fallback/recompute layers.
+  WikiText-2 configs must use `datasets=wikitext2`, `eval_limit=0`,
+  `max_length=0`, and the CMRC200 trained bank. Qwen strict evidence must
+  document CMRC2018 train calibration, CMRC2018 dev/HotpotQA dev/WikiText-2
+  test evaluation, `max_eval_samples=0`, strict mode, and no
+  fallback/recompute.
+- Results:
+  `PYTHONPATH=.;src pytest tests -q` passed with `106 passed in 25.40s`.
+  `python scripts\check_release_readiness.py` passed.
+  `git diff --check` passed.
+  `python scripts\build_release_tree.py --out ..\..\..\release_preview --force`
+  built `release_preview` and the preview's own readiness check passed.
+  The preview contains zero `__pycache__` directories.
+- Analysis:
+  This does not add new model quality results. It makes the current
+  Mistral/Qwen evidence boundary machine-checkable, especially the separation
+  between CMRC2018 train calibration and dev/test evaluation. The release
+  remains a trusted static-prefix SCD-vLLM integration plus strict-runtime
+  quality evidence, not a production multi-tenant serving claim.
+- ResearchKB:
+  Structured run recorded `run_7eda4bb299554033`. Local harvest scanned the
+  runtime repo and skipped it because no new parseable result artifact was
+  found.

@@ -814,6 +814,189 @@ def check_quality_pair(
             fail(errors, f"{label} SCD TTFT should be lower than full_consumer TTFT")
 
 
+def check_train_eval_split_evidence(root: Path, errors: list[str]) -> None:
+    route_specs = [
+        (
+            root / "configs" / "routes" / "scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
+            "Mistral patch20/reuse12 route",
+            ["train-200", "full dev"],
+            {"eval_samples": 3219},
+            {},
+        ),
+        (
+            root / "configs" / "routes" / "scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json",
+            "Mistral patch26/reuse6 route",
+            ["train-200", "full cmrc2018", "hotpotqa", "wikitext"],
+            {},
+            {"cmrc2018": 3219, "hotpotqa": 7405, "wikitext2": 763},
+        ),
+    ]
+    for path, label, dataset_snippets, scalar_checks, reference_samples in route_specs:
+        route = load_evidence_json(path, errors, label)
+        if not route:
+            continue
+        metadata = route.get("metadata", {})
+        if not isinstance(metadata, dict):
+            fail(errors, f"{label} metadata must be a JSON object")
+            continue
+        dataset_text = str(metadata.get("dataset", "")).lower()
+        for snippet in dataset_snippets:
+            if snippet not in dataset_text:
+                fail(errors, f"{label} metadata.dataset must mention {snippet!r}")
+        for key, expected in scalar_checks.items():
+            if int(metadata.get(key, 0) or 0) != expected:
+                fail(errors, f"{label} metadata.{key} should be {expected}, got {metadata.get(key)!r}")
+        reference = metadata.get("reference_result", {})
+        if reference_samples:
+            if not isinstance(reference, dict):
+                fail(errors, f"{label} reference_result must be a JSON object")
+            else:
+                for dataset, expected_samples in reference_samples.items():
+                    payload = reference.get(dataset, {})
+                    if not isinstance(payload, dict):
+                        fail(errors, f"{label} reference_result.{dataset} must be a JSON object")
+                        continue
+                    if int(payload.get("samples", 0) or 0) != expected_samples:
+                        fail(errors, f"{label} {dataset} samples should be {expected_samples}")
+        if route.get("fallback_layers") != []:
+            fail(errors, f"{label} must not enable fallback layers")
+        if route.get("selected_recompute_layers") != [] or route.get("recompute_segment_length_by_layer") != {}:
+            fail(errors, f"{label} must not enable recompute layers")
+
+    results_root = root.parent.parent / "results"
+    if not results_root.is_dir():
+        return
+
+    cmrc_aggregate = load_evidence_json(
+        results_root / "scd_vllm_multidataset_full_strict_20260617" / "cmrc_aggregate_summary.json",
+        errors,
+        "Mistral CMRC train/eval split",
+    )
+    if cmrc_aggregate:
+        for key, expected_route_counts in {
+            "cmrc_patch20_reuse12": {"reuse_layers": 12, "patch_layers": 20},
+            "cmrc_patch26_reuse6": {"reuse_layers": 6, "patch_layers": 26},
+        }.items():
+            entry = cmrc_aggregate.get(key, {})
+            meta = entry.get("per_mode_summary", {}).get("meta", {}) if isinstance(entry, dict) else {}
+            if not isinstance(meta, dict):
+                fail(errors, f"{key} split evidence meta must be a JSON object")
+                continue
+            if meta.get("strict_mode") is not True:
+                fail(errors, f"{key} must use strict_mode=True")
+            if meta.get("qid_allowlist") != []:
+                fail(errors, f"{key} must use full CMRC dev, not a qid allowlist")
+            if set(meta.get("methods", [])) != {"full_consumer", "reuse_patch"}:
+                fail(errors, f"{key} must compare only full_consumer and reuse_patch")
+            if "eval_cmrc_full_strict" not in str(meta.get("eval_config_path", "")):
+                fail(errors, f"{key} must use eval_cmrc_full_strict config")
+            route_counts = meta.get("route_counts", {})
+            if not isinstance(route_counts, dict):
+                fail(errors, f"{key} route_counts must be a JSON object")
+                continue
+            for route_key, expected in expected_route_counts.items():
+                if int(route_counts.get(route_key, -1) or -1) != expected:
+                    fail(errors, f"{key} route_counts.{route_key} should be {expected}")
+            if int(route_counts.get("fallback_layers", -1)) != 0:
+                fail(errors, f"{key} must have zero fallback layers")
+            if int(route_counts.get("selected_recompute_layers", -1)) != 0:
+                fail(errors, f"{key} must have zero recompute layers")
+
+    wikitext_root = results_root / "wikitext2_patch20_patch26_full_current_20260618_034812"
+    wikitext_top = load_evidence_json(wikitext_root / "run_config.json", errors, "Mistral WikiText-2 run config")
+    if wikitext_top:
+        if wikitext_top.get("datasets") != "wikitext2":
+            fail(errors, "Mistral WikiText-2 top run_config must evaluate only wikitext2")
+        if int(wikitext_top.get("eval_limit", -1)) != 0:
+            fail(errors, "Mistral WikiText-2 top run_config must set eval_limit=0")
+        if "cmrc200" not in str(wikitext_top.get("source_run", "")).lower():
+            fail(errors, "Mistral WikiText-2 top run_config must declare the CMRC200 training bank")
+        if wikitext_top.get("fallback_allowed") is not False:
+            fail(errors, "Mistral WikiText-2 top run_config must disable fallback")
+        if wikitext_top.get("recompute_allowed") is not False:
+            fail(errors, "Mistral WikiText-2 top run_config must disable recompute")
+    for route_name in ("patch20_reuse12", "patch26_reuse6"):
+        route_run = load_evidence_json(
+            wikitext_root / route_name / "run_config.json",
+            errors,
+            f"Mistral WikiText-2 {route_name} run config",
+        )
+        if not route_run:
+            continue
+        if route_run.get("datasets") != "wikitext2":
+            fail(errors, f"Mistral WikiText-2 {route_name} must evaluate only wikitext2")
+        if int(route_run.get("eval_limit", -1)) != 0:
+            fail(errors, f"Mistral WikiText-2 {route_name} must set eval_limit=0")
+        if int(route_run.get("max_length", -1)) != 0:
+            fail(errors, f"Mistral WikiText-2 {route_name} must set max_length=0")
+        if "cmrc200" not in str(route_run.get("source_run_root", "")).lower():
+            fail(errors, f"Mistral WikiText-2 {route_name} must use the CMRC200 training bank")
+        if route_name not in str(route_run.get("route_source", "")):
+            fail(errors, f"Mistral WikiText-2 {route_name} route_source must name the fixed route")
+
+    qwen_root = results_root / "qwen17_gray_full_strict_microsharded_20260617"
+    qwen_readme = qwen_root / "README.md"
+    if not qwen_readme.is_file():
+        fail(errors, f"missing Qwen train/eval split README: {qwen_readme}")
+    else:
+        qwen_text = qwen_readme.read_text(encoding="utf-8")
+        for snippet in [
+            "Train/calibration split: CMRC2018 train samples.",
+            "Evaluation splits: CMRC2018 dev, HotpotQA dev, WikiText-2 test.",
+            "No fallback layers and no recompute layers.",
+        ]:
+            if snippet not in qwen_text:
+                fail(errors, f"Qwen train/eval split README missing snippet: {snippet}")
+    qwen_eval = load_evidence_json(
+        qwen_root / "configs" / "eval_qwen17_full_strict.json",
+        errors,
+        "Qwen strict eval config",
+    )
+    if qwen_eval:
+        runtime = qwen_eval.get("runtime", {})
+        runtime_eval = qwen_eval.get("runtime_eval", {})
+        route_cfg = qwen_eval.get("route", {})
+        if not isinstance(runtime, dict) or runtime.get("cpu_fallback") is not False:
+            fail(errors, "Qwen strict eval config must disable runtime.cpu_fallback")
+        if not isinstance(route_cfg, dict) or route_cfg.get("recompute_eval_mode") != "disabled":
+            fail(errors, "Qwen strict eval config must disable recompute_eval_mode")
+        if not isinstance(runtime_eval, dict):
+            fail(errors, "Qwen strict eval runtime_eval must be a JSON object")
+        else:
+            expected_runtime_eval = {
+                "run_reuse_patch": True,
+                "run_reuse_only": False,
+                "run_reuse_fallback": False,
+                "run_reuse_patch_recompute": False,
+                "strict_mode": True,
+            }
+            for key, expected in expected_runtime_eval.items():
+                if runtime_eval.get(key) is not expected:
+                    fail(errors, f"Qwen strict eval runtime_eval.{key} should be {expected}")
+            if runtime_eval.get("cmrc_split") != "dev":
+                fail(errors, "Qwen strict eval must use CMRC2018 dev split for evaluation")
+            if int(runtime_eval.get("max_eval_samples", -1)) != 0:
+                fail(errors, "Qwen strict eval must use max_eval_samples=0 for full evaluation")
+    qwen_route = load_evidence_json(
+        qwen_root / "route_qwen17_gray_patch6_seed42.json",
+        errors,
+        "Qwen strict route",
+    )
+    if qwen_route:
+        source = qwen_route.get("source", {})
+        if not isinstance(source, dict):
+            fail(errors, "Qwen strict route source must be a JSON object")
+        else:
+            if "cmrc_train200" not in str(source.get("profile", "")).lower():
+                fail(errors, "Qwen strict route must be selected from a CMRC train-200 profile")
+            if "eval_qwen17_full_strict" not in str(source.get("eval_config", "")):
+                fail(errors, "Qwen strict route must point to eval_qwen17_full_strict config")
+        if qwen_route.get("fallback_layers") != []:
+            fail(errors, "Qwen strict route must not enable fallback layers")
+        if qwen_route.get("selected_recompute_layers") != [] or qwen_route.get("recompute_segment_length_by_layer") != {}:
+            fail(errors, "Qwen strict route must not enable recompute layers")
+
+
 def check_multidataset_quality_evidence(root: Path, errors: list[str]) -> None:
     results_root = root.parent.parent / "results"
     if not results_root.is_dir():
@@ -1188,10 +1371,10 @@ def check_docs(root: Path, errors: list[str]) -> None:
             "reuse08_patch24",
         ],
         "DATA_PREPARATION.md": ["cmrc2018_train.json", "hotpot_dev_distractor_v1.json", "wiki.test.txt"],
-        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "examples/scd_vllm_official_launch.py", "scd-vllm doctor", "scd-vllm launch-spec", "scd-vllm launch-smoke", "scd-vllm batch-benchmark", "src/scd_vllm_plugin/", "configs/scd_vllm_mvp.yaml", "scripts/scd_vllm/run_06_report.sh", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache", "cache_hits", "a800_qwen17_scd_vllm_preloadedstats_20260618_cache", "a800_qwen17_scd_vllm_launchsmoke_20260618_cache", "SCDPreloadedConnector", "kv-connector-module-path", "prefix-cache", "repeated-prefix trusted microbenchmark", "NLL/PPL"],
+        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "examples/scd_vllm_official_launch.py", "scd-vllm doctor", "scd-vllm launch-spec", "scd-vllm launch-smoke", "scd-vllm batch-benchmark", "src/scd_vllm_plugin/", "configs/scd_vllm_mvp.yaml", "scripts/scd_vllm/run_06_report.sh", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache", "cache_hits", "a800_qwen17_scd_vllm_preloadedstats_20260618_cache", "a800_qwen17_scd_vllm_launchsmoke_20260618_cache", "SCDPreloadedConnector", "kv-connector-module-path", "prefix-cache", "repeated-prefix trusted microbenchmark", "NLL/PPL", "train/eval split evidence", "CMRC2018 train-200"],
         "docs/scd_vllm_plugin_mvp.md": ["scd-vllm doctor", "strict no-fallback/no-recompute", "scd-vllm run", "scd-vllm launch-spec", "scd-vllm launch-smoke", "scd-vllm batch-benchmark", "examples/scd_vllm_official_launch.py", "ExampleConnector", "SCDPreloadedConnector", "kv-connector-module-path", "vllm.LLM", "patch26_reuse6"],
         "reports/scd_vllm_repo_audit.md": ["Existing entry points", "Proposed mapping to scd_vllm modules", "Implementation/release risks", "dataset-specific routes", "src/scd_vllm/injection.py"],
-        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache", "Cache Hits", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache", "a800_qwen17_scd_vllm_preloadedstats_20260618_cache", "a800_qwen17_scd_vllm_launchsmoke_20260618_cache", "plain-vLLM compatibility", "Qwen raw-bank-to-vLLM", "SCDPreloadedConnector", "launch-spec", "launch-smoke", "prefix-cache", "repeated-prefix trusted microbenchmark", "Dataset Quality Evidence", "NLL/PPL", "not a production-grade vLLM connector"],
+        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache", "Cache Hits", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache", "a800_qwen17_scd_vllm_preloadedstats_20260618_cache", "a800_qwen17_scd_vllm_launchsmoke_20260618_cache", "plain-vLLM compatibility", "Qwen raw-bank-to-vLLM", "SCDPreloadedConnector", "launch-spec", "launch-smoke", "prefix-cache", "repeated-prefix trusted microbenchmark", "Dataset Quality Evidence", "NLL/PPL", "train/eval split evidence", "not a production-grade vLLM connector"],
         "LICENSE": ["MIT License", "SCD reproduction team"],
     }
     for rel, snippets in docs.items():
@@ -1297,6 +1480,7 @@ def main() -> None:
         check_selected_route(root, errors)
         check_vllm_demo_route(root, errors)
         check_quality_reference_route(root, errors)
+        check_train_eval_split_evidence(root, errors)
         check_multidataset_quality_evidence(root, errors)
         check_qwen_vllm_evidence(root, errors)
         check_mistral_batch_benchmark_evidence(root, errors)
