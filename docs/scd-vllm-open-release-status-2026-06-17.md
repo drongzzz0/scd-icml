@@ -513,4 +513,38 @@ samples; evaluation used full CMRC2018 dev, HotpotQA dev, and WikiText-2 test.
 
 Interpretation: this result supports strict route coverage and split discipline
 on an additional model pair, but it does not support a Qwen speedup claim.
+
+## Additional Qwen2.5-32B vLLM Full Consumer Baseline
+
+This is a Qwen2.5-32B-Instruct official-vLLM tensor-parallel Full Consumer
+baseline on CMRC2018 dev. It is not an SCD reuse/patch result and must not be
+reported as Qwen32B SCD speedup evidence.
+
+Environment:
+
+- Host: A800 current account, `conda activate cache`.
+- vLLM: `0.18.0`.
+- Model: `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`.
+- Storage/cache: `/home/c101-800-mql/nas/SCD-ICML`, not the `/home`
+  development disk.
+- GPUs: `CUDA_VISIBLE_DEVICES=0,1,2,3`, `tensor_parallel_size=4`.
+
+Two prompt formats were checked:
+
+| Prompt format | Samples | F1 | EM | Notes |
+|---|---:|---:|---:|---|
+| Plain completion prompt | 3219 | `0.4156507535` | `0.0043491768` | Diagnostic only; generated full-sentence answers and is not a fair Qwen-Instruct baseline. |
+| Chat template + short-answer instruction | 3219 | `0.9098067394` | `0.7086051569` | Current Qwen32B Full Consumer baseline for CMRC2018 dev. |
+
+Artifacts:
+
+- Plain prompt:
+  `Experiment/results/a800_qwen32_vllm_cmrc_full_tp4_20260618/summary.json`.
+- Chat template:
+  `Experiment/results/a800_qwen32_vllm_cmrc_full_tp4_chat_20260618/summary.json`.
+
+Interpretation: Qwen2.5-32B-Instruct quality evaluation must use the tokenizer
+chat template and task instruction. The current branch can load and evaluate
+Qwen32B through official vLLM TP4, but Qwen32B SCD reuse/patch quality remains
+unverified in this release branch.
 Keep it as cautionary evidence for route portability.

@@ -3269,3 +3269,22 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   path in `llm_kwargs`. A Qwen2.5-32B-Instruct CMRC2018 dev full vLLM baseline
   was launched on A800 GPUs `0,1,2,3` after a 60-second zero-utilization
   preflight.
+
+### 2026-06-18 update - correct Qwen32B Instruct baseline prompt format
+
+- Change:
+  Added optional chat-template prompting and extra task instruction support to
+  the vLLM dataset evaluation path. Re-ran the Qwen2.5-32B-Instruct CMRC2018
+  dev Full Consumer baseline with tokenizer chat template and a short-answer
+  instruction.
+- Rationale:
+  The first Qwen32B Full Consumer baseline used a plain completion prompt and
+  produced full-sentence answers, giving a misleadingly low EM. Instruct-model
+  baselines must use their expected chat format before being used as a quality
+  comparison target for SCD.
+- Verification:
+  Local prompt-formatting and vLLM plugin tests passed with `11 passed`.
+  The A800 chat-template full run completed on all `3219` CMRC2018 dev samples
+  with `F1=0.9098067394` and `EM=0.7086051569`, compared with
+  `F1=0.4156507535` and `EM=0.0043491768` for the plain completion diagnostic
+  run.

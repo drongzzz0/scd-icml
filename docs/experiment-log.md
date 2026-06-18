@@ -7410,3 +7410,45 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Harvested local artifacts as `harvest_65368399d230de84` (`run.log`),
   `harvest_aeecc6873def53c2` (`per_sample_metrics.jsonl`), and
   `harvest_c25ea00488abbdce` (`summary.json`).
+
+### 2026-06-18 14:17 +08:00 A800 Qwen32 vLLM TP4 CMRC2018 chat-template full result
+
+- Purpose:
+  Re-run the Qwen2.5-32B-Instruct Full Consumer baseline with the correct
+  instruction-model prompt format after the plain completion prompt produced a
+  misleadingly low baseline (`F1=0.4156507535`, `EM=0.0043491768`).
+- Method:
+  Added and used the `scd_vllm.dataset_eval` options
+  `--apply-chat-template` and `--extra-instruction`. The prompt was wrapped
+  with the tokenizer chat template and appended with `请只输出答案短语，不要解释。`.
+- Inputs:
+  Model `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`; data root
+  `/home/c101-800-mql/maqianli/no4/data`; split `cmrc2018 dev`; full split
+  (`3219` samples).
+- Parameters:
+  `tensor_parallel_size=4`, `CUDA_VISIBLE_DEVICES=0,1,2,3`, `dtype=bfloat16`,
+  `max_model_len=2048`, `max_new_tokens=32`, `batch_size=16`,
+  `gpu_memory_utilization=0.50`, `enforce_eager=true`.
+- Result:
+  Final F1 was `0.9098067394`; EM was `0.7086051569`. The first prediction
+  changed from a full sentence in the plain-prompt run to the exact short
+  answer `光荣和ω-force`, matching the reference.
+- Timing:
+  Model load from NAS took `639.7229` seconds. Dataset evaluation took
+  `282.7484` seconds, with `30,371` output tokens and `107.7083` output
+  tokens per second over generation sections.
+- Artifacts:
+  Remote run root:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_cmrc_full_tp4_chat_20260618_140019`.
+  Local copy:
+  `Experiment/results/a800_qwen32_vllm_cmrc_full_tp4_chat_20260618/`.
+- Analysis:
+  Qwen2.5-32B-Instruct CMRC baselines must use chat-template prompting and a
+  short-answer instruction. The earlier plain-prompt run is retained as a
+  prompt-format failure diagnostic, not as the quality baseline. This result
+  is still Full Consumer only; it does not establish Qwen32B SCD reuse/patch
+  quality or speed.
+- ResearchKB:
+  Harvested local artifacts as `harvest_cbe4ec6c938ea710` (`run.log`),
+  `harvest_6fc5be3f24df2b21` (`per_sample_metrics.jsonl`), and
+  `harvest_c108d4acfe7fa2cb` (`summary.json`).
