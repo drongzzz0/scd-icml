@@ -7837,3 +7837,24 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - Boundary:
   This run is a Full Consumer official-vLLM baseline. It is not an SCD
   reuse/patch result and must not be reported as Qwen32 SCD evidence.
+
+### 2026-06-18 18:58 +08:00 Qwen32 HotpotQA-compressed full baseline completed
+
+- Result:
+  Run
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpotqa_compressed_full_tp2_20260618_182918`
+  completed with exit code `0` on the complete HotpotQA compressed dev split
+  (`7405` samples). Full Consumer official-vLLM quality was
+  `F1=0.4475408244318608` and `EM=0.3400405131667792`.
+- Runtime:
+  Model load took `614.3456s`, evaluation took `824.9363s`, generation time
+  summed to `823.5494s`, and output throughput was `92.4498` tokens/s. The
+  run used Qwen2.5-32B-Instruct with TP2 on GPUs 0/1.
+- Artifacts:
+  Local result copy:
+  `Experiment/results/a800_qwen32_vllm_hotpotqa_compressed_full_baseline_20260618/`.
+  The consolidated Qwen32 Full Consumer table was extended at
+  `Experiment/results/a800_qwen32_vllm_three_dataset_full_baselines_20260618/summary.json`.
+- Boundary:
+  This result is a storage-backed full-model baseline only. It does not
+  validate Qwen32 SCD reuse/patch quality, route selection, or speedup.

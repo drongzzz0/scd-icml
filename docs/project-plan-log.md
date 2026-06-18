@@ -3458,12 +3458,14 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   Hugging Face, Transformers, ModelScope, Torch, XDG, and vLLM caches. The
   nearly full `/home` filesystem is not acceptable for model downloads or
   cache expansion.
-- Current run:
-  The active Qwen32 HotpotQA-compressed full consumer baseline is
+- Completed run:
+  The Qwen32 HotpotQA-compressed full consumer baseline is
   `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpotqa_compressed_full_tp2_20260618_182918`.
   It uses the `cache` Conda environment via
   `/home/c101-800-mql/.conda/envs/cache/bin/python`, Qwen2.5-32B-Instruct,
-  and GPUs 0/1 after a one-minute sustained `0%` utilization check.
+  and GPUs 0/1 after a one-minute sustained `0%` utilization check. It
+  completed on `7405` HotpotQA compressed samples with Full Consumer
+  `F1=0.4475408244318608` and `EM=0.3400405131667792`.
 - Release boundary:
   This run can update the Qwen32 Full Consumer reference table only. It does
   not reduce the need for a separate Qwen32 SCD reuse/patch validation run.
