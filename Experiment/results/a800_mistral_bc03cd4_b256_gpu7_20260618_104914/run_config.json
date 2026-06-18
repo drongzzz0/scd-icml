@@ -1,0 +1,13 @@
+{
+  "code_root": "/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_bc03cd4_20260618_1045",
+  "commit": "bc03cd4",
+  "gpu": "7",
+  "conda_env": "cache",
+  "python": "/home/c101-800-mql/.conda/envs/cache/bin/python",
+  "model": "/dev/shm/scd_models/Mistral-7B-v0.1",
+  "batch_size": 256,
+  "num_batches": 5,
+  "warmup_batches": 1,
+  "max_new_tokens": 16,
+  "routes": ["patch20_reuse12", "patch26_reuse6"]
+}

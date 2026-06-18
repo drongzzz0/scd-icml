@@ -155,12 +155,17 @@ raw-bank-to-vLLM validated routes, with different quality/speed trade-offs.
 
 Artifacts:
 
+- Current open-release snapshot:
+  - `Experiment/results/a800_mistral_bc03cd4_b256_gpu7_20260618_104914/patch20/`
+  - `Experiment/results/a800_mistral_bc03cd4_b256_gpu7_20260618_104914/patch26/`
+- Prior implementation snapshot:
 - `Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/patch20/`
 - `Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/patch26/`
 
-This run validates the public `scd-vllm batch-benchmark` command on the two
-main MistralLite -> Mistral-7B routes. It compares plain vLLM, official vLLM
-prefix caching, and the repository-provided external
+The current `bc03cd4` run validates the public `scd-vllm batch-benchmark`
+command on the two main MistralLite -> Mistral-7B routes after the release
+path-hygiene fixes. It compares plain vLLM, official vLLM prefix caching, and
+the repository-provided external
 `SCDPreloadedConnector` through vLLM's `kv_connector_module_path` mechanism.
 
 Runtime boundary:
@@ -168,22 +173,22 @@ Runtime boundary:
 - Host: A800mql.
 - Environment:
   `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`.
-- Code snapshot: `runtime_repo_codex_d1ce508_20260618_0915`.
+- Code snapshot: `runtime_repo_codex_bc03cd4_20260618_1045`.
 - vLLM: `0.18.0`.
 - Batch shape: `batch_size=256`, `num_batches=5`, expected requests `1280`.
-- GPU selection: A800 GPUs `0` and `1` were sampled for 60 seconds and stayed
-  at utilization `0`. `patch20_reuse12` used GPU `0`; `patch26_reuse6` used
-  GPU `1`.
-- Model-loading optimization: the Mistral-7B model was copied from NAS to
-  `/dev/shm/scd_models/Mistral-7B-v0.1` before launch to avoid repeated NAS
-  reads across the plain, prefix-cache, and SCDPreloaded stages.
+- GPU selection: A800 GPU `7` was sampled for about 70 seconds and stayed at
+  utilization `0` with about `437 MiB` used before launch. Both route
+  benchmarks used `CUDA_VISIBLE_DEVICES=7`.
+- Model-loading optimization: the Mistral-7B model was served from
+  `/dev/shm/scd_models/Mistral-7B-v0.1` before launch to avoid repeated slow
+  storage reads across the plain, prefix-cache, and SCDPreloaded stages.
 - The benchmark code now automatically disables vLLM HMA for
   `SCDPreloadedConnector`, matching the vLLM `0.18.0` connector constraint.
 
 | Route | Plain vLLM tok/s | vLLM prefix-cache tok/s | SCDPreloaded tok/s | SCD/Plain | SCD/Prefix | Hits | Misses | Hit Rate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `patch20_reuse12` | `995.460475` | `5236.793824` | `3286.296158` | `3.301282` | `0.627540` | `49120` | `32` | `0.999349` |
-| `patch26_reuse6` | `1016.189398` | `5522.382560` | `3168.681346` | `3.118200` | `0.573789` | `49120` | `32` | `0.999349` |
+| `patch20_reuse12` | `803.700215` | `5516.152993` | `3185.841785` | `3.963968` | `0.577548` | `49120` | `32` | `0.999349` |
+| `patch26_reuse6` | `1005.013664` | `5471.840579` | `2864.393751` | `2.850104` | `0.523479` | `49120` | `32` | `0.999349` |
 
 Interpretation:
 

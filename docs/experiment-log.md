@@ -7020,3 +7020,61 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - Next actions:
   Commit the hygiene changes and, when requested, push the branch. Do not add
   generated release preview directories to git.
+
+## 2026-06-18 10:49 +08:00 - Current bc03cd4 Mistral SCD-vLLM high-batch benchmark
+
+- Experiment name or id:
+  `a800_mistral_bc03cd4_b256_gpu7_20260618_104914`.
+- Purpose:
+  Re-run the release-facing MistralLite -> Mistral-7B SCD-vLLM high-batch
+  benchmark on the current `bc03cd4` open-release snapshot, so the publishable
+  vLLM evidence is not tied only to an older `d1ce508` code snapshot.
+- Method:
+  Pushed the current runtime repo to
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_bc03cd4_20260618_1045`,
+  activated A800 `cache`, sampled GPU state for about 70 seconds, selected GPU
+  `7`, and ran `python -m scd_vllm.batch_benchmark` for both
+  `patch20_reuse12` and `patch26_reuse6` with plain vLLM, vLLM prefix caching,
+  and `SCDPreloadedConnector`.
+- Parameters:
+  `batch_size=256`, `num_batches=5`, `warmup_batches=1`,
+  `max_new_tokens=16`, `max_model_len=4096`, `dtype=bfloat16`,
+  `gpu_memory_utilization=0.90`, `CUDA_VISIBLE_DEVICES=7`,
+  `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `connector_cache_device=cuda`.
+- Inputs:
+  Model `/dev/shm/scd_models/Mistral-7B-v0.1`; existing raw-bank bundles and
+  connector storage from the full patch20/patch26 raw-bank validation runs.
+- Environment:
+  A800mql, `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate
+  cache`; Python `/home/c101-800-mql/.conda/envs/cache/bin/python`; vLLM
+  `0.18.0`; torch `2.10.0+cu128`.
+- Outputs:
+  Local artifact directory
+  `Experiment/results/a800_mistral_bc03cd4_b256_gpu7_20260618_104914/`;
+  remote source run
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_mistral_bc03cd4_b256_gpu7_20260618_104914`.
+- Results:
+  Both routes passed. `patch20_reuse12`: plain `803.700215` tok/s,
+  prefix-cache `5516.152993` tok/s, SCDPreloaded `3185.841785` tok/s,
+  SCD/plain `3.963968`, SCD/prefix `0.577548`, cache hits/misses
+  `49120/32`, hit rate `0.999349`. `patch26_reuse6`: plain
+  `1005.013664` tok/s, prefix-cache `5471.840579` tok/s, SCDPreloaded
+  `2864.393751` tok/s, SCD/plain `2.850104`, SCD/prefix `0.523479`,
+  cache hits/misses `49120/32`, hit rate `0.999349`.
+- Analysis:
+  This is a repeated-prefix trusted microbenchmark. It supports the claim that
+  the current release snapshot can load SCD reconstructed KV through vLLM's
+  external connector mechanism and outperform plain vLLM prefix recomputation
+  on this controlled workload. It still does not support a claim that SCD beats
+  vLLM native prefix caching, nor any multi-tenant or privacy-safety claim.
+- Conclusions:
+  The current open-release code snapshot has fresh high-batch vLLM evidence for
+  both release routes. `patch20_reuse12` remains the stronger speed/reuse demo;
+  `patch26_reuse6` remains the quality-first CMRC/WikiText route with a lower
+  SCD/plain throughput ratio in this benchmark.
+- Next actions:
+  Record the run in ResearchKB, keep the artifacts local under
+  `Experiment/results`, and use these numbers as the primary release-facing
+  vLLM throughput evidence.
