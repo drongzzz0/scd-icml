@@ -7606,3 +7606,47 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   The same A800 run has started WikiText-2 evaluation and is currently loading
   the same NAS Qwen32 checkpoint through TP4. Wait for its PPL/NLL summary
   before closing the Qwen32 full-baseline coverage for the three-dataset set.
+
+### 2026-06-18 15:36 +08:00 Qwen32 official-vLLM WikiText-2 full baseline completed
+
+- Purpose:
+  Complete the third Qwen2.5-32B-Instruct Full Consumer baseline dataset using
+  official vLLM. This provides the language-modeling reference metric for
+  future Qwen32 SCD comparisons; it is not a reuse/patch result.
+- Run:
+  Remote run root:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618_143845`.
+  Local artifact copy:
+  `Experiment/results/a800_qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618/`.
+- Parameters:
+  Model and tokenizer
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`;
+  dataset `wikitext2`; split `test`; sample count `763`; tensor parallel size
+  `4`; `max_model_len=2048`; `max_new_tokens=32`; `batch_size=16`;
+  `gpu_memory_utilization=0.34`; prompt-NLL scoring enabled without chat
+  template or extra instruction.
+- Result:
+  WikiText-2 Full Consumer `avg_nll=1.9711257546`, `PPL=7.1787534555`.
+  The auxiliary generation-style score was `F1=0.2716968228`, `EM=0.0`, but
+  the primary metric for this dataset is PPL/NLL. The NLL scorer used `29898`
+  teacher tokens and had `prompt_logprob_missing_count=0`.
+- Runtime:
+  Model load time was `765.1147s`; eval time was `57.0315s`; generation time
+  was `56.8122s`; NLL scoring time was `17.7976s`; output throughput was
+  `429.7665` tokens/s. No OOM, `No space`, traceback, or runtime error was
+  observed.
+- Artifact handling:
+  Copied `summary.json`, `per_sample_metrics.jsonl`, stdout/stderr logs into
+  the local result directory. Harvested the narrow result directory with
+  ResearchKB; it recorded the WikiText-2 summary and per-sample metrics.
+- Consolidated baseline table:
+  Wrote
+  `Experiment/results/a800_qwen32_vllm_three_dataset_full_baselines_20260618/summary.json`
+  and `summary.md`. Current Full Consumer baselines are:
+  CMRC2018 `n=3219`, F1 `0.9098067394`, EM `0.7086051569`;
+  HotpotQA `n=7405`, F1 `0.7459153089`, EM `0.5856853477`;
+  WikiText-2 `n=763`, avg NLL `1.9711257546`, PPL `7.1787534555`.
+- Next action:
+  Treat these as Qwen32 Full Consumer reference rows only. Qwen32 SCD
+  reuse/patch quality and speedup are still not established; the strict HF
+  Qwen32 SCD queue remains constrained by available high-free-memory GPUs.

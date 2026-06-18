@@ -3355,3 +3355,20 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Verification:
   Targeted vLLM tests pass locally and the updated code imports successfully on
   A800 using the `cache` Conda environment's Python interpreter.
+
+### 2026-06-18 update - Qwen32 official-vLLM Full Consumer baseline coverage
+
+- Change:
+  Completed and consolidated Qwen2.5-32B-Instruct Full Consumer baselines for
+  CMRC2018, HotpotQA, and WikiText-2 through official vLLM TP4.
+- Current reference rows:
+  CMRC2018 dev `n=3219`, F1 `0.9098067394`, EM `0.7086051569`;
+  HotpotQA dev `n=7405`, F1 `0.7459153089`, EM `0.5856853477`;
+  WikiText-2 test `n=763`, avg NLL `1.9711257546`, PPL `7.1787534555`.
+- Artifact:
+  The consolidated table is in
+  `Experiment/results/a800_qwen32_vllm_three_dataset_full_baselines_20260618/`.
+- Boundary:
+  These are Full Consumer reference baselines only. They prove the release
+  branch can load and evaluate Qwen32 through official vLLM TP4 on three
+  datasets, but they do not prove Qwen32 SCD reuse/patch quality or speedup.
