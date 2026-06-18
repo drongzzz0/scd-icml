@@ -564,11 +564,14 @@ Keep these rows as Full Consumer references and capacity evidence only.
 ## Current Full-Context Transfer Diagnostic Boundary
 
 The CMRC2018-trained MistralLite-to-Mistral-7B reuse19/patch13 route was also
-checked on full-context HotpotQA and WikiText-2. This is diagnostic, not
-claim-facing evidence:
+checked on full CMRC2018 dev, full-context HotpotQA, and WikiText-2. This is
+diagnostic, not claim-facing evidence for non-CMRC transfer:
 
 | Dataset | Method | Samples | F1 | EM | NLL | PPL | TTFT ms | Total ms |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
+| CMRC2018 dev | Full Consumer | 3219 | `0.744253` | `0.477788` | `0.550784` | `1.734612` | `105.262` | `762.813` |
+| CMRC2018 dev | Reuse-only | 3219 | `0.008128` | `0.000000` | `8.138158` | `3422.607202` | `34.948` | `690.762` |
+| CMRC2018 dev | SCD | 3219 | `0.671571` | `0.411929` | `0.905659` | `2.473561` | `40.322` | `285.183` |
 | HotpotQA full-context | Full Consumer | 7405 | `0.353979` | `0.219851` | `0.990936` | `2.693756` | `215.327` | `870.941` |
 | HotpotQA full-context | Reuse-only | 7405 | `0.008499` | `0.000000` | `9.083990` | `8813.063540` | `54.480` | `714.147` |
 | HotpotQA full-context | SCD | 7405 | `0.103724` | `0.077920` | `1.524896` | `4.594665` | `60.865` | `132.157` |
@@ -579,8 +582,10 @@ claim-facing evidence:
 Artifact:
 `Experiment/results/ser_extra_datasets_full_cmrcbank_20260618/`.
 
-Interpretation: the CMRC-bank SCD route is much better than reuse-only and can
-reduce latency, but its non-CMRC quality remains far below Full Consumer. Do
-not use these full-context HotpotQA/WikiText-2 diagnostics as release quality
-claims. HotpotQA claim support must stay tied to the separated compressed
-protocol or dataset-specific route training/evaluation.
+Interpretation: on full CMRC2018 dev, the CMRC-bank SCD route preserves most
+of Full Consumer F1/EM while reducing TTFT and total latency, and reuse-only
+collapses. On full-context HotpotQA and WikiText-2, SCD remains much better
+than reuse-only but far below Full Consumer. Do not use the full-context
+HotpotQA/WikiText-2 diagnostics as release quality claims. HotpotQA claim
+support must stay tied to the separated compressed protocol or
+dataset-specific route training/evaluation.

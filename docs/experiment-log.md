@@ -7651,12 +7651,13 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   reuse/patch quality and speedup are still not established; the strict HF
   Qwen32 SCD queue remains constrained by available high-free-memory GPUs.
 
-### 2026-06-18 15:44 +08:00 ser full-context HotpotQA diagnostic for CMRC-bank route
+### 2026-06-18 15:44 +08:00 ser full-dataset diagnostic for CMRC-bank route
 
 - Purpose:
-  Check whether the current CMRC2018-trained MistralLite-to-Mistral-7B
-  reuse19/patch13 bank transfers to full-context HotpotQA and WikiText-2. This
-  is a diagnostic transfer check, not the compressed HotpotQA claim protocol.
+  Check the current CMRC2018-trained MistralLite-to-Mistral-7B reuse19/patch13
+  bank on full CMRC2018 dev, full-context HotpotQA, and WikiText-2. This is a
+  full-dataset diagnostic; HotpotQA full-context and WikiText-2 remain transfer
+  checks, not compressed HotpotQA claim evidence.
 - Remote run:
   `/disk_n/c101-3-mql/projects/SCD-ICML/runs/extra_datasets_full_cmrcbank_20260618_121640`.
   Bank:
@@ -7667,6 +7668,14 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   `Experiment/results/ser_extra_datasets_full_cmrcbank_20260618/`.
   Large local per-sample copies were removed after ResearchKB harvest; the
   remote run directory keeps the original per-sample metrics.
+- CMRC2018 full-dev result:
+  Full Consumer `n=3219`, F1 `0.7442529549`, EM `0.4777881330`, NLL
+  `0.5507837663`, PPL `1.7346120157`, TTFT `105.2620ms`, total
+  `762.8130ms`.
+  Reuse-only F1 `0.0081283278`, EM `0.0`, NLL `8.1381578795`, PPL
+  `3422.6072024092`, TTFT `34.9479ms`, total `690.7619ms`.
+  SCD F1 `0.6715713752`, EM `0.4119291705`, NLL `0.9056588201`, PPL
+  `2.4735610180`, TTFT `40.3219ms`, total `285.1833ms`.
 - HotpotQA full-context result:
   Full Consumer `n=7405`, F1 `0.3539792271`, EM `0.2198514517`, NLL
   `0.9909363885`, PPL `2.6937556937`, TTFT `215.3274ms`, total
@@ -7680,15 +7689,19 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   reuse-only NLL `6.8323367817`, PPL `927.3553094234`;
   SCD NLL `3.1681475597`, PPL `23.7634232360`.
 - Interpretation:
-  The selected CMRC-bank route remains much better than reuse-only on
-  HotpotQA/WikiText-2, and it is substantially faster on HotpotQA total
-  latency, but its quality is far below Full Consumer on both non-CMRC
-  diagnostics. It should not be presented as a claim-facing cross-dataset
-  generalization result. For HotpotQA claim support, use dataset-specific or
-  compressed-protocol routes already separated in the release notes.
-- Current status:
-  CMRC2018 full-dev shards from the same run are still running; wait for them
-  before writing the final aggregate summary for this full-dataset diagnostic.
+  On full CMRC2018 dev, the selected CMRC-bank route preserves most of Full
+  Consumer F1/EM while reducing TTFT and total latency, and reuse-only
+  collapses. On HotpotQA/WikiText-2, SCD remains much better than reuse-only
+  and faster in this diagnostic, but its quality is far below Full Consumer on
+  both non-CMRC datasets. It should not be presented as a claim-facing
+  cross-dataset generalization result. For HotpotQA claim support, use
+  dataset-specific or compressed-protocol routes already separated in the
+  release notes.
+- Aggregate status:
+  The aggregate script verified HotpotQA `7405`, CMRC2018 dev `3219`, and
+  WikiText-2 `763` samples, then wrote
+  `Experiment/results/ser_extra_datasets_full_cmrcbank_20260618/aggregate_summary.json`
+  and `compact_summary.md`.
 
 ### 2026-06-18 15:58 +08:00 A800mql Qwen32 storage and queue audit
 

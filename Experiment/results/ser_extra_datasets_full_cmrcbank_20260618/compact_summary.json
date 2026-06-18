@@ -1,7 +1,48 @@
 {
-  "hotpotqa_full_sharded": {
-    "full_consumer": {
-      "num_samples": 7405,
+  "rows": [
+    {
+      "dataset": "CMRC2018 dev full",
+      "method": "Full Consumer",
+      "n": 3219,
+      "f1": 0.7442529548886166,
+      "em": 0.47778813296054673,
+      "avg_nll": 0.5507837663099353,
+      "ppl": 1.7346120156881788,
+      "ttft_ms": 105.26203770672485,
+      "total_ms": 762.8130117026524,
+      "payload_mb": 0.0,
+      "compression_ratio": null
+    },
+    {
+      "dataset": "CMRC2018 dev full",
+      "method": "Reuse-only",
+      "n": 3219,
+      "f1": 0.008128327815664553,
+      "em": 0.0,
+      "avg_nll": 8.138157879508926,
+      "ppl": 3422.607202409193,
+      "ttft_ms": 34.94792977265803,
+      "total_ms": 690.7619029794464,
+      "payload_mb": 78.99755358807083,
+      "compression_ratio": 1.0
+    },
+    {
+      "dataset": "CMRC2018 dev full",
+      "method": "SCD",
+      "n": 3219,
+      "f1": 0.6715713752039619,
+      "em": 0.4119291705498602,
+      "avg_nll": 0.9056588200831994,
+      "ppl": 2.473561018034003,
+      "ttft_ms": 40.321946177520516,
+      "total_ms": 285.1832948397103,
+      "payload_mb": 111.0903097332246,
+      "compression_ratio": 0.7111111111111111
+    },
+    {
+      "dataset": "HotpotQA full-context",
+      "method": "Full Consumer",
+      "n": 7405,
       "f1": 0.3539792271046253,
       "em": 0.2198514517218096,
       "avg_nll": 0.9909363885440027,
@@ -11,8 +52,10 @@
       "payload_mb": 0.0,
       "compression_ratio": null
     },
-    "reuse_only": {
-      "num_samples": 7405,
+    {
+      "dataset": "HotpotQA full-context",
+      "method": "Reuse-only",
+      "n": 7405,
       "f1": 0.008498852961704852,
       "em": 0.0,
       "avg_nll": 9.08399039286027,
@@ -22,8 +65,10 @@
       "payload_mb": 205.75234638757595,
       "compression_ratio": 1.0
     },
-    "scd_full": {
-      "num_samples": 7405,
+    {
+      "dataset": "HotpotQA full-context",
+      "method": "SCD",
+      "n": 7405,
       "f1": 0.10372415356391583,
       "em": 0.07792032410533424,
       "avg_nll": 1.5248959036658294,
@@ -32,11 +77,11 @@
       "total_ms": 132.156827088048,
       "payload_mb": 289.3392371075287,
       "compression_ratio": 0.7111111111111111
-    }
-  },
-  "wikitext2_n0": {
-    "full_consumer": {
-      "num_samples": 763,
+    },
+    {
+      "dataset": "WikiText-2 test",
+      "method": "Full Consumer",
+      "n": 763,
       "f1": 0.2212579519479771,
       "em": 0.0,
       "avg_nll": 1.9838737528112034,
@@ -46,8 +91,10 @@
       "payload_mb": 0.0,
       "compression_ratio": null
     },
-    "reuse_only": {
-      "num_samples": 763,
+    {
+      "dataset": "WikiText-2 test",
+      "method": "Reuse-only",
+      "n": 763,
       "f1": 0.0893324854312315,
       "em": 0.0,
       "avg_nll": 6.832336781690505,
@@ -57,8 +104,10 @@
       "payload_mb": 15.929882044560944,
       "compression_ratio": 1.0
     },
-    "scd_full": {
-      "num_samples": 763,
+    {
+      "dataset": "WikiText-2 test",
+      "method": "SCD",
+      "n": 763,
       "f1": 0.13863838989853577,
       "em": 0.0,
       "avg_nll": 3.168147559706146,
@@ -68,5 +117,5 @@
       "payload_mb": 22.401396625163827,
       "compression_ratio": 0.7111111111111111
     }
-  }
+  ]
 }
