@@ -39,6 +39,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--dtype", default="bfloat16")
     parser.add_argument("--max-model-len", type=int, default=512)
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.85)
+    parser.add_argument("--tensor-parallel-size", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-p", type=float, default=1.0)
@@ -75,6 +76,8 @@ def run_batch_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         raise SCDBatchBenchmarkError(f"--num-batches must be positive, got {args.num_batches}")
     if args.warmup_batches < 0:
         raise SCDBatchBenchmarkError(f"--warmup-batches must be non-negative, got {args.warmup_batches}")
+    if args.tensor_parallel_size <= 0:
+        raise SCDBatchBenchmarkError(f"--tensor-parallel-size must be positive, got {args.tensor_parallel_size}")
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +108,8 @@ def run_batch_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         str(args.max_model_len),
         "--gpu-memory-utilization",
         str(args.gpu_memory_utilization),
+        "--tensor-parallel-size",
+        str(args.tensor_parallel_size),
         "--seed",
         str(args.seed),
         "--temperature",
@@ -186,6 +191,7 @@ def run_stage(args: argparse.Namespace) -> dict[str, Any]:
         "dtype": args.dtype,
         "max_model_len": args.max_model_len,
         "gpu_memory_utilization": args.gpu_memory_utilization,
+        "tensor_parallel_size": args.tensor_parallel_size,
         "seed": args.seed,
         "enforce_eager": args.enforce_eager,
         "enable_prefix_caching": bool(args.enable_prefix_caching or args.stage == "prefix-cache"),

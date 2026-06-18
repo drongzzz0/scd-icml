@@ -75,8 +75,8 @@ def run_vllm_baseline(
         raise VLLMBaselineError("--max-new-tokens must be positive")
     if ttft_proxy_repeat < 0:
         raise VLLMBaselineError("--ttft-proxy-repeat must be non-negative")
-    if tensor_parallel_size != 1:
-        raise VLLMBaselineError("Phase 3 baseline is intentionally restricted to tensor_parallel_size=1")
+    if tensor_parallel_size <= 0:
+        raise VLLMBaselineError("--tensor-parallel-size must be positive")
 
     LLM, SamplingParams, vllm_version = _load_vllm()
     torch = _load_torch()
