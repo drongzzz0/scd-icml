@@ -7470,3 +7470,30 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   The chat-template option and tensor-parallel launch-spec support are covered
   by local tests and remain compatible with the release scanner. This does not
   close the remaining Qwen32B SCD reuse/patch evidence gap.
+
+### 2026-06-18 14:25 +08:00 A800 Qwen32 cache placement audit
+
+- Purpose:
+  Check whether Qwen32 model and framework caches could spill onto the A800
+  development disk before the queued strict SCD run starts.
+- Method:
+  Inspected A800 disk usage, active Qwen32/vLLM processes, model configs, and
+  run logs. Compared the `/home` filesystem with the NAS storage mount.
+- Result:
+  A800 `/home` was `99%` used with about `21G` free, while
+  `/home/c101-800-mql/nas` had about `64T` free. The active Qwen32 model config
+  points to `/home/c101-800-mql/nas/models/Qwen2.5-32B` and
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`. The completed vLLM TP4
+  CMRC baseline logs also loaded the model and tokenizer from the NAS model
+  path.
+- Change:
+  Hardened `scripts/run_a800_scd_icml_qwen32_repro.sh` so default cache roots
+  include `HF_ASSETS_CACHE`, `XDG_CACHE_HOME`, and `VLLM_CACHE_ROOT` under
+  `/home/c101-800-mql/nas/SCD-ICML/model_cache`, in addition to `HF_HOME`,
+  `HF_HUB_CACHE`, `TRANSFORMERS_CACHE`, `MODELSCOPE_CACHE`, and `TORCH_HOME`.
+- Next action:
+  The updated wrapper was synced to the A800 runtime repo and validated with
+  remote `bash -n`. Let the existing idle-GPU queue pick up the updated script
+  before launch. The NAS cache subdirectories were created immediately under
+  `/home/c101-800-mql/nas/SCD-ICML/model_cache` to avoid startup-time fallback
+  to default `~/.cache` locations.

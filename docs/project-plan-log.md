@@ -3288,3 +3288,23 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   with `F1=0.9098067394` and `EM=0.7086051569`, compared with
   `F1=0.4156507535` and `EM=0.0043491768` for the plain completion diagnostic
   run.
+
+### 2026-06-18 update - harden Qwen32 storage-backed cache placement
+
+- Change:
+  Extended the A800 Qwen32 wrapper's storage-backed cache policy beyond model
+  weights and Hugging Face hub cache. The wrapper now also creates and exports
+  `HF_ASSETS_CACHE`, `XDG_CACHE_HOME`, and `VLLM_CACHE_ROOT` under
+  `/home/c101-800-mql/nas/SCD-ICML/model_cache` by default, and records these
+  paths in `run_config.json`.
+- Rationale:
+  A800 `/home` is effectively full (`1.8T` total, `21G` free at the latest
+  check), while the NAS mount has about `64T` free. Qwen32B runs must not let
+  model downloads, vLLM caches, or framework asset caches fall back to the
+  development disk.
+- Verification:
+  Confirmed the active Qwen32 model config and vLLM baseline logs load
+  Qwen2.5-32B checkpoints from `/home/c101-800-mql/nas/models`. Synced the
+  updated wrapper to the A800 runtime repo and validated it with remote
+  `bash -n`; the remote model config resolves both Qwen32B directories under
+  `/home/c101-800-mql/nas/models`.
