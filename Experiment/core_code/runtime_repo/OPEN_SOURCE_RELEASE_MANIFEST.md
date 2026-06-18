@@ -50,6 +50,10 @@ spec without occupying a GPU or execute the same trusted-prefix official-vLLM
 smoke path from Python. These paths are intentionally narrow: they are
 trusted/static-prefix artifacts and must not be reported as general
 multi-tenant serving, privacy, arbitrary-routing, or dataset-quality claims.
+`launch-smoke` now rejects launch specs that do not explicitly declare
+`multi_tenant_safe=false`, `dynamic_request_routing=false`, and
+`trusted_bundle_required=true`; `check_release_readiness.py` also verifies this
+safety contract for the stored Mistral and Qwen launch-spec artifacts.
 
 For connector-development experiments, the package includes
 `scd_vllm.preloaded_connector.SCDPreloadedConnector`, which can be loaded by
@@ -390,7 +394,8 @@ directories:
 - `../../Experiment/results/a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache/`
   for direct official-vLLM launch-spec consumption evidence on the Mistral
   quality-first route. It reports `launch_smoke_pass=True`,
-  `bundle_token_match=True`, and final `SCDPreloadedConnector` cache stats.
+  `bundle_token_match=True`, final `SCDPreloadedConnector` cache stats, and
+  an explicit single-tenant trusted-bundle launch-spec safety contract.
 - `../../Experiment/results/a800_qwen17_scd_vllm_preloadedstats_20260618_cache/`
   for additional-model repeated-prefix trusted microbenchmark evidence. It
   compares plain vLLM, vLLM `prefix-cache`, and Qwen
@@ -402,7 +407,8 @@ directories:
 - `../../Experiment/results/a800_qwen17_scd_vllm_launchsmoke_20260618_cache/`
   for direct official-vLLM launch-spec consumption evidence on the Qwen route.
   It reports `launch_smoke_pass=True`, `bundle_token_match=True`,
-  `request_count=128`, and final `SCDPreloadedConnector` cache stats.
+  `request_count=128`, final `SCDPreloadedConnector` cache stats, and an
+  explicit single-tenant trusted-bundle launch-spec safety contract.
 - `../../Experiment/results/scd_vllm_multidataset_full_strict_20260617/` for
   full CMRC2018 and HotpotQA strict QA evidence.
 - `../../Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`

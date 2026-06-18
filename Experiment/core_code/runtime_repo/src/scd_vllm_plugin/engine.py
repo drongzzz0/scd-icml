@@ -394,6 +394,26 @@ def build_preloaded_launch_spec(
     }
 
 
+def validate_launch_spec_safety(payload: dict[str, Any], *, source: str | Path = "<launch-spec>") -> None:
+    """Reject launch specs that do not declare the trusted single-tenant contract."""
+
+    safety = payload.get("safety")
+    if not isinstance(safety, dict):
+        raise ValueError(f"launch spec missing safety contract: {source}")
+    expected = {
+        "multi_tenant_safe": False,
+        "dynamic_request_routing": False,
+        "trusted_bundle_required": True,
+    }
+    for key, value in expected.items():
+        if safety.get(key) is not value:
+            raise ValueError(f"launch spec safety.{key} must be {value!r}: {source}")
+    boundary = str(payload.get("claim_boundary", ""))
+    for snippet in ("single-tenant", "trusted SCD bundle", "not a multi-tenant"):
+        if snippet not in boundary:
+            raise ValueError(f"launch spec claim_boundary missing {snippet!r}: {source}")
+
+
 def _connector_requires_hma_disabled(kv_connector: str, kv_connector_module_path: str) -> bool:
     return kv_connector == DEFAULT_PRELOADED_CONNECTOR or kv_connector_module_path.endswith("preloaded_connector")
 
@@ -421,6 +441,7 @@ def run_launch_smoke(
 
     spec_path = Path(launch_spec)
     payload = json.loads(spec_path.read_text(encoding="utf-8-sig"))
+    validate_launch_spec_safety(payload, source=spec_path)
     llm_kwargs = dict(payload.get("llm_kwargs") or {})
     if not llm_kwargs:
         raise ValueError(f"launch spec does not contain llm_kwargs: {spec_path}")

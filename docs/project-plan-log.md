@@ -3105,3 +3105,20 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Verification:
   Parsed all three JSON files and validated every mapped `instance.json` path
   as a descendant of the current staging workspace.
+
+### 2026-06-18 update - enforce launch-spec safety boundary
+
+- Change:
+  Added an execution-time safety validator for SCD-vLLM launch specs and
+  extended release readiness to verify the stored Mistral and Qwen
+  `launch_spec.json` artifacts. A launch spec is accepted only if it declares
+  `multi_tenant_safe=false`, `dynamic_request_routing=false`, and
+  `trusted_bundle_required=true`.
+- Rationale:
+  KV-cache sharing and cache reuse are not safe to present as general
+  multi-tenant serving without explicit isolation engineering. The open-source
+  branch should fail closed when a launch spec omits that boundary, instead of
+  relying only on prose warnings.
+- Verification:
+  Targeted SCD-vLLM plugin tests and release readiness passed after adding the
+  validator and artifact checks.

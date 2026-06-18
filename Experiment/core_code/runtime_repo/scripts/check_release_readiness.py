@@ -1265,6 +1265,42 @@ def check_launch_smoke_metrics(
     if not path.is_file():
         fail(errors, f"missing {label} SCD-vLLM launch-smoke artifact: {path}")
         return
+    spec_path = results_root / artifact_dir / "launch_spec.json"
+    if not spec_path.is_file():
+        fail(errors, f"missing {label} SCD-vLLM launch-spec artifact: {spec_path}")
+    else:
+        try:
+            spec = json.loads(spec_path.read_text(encoding="utf-8-sig"))
+        except Exception as exc:
+            fail(errors, f"invalid {label} SCD-vLLM launch-spec JSON {spec_path}: {exc}")
+            spec = {}
+        if spec:
+            if spec.get("mode") != "scd_vllm_launch_spec" or spec.get("launch_spec_pass") is not True:
+                fail(errors, f"{label} launch-spec must pass")
+            boundary = str(spec.get("claim_boundary", ""))
+            for snippet in ("single-tenant", "trusted SCD bundle", "not a multi-tenant"):
+                if snippet not in boundary:
+                    fail(errors, f"{label} launch-spec missing safety boundary snippet: {snippet}")
+            safety = spec.get("safety") or {}
+            if safety.get("multi_tenant_safe") is not False:
+                fail(errors, f"{label} launch-spec must declare multi_tenant_safe=false")
+            if safety.get("dynamic_request_routing") is not False:
+                fail(errors, f"{label} launch-spec must declare dynamic_request_routing=false")
+            if safety.get("trusted_bundle_required") is not True:
+                fail(errors, f"{label} launch-spec must declare trusted_bundle_required=true")
+            llm_kwargs = spec.get("llm_kwargs") or {}
+            kv_cfg = llm_kwargs.get("kv_transfer_config") or {}
+            if llm_kwargs.get("disable_hybrid_kv_cache_manager") is not True:
+                fail(errors, f"{label} launch-spec must disable hybrid KV cache manager")
+            if kv_cfg.get("kv_connector") != "SCDPreloadedConnector":
+                fail(errors, f"{label} launch-spec should use SCDPreloadedConnector")
+            if kv_cfg.get("kv_connector_module_path") != "scd_vllm.preloaded_connector":
+                fail(errors, f"{label} launch-spec should use scd_vllm.preloaded_connector")
+            if kv_cfg.get("kv_load_failure_policy") != "fail":
+                fail(errors, f"{label} launch-spec should fail closed on KV load failure")
+            extra = kv_cfg.get("kv_connector_extra_config") or {}
+            if not extra.get("shared_storage_path"):
+                fail(errors, f"{label} launch-spec must provide shared_storage_path")
     try:
         metrics = json.loads(path.read_text(encoding="utf-8-sig"))
     except Exception as exc:

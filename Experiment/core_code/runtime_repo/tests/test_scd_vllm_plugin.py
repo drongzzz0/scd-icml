@@ -4,10 +4,17 @@ import json
 import types
 
 import numpy as np
+import pytest
 
 from scd_vllm.bundle import make_manifest, write_manifest
 from scd_vllm_plugin.cli import main
-from scd_vllm_plugin.engine import SCDVLLMConfig, SCDVLLMEngine, build_preloaded_launch_spec, run_launch_smoke
+from scd_vllm_plugin.engine import (
+    SCDVLLMConfig,
+    SCDVLLMEngine,
+    build_preloaded_launch_spec,
+    run_launch_smoke,
+    validate_launch_spec_safety,
+)
 
 
 def test_plugin_engine_run_smoke_pipeline_delegates_steps(monkeypatch, tmp_path) -> None:
@@ -117,6 +124,7 @@ def test_build_preloaded_launch_spec_for_official_vllm_kwargs(tmp_path) -> None:
         "dynamic_request_routing": False,
         "trusted_bundle_required": True,
     }
+    validate_launch_spec_safety(payload, source="unit-test")
     assert payload["environment"] == {"SCD_PRELOADED_STATS_DIR": str(tmp_path / "stats")}
     llm_kwargs = payload["llm_kwargs"]
     assert llm_kwargs["model"] == "consumer"
@@ -167,8 +175,21 @@ def test_plugin_cli_launch_spec_writes_json(tmp_path, capsys) -> None:
     assert rc == 0
     saved = json.loads(out.read_text(encoding="utf-8"))
     assert saved["mode"] == "scd_vllm_launch_spec"
+    assert saved["safety"]["multi_tenant_safe"] is False
+    assert saved["safety"]["dynamic_request_routing"] is False
+    assert saved["safety"]["trusted_bundle_required"] is True
     assert saved["llm_kwargs"]["disable_hybrid_kv_cache_manager"] is True
     assert "scd_vllm_launch_spec" in capsys.readouterr().out
+
+
+def test_run_launch_smoke_rejects_unsafe_launch_spec(tmp_path) -> None:
+    payload, _stats_dir = _make_launch_smoke_payload(tmp_path)
+    payload["safety"]["multi_tenant_safe"] = True
+    launch_spec = tmp_path / "launch_spec.json"
+    launch_spec.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="safety.multi_tenant_safe"):
+        run_launch_smoke(launch_spec=launch_spec, batch_size=1, max_new_tokens=1)
 
 
 def test_run_launch_smoke_consumes_launch_spec_with_official_vllm_contract(monkeypatch, tmp_path) -> None:

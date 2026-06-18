@@ -166,8 +166,10 @@ The JSON contains `llm_kwargs` for `vllm.LLM(**llm_kwargs)`, a
 vLLM `0.18.0` rejects that connector when HMA is enabled. This spec is a
 single-tenant trusted-bundle launch contract: verify `token_hash` and
 `route_id` before routing a request to it. `launch-smoke` consumes the same
-JSON, applies its environment settings, calls official `vllm.LLM`, runs one
-trusted-prefix generation batch, and writes an auditable `launch_smoke.json`.
+JSON, validates that the safety contract declares `multi_tenant_safe=false`,
+`dynamic_request_routing=false`, and `trusted_bundle_required=true`, applies
+its environment settings, calls official `vllm.LLM`, runs one trusted-prefix
+generation batch, and writes an auditable `launch_smoke.json`.
 
 The release preview also includes a small programmatic helper:
 

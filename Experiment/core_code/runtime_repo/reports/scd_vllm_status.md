@@ -363,6 +363,10 @@ train/eval leakage artifact.
   concurrency, multi-tenant isolation, and request-level routing are not yet
   implemented.
 - Do not claim privacy or multi-tenant safety for reused KV caches.
+- The launch path is fail-closed for this boundary: `launch-smoke` rejects a
+  launch-spec unless it explicitly declares `multi_tenant_safe=false`,
+  `dynamic_request_routing=false`, and `trusted_bundle_required=true`, and
+  release readiness checks the stored Mistral and Qwen launch-spec artifacts.
 - Do not claim a universal route across all datasets.
 - Qwen3-1.7B gray evidence is portability/risk evidence only; it is not a
   speedup claim.
