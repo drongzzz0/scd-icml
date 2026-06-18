@@ -7452,3 +7452,21 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Harvested local artifacts as `harvest_cbe4ec6c938ea710` (`run.log`),
   `harvest_6fc5be3f24df2b21` (`per_sample_metrics.jsonl`), and
   `harvest_c108d4acfe7fa2cb` (`summary.json`).
+
+### 2026-06-18 14:20 +08:00 Post-Qwen32 chat-template release gate
+
+- Purpose:
+  Verify that the new vLLM dataset evaluation path and Qwen32B result records
+  did not break the open-release readiness checks.
+- Commands:
+  `python scripts/check_release_readiness.py` from
+  `Experiment/core_code/runtime_repo`; and
+  `PYTHONPATH=src python -m pytest tests/test_scd_vllm_dataset_eval.py
+  tests/test_scd_vllm_plugin.py tests/test_scd_vllm_official_launch_example.py`.
+- Result:
+  Release readiness check passed. The targeted vLLM tests passed with
+  `11 passed`.
+- Analysis:
+  The chat-template option and tensor-parallel launch-spec support are covered
+  by local tests and remain compatible with the release scanner. This does not
+  close the remaining Qwen32B SCD reuse/patch evidence gap.
