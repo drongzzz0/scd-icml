@@ -10,6 +10,7 @@ from typing import Any, Iterable
 from scd_repro.cmrc import extract_answer_text, load_cmrc2018_samples, score_cmrc_prediction
 from scd_repro.text_benchmarks import load_text_benchmark_samples
 
+from .cache_env import configure_model_cache
 from .vllm_baseline import _cuda_memory_info, _cuda_synchronize, _load_torch, _load_transformers, _load_vllm
 
 
@@ -30,6 +31,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--qid-file", default="", help="Optional qid allowlist, one qid per line")
     parser.add_argument("--model", required=True)
     parser.add_argument("--tokenizer", default="")
+    parser.add_argument(
+        "--cache-root",
+        default="",
+        help="Storage directory for HF/Transformers/ModelScope/Torch/vLLM caches and vLLM downloads.",
+    )
     parser.add_argument("--out", required=True)
     parser.add_argument("--dtype", default="bfloat16")
     parser.add_argument("--max-model-len", type=int, default=2048)
@@ -61,6 +67,7 @@ def run_cmrc2018_vllm_eval(
     model: str,
     tokenizer: str | None,
     out_dir: str | Path,
+    cache_root: str | Path | None = None,
     limit: int = 0,
     qid_file: str | Path | None = None,
     dtype: str = "bfloat16",
@@ -104,6 +111,7 @@ def run_cmrc2018_vllm_eval(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     per_sample_path = out / "per_sample_metrics.jsonl"
+    cache_env = configure_model_cache(cache_root, override=True)
 
     LLM, SamplingParams, vllm_version = _load_vllm()
     torch = _load_torch()
@@ -122,6 +130,8 @@ def run_cmrc2018_vllm_eval(
     }
     if max_model_len > 0:
         llm_kwargs["max_model_len"] = int(max_model_len)
+    if cache_env.get("download_dir"):
+        llm_kwargs["download_dir"] = str(cache_env["download_dir"])
 
     memory_before = _cuda_memory_info(torch)
     load_start = time.perf_counter()
@@ -236,6 +246,7 @@ def run_cmrc2018_vllm_eval(
         "model": model,
         "tokenizer_id": tokenizer_id,
         "vllm_version": vllm_version,
+        "model_cache": cache_env,
         "dtype": dtype,
         "max_model_len": int(max_model_len),
         "max_new_tokens": int(max_new_tokens),
@@ -487,6 +498,7 @@ def main(argv: list[str] | None = None) -> int:
         split=args.split,
         model=args.model,
         tokenizer=args.tokenizer or None,
+        cache_root=args.cache_root or None,
         out_dir=args.out,
         limit=args.limit,
         qid_file=args.qid_file or None,

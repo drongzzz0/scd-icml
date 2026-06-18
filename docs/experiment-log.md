@@ -7537,3 +7537,39 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   At `2026-06-18T14:43:45+08:00`, the HotpotQA stage was loading safetensors
   from NAS with no OOM or traceback observed. No final summary had been written
   yet.
+
+### 2026-06-18 15:08 +08:00 Storage-backed vLLM cache guard
+
+- Purpose:
+  Prevent Qwen32B or other large model downloads from falling back to the A800
+  `/home` development disk during official-vLLM dataset evaluation.
+- Current disk state:
+  A800 `/home` is still unsuitable for model downloads: `1.8T` total,
+  `1.7T` used, about `18G` free. The NAS storage mount
+  `/home/c101-800-mql/nas` has about `64T` free. The current Qwen32B-Instruct
+  checkpoint is stored at `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`
+  and occupies about `62G`.
+- Change:
+  Added `scd_vllm.cache_env.configure_model_cache` and wired `--cache-root`
+  into `scd_vllm.dataset_eval` and `scd_vllm.vllm_baseline`. The helper creates
+  and exports `HF_HOME`, `HF_HUB_CACHE`, `HF_ASSETS_CACHE`,
+  `TRANSFORMERS_CACHE`, `MODELSCOPE_CACHE`, `TORCH_HOME`, `XDG_CACHE_HOME`,
+  and `VLLM_CACHE_ROOT` under the specified storage directory. When supplied,
+  the helper also passes the HF hub cache as vLLM `download_dir`.
+- Verification:
+  Local targeted tests passed with `19 passed` across dataset eval, vLLM
+  baseline, plugin, and official launch-spec tests. `scripts/check_release_readiness.py`
+  passed and `git diff --check` reported no whitespace errors. The updated
+  helper and vLLM entry points were synced to the A800 runtime repo, and remote
+  import validation passed using
+  `/home/c101-800-mql/.conda/envs/cache/bin/python`.
+- Current A800 run status:
+  The existing TP4 Qwen32B HotpotQA Full Consumer run continues from NAS paths.
+  At `2026-06-18T15:07:08+08:00`, HotpotQA progress was `2800/7405` with
+  running averages `F1=0.7529678148` and `EM=0.6007142857`. No `No space`,
+  OOM, traceback, or runtime error was observed.
+- Current ser run status:
+  The full-context Mistral reuse19/patch13 run is still active. At
+  `2026-06-18T15:07:10+08:00`, HotpotQA shard 01 was `2955/3702` and CMRC2018
+  shard 00 was `254/1610`; shard 00 HotpotQA and WikiText-2 summaries already
+  exist, with aggregation waiting for the remaining shards.

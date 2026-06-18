@@ -3335,3 +3335,23 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618_143845`.
   It selected `CUDA_VISIBLE_DEVICES=0,1,2,3` after a 60-second idle preflight
   and began loading the model from NAS.
+
+### 2026-06-18 update - require storage-backed caches for large-model vLLM runs
+
+- Change:
+  Added an explicit `--cache-root` policy to the official-vLLM baseline and
+  full-dataset evaluation path. Large-model jobs should point this at NAS or
+  another storage mount, not at `/home` or a development disk.
+- Rationale:
+  A800 `/home` has only about `18G` free while Qwen32B model weights occupy
+  about `62G`. Even when the model path itself is local-to-NAS, tokenizer,
+  Hugging Face, ModelScope, Torch, XDG, and vLLM caches can otherwise fall back
+  to default home-cache locations.
+- Implementation approach:
+  `scd_vllm.cache_env.configure_model_cache` now creates the standard cache
+  subdirectories under a user-supplied storage root and sets the corresponding
+  environment variables before vLLM/tokenizer imports and model loading.
+  The vLLM `download_dir` is also set to the storage-backed HF hub cache.
+- Verification:
+  Targeted vLLM tests pass locally and the updated code imports successfully on
+  A800 using the `cache` Conda environment's Python interpreter.

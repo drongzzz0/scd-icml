@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from scd_vllm.cache_env import MODEL_CACHE_SUBDIRS, configure_model_cache
 from scd_vllm.dataset_eval import _build_nll_scoring_prompt, _format_prompt, _lookup_prompt_logprob, parse_args
 
 
@@ -48,6 +49,39 @@ def test_parse_args_accepts_non_cmrc_datasets() -> None:
     )
 
     assert args.dataset == "wikitext2"
+
+
+def test_parse_args_accepts_cache_root() -> None:
+    args = parse_args(
+        [
+            "--dataset",
+            "cmrc2018",
+            "--data-root",
+            "/data",
+            "--model",
+            "Qwen/Qwen2.5-32B-Instruct",
+            "--cache-root",
+            "/storage/scd/model_cache",
+            "--out",
+            "/out",
+        ]
+    )
+
+    assert args.cache_root == "/storage/scd/model_cache"
+
+
+def test_configure_model_cache_routes_all_cache_envs(tmp_path, monkeypatch) -> None:
+    for key in MODEL_CACHE_SUBDIRS:
+        monkeypatch.delenv(key, raising=False)
+
+    cache = configure_model_cache(tmp_path / "model_cache")
+
+    assert cache["enabled"] is True
+    assert cache["download_dir"] == str(tmp_path / "model_cache" / "hf_hub")
+    for key, subdir in MODEL_CACHE_SUBDIRS.items():
+        expected = tmp_path / "model_cache" / subdir
+        assert cache["env"][key] == str(expected)
+        assert expected.is_dir()
 
 
 def test_build_nll_scoring_prompt_tracks_target_tokens() -> None:

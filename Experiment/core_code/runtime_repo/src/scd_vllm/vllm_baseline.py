@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 
 from .bundle import array_sha256
+from .cache_env import configure_model_cache
 from .hf_export import HFExportError, load_prompt
 
 
@@ -22,6 +23,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a plain vLLM baseline for SCD-vLLM")
     parser.add_argument("--model", required=True, help="vLLM model id or local path")
     parser.add_argument("--tokenizer", default="", help="Tokenizer id/path; defaults to --model")
+    parser.add_argument(
+        "--cache-root",
+        default="",
+        help="Storage directory for HF/Transformers/ModelScope/Torch/vLLM caches and vLLM downloads.",
+    )
     parser.add_argument("--prompt", default="", help="Prefix prompt text")
     parser.add_argument("--prefix-file", default="", help="File containing prefix prompt text")
     parser.add_argument("--hf-bundle", default="", help="Optional HF full_consumer bundle directory for token-hash check")
@@ -51,6 +57,7 @@ def run_vllm_baseline(
     tokenizer: str | None,
     prompt: str,
     out_dir: str | Path,
+    cache_root: str | Path | None = None,
     hf_bundle: str | None = None,
     dtype: str = "bfloat16",
     max_model_len: int = 512,
@@ -78,6 +85,7 @@ def run_vllm_baseline(
     if tensor_parallel_size <= 0:
         raise VLLMBaselineError("--tensor-parallel-size must be positive")
 
+    cache_env = configure_model_cache(cache_root, override=True)
     LLM, SamplingParams, vllm_version = _load_vllm()
     torch = _load_torch()
     out = Path(out_dir)
@@ -99,6 +107,8 @@ def run_vllm_baseline(
     }
     if max_model_len > 0:
         llm_kwargs["max_model_len"] = max_model_len
+    if cache_env.get("download_dir"):
+        llm_kwargs["download_dir"] = str(cache_env["download_dir"])
     llm = LLM(**llm_kwargs)
     load_seconds = time.perf_counter() - load_start
     memory_after_load = _cuda_memory_info(torch)
@@ -143,6 +153,7 @@ def run_vllm_baseline(
     metrics = {
         "mode": "vllm_plain_baseline",
         "vllm_version": vllm_version,
+        "model_cache": cache_env,
         "model": model,
         "tokenizer_id": tokenizer_id,
         "dtype": dtype,
@@ -360,6 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     metrics = run_vllm_baseline(
         model=args.model,
         tokenizer=args.tokenizer or None,
+        cache_root=args.cache_root or None,
         prompt=prompt,
         out_dir=args.out,
         hf_bundle=args.hf_bundle or None,

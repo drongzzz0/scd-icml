@@ -110,6 +110,7 @@ python -m scd_vllm.dataset_eval \
   --data-root /path/to/data \
   --model /path/to/consumer \
   --tokenizer /path/to/consumer \
+  --cache-root /path/to/storage/model_cache \
   --out runs/vllm_hotpotqa_full \
   --dtype bfloat16 \
   --max-model-len 8192 \
@@ -184,8 +185,9 @@ explicit guarded entry point:
 
 ```bash
 CONDA_ENV=cache \
+SCD_STORAGE_ROOT=/home/c101-800-mql/nas/SCD-ICML \
 MODELS_CONFIG=configs/models_a800_qwen25_32b_base_to_instruct_template.json \
-DATA_ROOT=/home/c101-800-mql/maqianli/no4/data \
+DATA_ROOT=/home/c101-800-mql/nas/SCD-ICML/data \
 DATASETS=cmrc2018 \
 bash scripts/run_a800_scd_icml_qwen32_repro.sh
 ```
@@ -195,6 +197,8 @@ This runner is intentionally fail-closed. It first runs
 rejects VL checkpoints, and requires two GPUs with sustained zero utilization
 and enough free memory before capture/training/evaluation starts. Do not use the
 legacy Qwen1.7B diagnostic scripts as evidence for the Qwen-32B paper row.
+It also keeps run outputs and model/runtime caches under `SCD_STORAGE_ROOT` by
+default; avoid pointing `MODEL_CACHE_ROOT` at a small `/home` or dev partition.
 The wrapper also waits by default for enough GPU memory before capture, train,
 and eval stages; override `WAIT_CAPTURE_FREE_MB`, `WAIT_TRAIN_FREE_MB`, and
 `WAIT_EVAL_FREE_MB` only if you have inspected GPU availability.
