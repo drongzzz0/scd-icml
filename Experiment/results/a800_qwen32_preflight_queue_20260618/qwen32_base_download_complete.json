@@ -1,0 +1,13 @@
+{
+  "target": "/home/c101-800-mql/nas/models/Qwen2.5-32B",
+  "exists": true,
+  "config_exists": true,
+  "files": 30,
+  "safetensors": 17,
+  "model_type": "qwen2",
+  "architectures": [
+    "Qwen2ForCausalLM"
+  ],
+  "layers": 64,
+  "hidden": 5120
+}

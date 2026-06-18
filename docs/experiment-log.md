@@ -7135,3 +7135,58 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - Next actions:
   Record and harvest this run in ResearchKB, keep the artifact in
   `Experiment/results`, and avoid presenting it as acceleration evidence.
+
+## 2026-06-18 12:08 +08:00 - Qwen2.5-32B storage materialization and strict SCD queue
+
+- Experiment name or id:
+  `a800_qwen32_preflight_queue_20260618`.
+- Purpose:
+  Switch the current SCD-vLLM release-risk test from Qwen3-1.7B gray evidence
+  to the paper-relevant Qwen2.5-32B base -> Qwen2.5-32B-Instruct setting, while
+  avoiding development-disk model placement and preventing train/eval leakage.
+- Method:
+  Stopped the temporary Qwen2.5-32B download targeting `/dev/shm`, removed the
+  remaining `/dev/shm/scd_models/Qwen2.5-32B` partial copy, downloaded the base
+  checkpoint to `/home/c101-800-mql/nas/models/Qwen2.5-32B`, generated an
+  explicit base-to-instruct model config, ran the guarded Qwen32 preflight, and
+  launched a strict GPU wait queue for the SCD run.
+- Parameters:
+  `required_gpus=2`, `required_free_mb=70000`, `monitor_seconds=60`,
+  `train_limit=200`, `eval_limit=200`, `train_cmrc_split=train`,
+  `eval_cmrc_split=dev`, `datasets=cmrc2018`, `max_new_tokens=32`,
+  `max_length=0`, `cpu_fallback=false`, `recompute=false`.
+- Inputs:
+  Base model `/home/c101-800-mql/nas/models/Qwen2.5-32B`; instruct model
+  `/home/cuihanshuai/models/Qwen2.5-32B-Instruct`; data root
+  `/home/c101-800-mql/maqianli/no4/data`; runtime repo
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_38dcdca_tp_20260618_1128`.
+- Environment:
+  A800mql, `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate
+  cache`; heavy run output directed to `/home/c101-800-mql/nas/SCD-ICML/runs`.
+- Outputs:
+  Local evidence directory
+  `Experiment/results/a800_qwen32_preflight_queue_20260618/`; remote queue
+  directory
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen32_strict_scd_queue_20260618_120318`.
+- Results:
+  The base checkpoint is materialized on NAS with `30` files, `17`
+  safetensors, `model_type=qwen2`, architecture `Qwen2ForCausalLM`, `64`
+  layers, and hidden size `5120`. The preflight validated both Qwen2.5-32B
+  paths and the CMRC2018 train/dev files, but returned `ok=false` because no
+  two GPUs satisfied the strict sustained-idle requirement at the time of
+  sampling. The strict queue remains active and has not yet produced quality
+  metrics.
+- Analysis:
+  This is preparation and guarded scheduling evidence, not a completed Qwen32B
+  quality result. It confirms the model is no longer stored on the development
+  disk or `/dev/shm`; Qwen32B evaluation is blocked only by GPU availability
+  under the current strict policy.
+- Conclusions:
+  Do not use the earlier Qwen3-1.7B gray result as the current main Qwen
+  release test. The next valid paper-relevant Qwen evidence must come from the
+  queued Qwen2.5-32B base -> Qwen2.5-32B-Instruct run after two suitable A800
+  GPUs are idle.
+- Next actions:
+  Monitor the queue, pull the NAS run directory after execution starts or
+  completes, record F1/EM and throughput artifacts, and then update the release
+  risk summary.

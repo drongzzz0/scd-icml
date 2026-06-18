@@ -3204,3 +3204,23 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   or forbidden vLLM safety claim. The preview test suite passed with
   `107 passed`. The temporary preview directories were removed after
   verification to avoid committing generated source copies.
+
+### 2026-06-18 update - Qwen32B validation uses A800 storage for heavy artifacts
+
+- Change:
+  For the live A800 Qwen2.5-32B validation run, keep the Conda environment on
+  local disk via `conda activate cache`, but place the downloaded Qwen2.5-32B
+  base checkpoint under `/home/c101-800-mql/nas/models/Qwen2.5-32B` and direct
+  heavy run outputs to `/home/c101-800-mql/nas/SCD-ICML/runs`. Removed the
+  temporary `/dev/shm/scd_models/Qwen2.5-32B` partial copy after confirming the
+  NAS model was complete enough for preflight.
+- Rationale:
+  `/home` on A800 had only about 23G free, while the storage mount had about
+  64T free. Qwen32B checkpoint materialization and full outputs should not
+  consume the development disk or `/dev/shm`. This is a run-time placement
+  decision for the current validation job, not a change to the public release
+  defaults.
+- Verification:
+  Verified the NAS Qwen2.5-32B directory contains `30` files, including `17`
+  safetensors and a `config.json` with `model_type=qwen2` and architecture
+  `Qwen2ForCausalLM`. Verified `/dev/shm/scd_models/Qwen2.5-32B` was removed.
