@@ -7689,3 +7689,42 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - Current status:
   CMRC2018 full-dev shards from the same run are still running; wait for them
   before writing the final aggregate summary for this full-dataset diagnostic.
+
+### 2026-06-18 15:58 +08:00 A800mql Qwen32 storage and queue audit
+
+- Purpose:
+  Verify that Qwen32B model weights, run outputs, and runtime caches are using
+  storage/NAS paths rather than the nearly full A800 `/home` filesystem before
+  continuing SCD reuse/patch reproduction.
+- Disk and model state:
+  A800 `/home` has about `18G` free on a `1.8T` filesystem. The storage mount
+  `/home/c101-800-mql/nas` has about `64T` free. The Qwen2.5-32B base
+  checkpoint is present at `/home/c101-800-mql/nas/models/Qwen2.5-32B`
+  (`83G`), and Qwen2.5-32B-Instruct is present at
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct` (`62G`).
+- Code/config update:
+  The release branch model template now points to the NAS checkpoint paths and
+  records that these are storage-backed A800 defaults. Commit:
+  `302351c Clarify Qwen32 storage-backed model template`.
+  The A800 runtime script keeps `SCD_STORAGE_ROOT`, `MODEL_CACHE_ROOT`,
+  Hugging Face, Transformers, ModelScope, Torch, XDG, and vLLM caches under
+  `/home/c101-800-mql/nas/SCD-ICML` by default. The updated config and script
+  were synced to
+  `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617`.
+- Verification:
+  On A800mql with `conda activate cache`, the remote model config resolves to
+  the NAS Qwen32 paths and `bash -n` passes for
+  `scripts/run_a800_scd_icml_qwen32_repro.sh`.
+- Queue status:
+  Existing strict Qwen32 SCD queue:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_student_t_storage_queue_20260618_1252`.
+  Latest checked attempt `113` failed only because sustained-idle GPU memory
+  was insufficient: required `2` GPUs with at least `70000MB` free, selected
+  none. The latest snapshot had GPUs 0/1/2 at about `64.7G`/`65.7G`/`65.1G`
+  free, GPUs 3-6 lower, and GPU7 busy. No new Qwen32 SCD run was launched.
+- ser status at the same checkpoint:
+  The ser full-context CMRC2018 diagnostic from
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/extra_datasets_full_cmrcbank_20260618_121640`
+  was still running. At `2026-06-18T15:57:43+08:00`, shard 00 was at
+  `1329/1610`, shard 01 was at `433/1609`, the aggregate script was waiting,
+  and no traceback/OOM/no-space error was observed.

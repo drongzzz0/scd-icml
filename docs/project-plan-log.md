@@ -3391,3 +3391,25 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   motivation, but not for paper/release quality claims. Claim-facing HotpotQA
   evidence must stay tied to the explicitly separated compressed protocol or
   dataset-specific route training/evaluation.
+
+### 2026-06-18 update - Qwen32 runs must stay on storage-backed paths
+
+- Change:
+  Tightened the Qwen32 A800 release path so the default model template and
+  runtime wrapper use storage-backed paths. Qwen2.5-32B and
+  Qwen2.5-32B-Instruct are expected under
+  `/home/c101-800-mql/nas/models`, and run/cache outputs stay under
+  `/home/c101-800-mql/nas/SCD-ICML` unless explicitly overridden.
+- Rationale:
+  A800 `/home` has only about `18G` free, while Qwen32 checkpoints are tens of
+  gigabytes each. Any fallback to home/dev disk for weights or caches is a
+  release and experiment-reliability risk.
+- Current operational gate:
+  The strict Qwen32 SCD queue is correctly storage-backed but remains blocked
+  by GPU memory availability, not by disk placement. It requires two
+  sustained-idle GPUs with at least `70000MB` free and had selected no GPUs on
+  the latest checked preflight attempt.
+- Release boundary:
+  Do not claim Qwen32 SCD reuse/patch support until a storage-backed run passes
+  preflight and produces SCD metrics. Existing Qwen32 rows remain Full Consumer
+  official-vLLM baselines only.
