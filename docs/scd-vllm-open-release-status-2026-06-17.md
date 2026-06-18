@@ -514,11 +514,11 @@ samples; evaluation used full CMRC2018 dev, HotpotQA dev, and WikiText-2 test.
 Interpretation: this result supports strict route coverage and split discipline
 on an additional model pair, but it does not support a Qwen speedup claim.
 
-## Additional Qwen2.5-32B vLLM Full Consumer Baseline
+## Additional Qwen2.5-32B vLLM Full Consumer Baselines
 
 This is a Qwen2.5-32B-Instruct official-vLLM tensor-parallel Full Consumer
-baseline on CMRC2018 dev. It is not an SCD reuse/patch result and must not be
-reported as Qwen32B SCD speedup evidence.
+baseline set. It is not an SCD reuse/patch result and must not be reported as
+Qwen32B SCD speedup evidence.
 
 Environment:
 
@@ -529,12 +529,20 @@ Environment:
   development disk.
 - GPUs: `CUDA_VISIBLE_DEVICES=0,1,2,3`, `tensor_parallel_size=4`.
 
-Two prompt formats were checked:
+CMRC2018 first exposed the prompt-format issue for the Instruct model:
 
 | Prompt format | Samples | F1 | EM | Notes |
 |---|---:|---:|---:|---|
 | Plain completion prompt | 3219 | `0.4156507535` | `0.0043491768` | Diagnostic only; generated full-sentence answers and is not a fair Qwen-Instruct baseline. |
 | Chat template + short-answer instruction | 3219 | `0.9098067394` | `0.7086051569` | Current Qwen32B Full Consumer baseline for CMRC2018 dev. |
+
+The completed three-dataset Full Consumer reference rows are:
+
+| Dataset | Samples | Primary metric | F1 | EM | NLL | PPL |
+|---|---:|---|---:|---:|---:|---:|
+| CMRC2018 dev | 3219 | F1/EM | `0.9098067394` | `0.7086051569` |  |  |
+| HotpotQA dev | 7405 | F1/EM | `0.7459153089` | `0.5856853477` |  |  |
+| WikiText-2 test | 763 | PPL/NLL | `0.2716968228` | `0.0000000000` | `1.9711257546` | `7.1787534555` |
 
 Artifacts:
 
@@ -542,9 +550,37 @@ Artifacts:
   `Experiment/results/a800_qwen32_vllm_cmrc_full_tp4_20260618/summary.json`.
 - Chat template:
   `Experiment/results/a800_qwen32_vllm_cmrc_full_tp4_chat_20260618/summary.json`.
+- HotpotQA and WikiText-2:
+  `Experiment/results/a800_qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618/`.
+- Consolidated table:
+  `Experiment/results/a800_qwen32_vllm_three_dataset_full_baselines_20260618/`.
 
 Interpretation: Qwen2.5-32B-Instruct quality evaluation must use the tokenizer
-chat template and task instruction. The current branch can load and evaluate
-Qwen32B through official vLLM TP4, but Qwen32B SCD reuse/patch quality remains
-unverified in this release branch.
-Keep it as cautionary evidence for route portability.
+chat template and task instruction for QA tasks. The current branch can load
+and evaluate Qwen32B through official vLLM TP4 on all three reference datasets,
+but Qwen32B SCD reuse/patch quality remains unverified in this release branch.
+Keep these rows as Full Consumer references and capacity evidence only.
+
+## Current Full-Context Transfer Diagnostic Boundary
+
+The CMRC2018-trained MistralLite-to-Mistral-7B reuse19/patch13 route was also
+checked on full-context HotpotQA and WikiText-2. This is diagnostic, not
+claim-facing evidence:
+
+| Dataset | Method | Samples | F1 | EM | NLL | PPL | TTFT ms | Total ms |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| HotpotQA full-context | Full Consumer | 7405 | `0.353979` | `0.219851` | `0.990936` | `2.693756` | `215.327` | `870.941` |
+| HotpotQA full-context | Reuse-only | 7405 | `0.008499` | `0.000000` | `9.083990` | `8813.063540` | `54.480` | `714.147` |
+| HotpotQA full-context | SCD | 7405 | `0.103724` | `0.077920` | `1.524896` | `4.594665` | `60.865` | `132.157` |
+| WikiText-2 | Full Consumer | 763 | `0.221258` | `0.000000` | `1.983874` | `7.270854` | `60.318` | `709.852` |
+| WikiText-2 | Reuse-only | 763 | `0.089332` | `0.000000` | `6.832337` | `927.355309` | `24.672` | `667.117` |
+| WikiText-2 | SCD | 763 | `0.138638` | `0.000000` | `3.168148` | `23.763423` | `30.460` | `652.337` |
+
+Artifact:
+`Experiment/results/ser_extra_datasets_full_cmrcbank_20260618/`.
+
+Interpretation: the CMRC-bank SCD route is much better than reuse-only and can
+reduce latency, but its non-CMRC quality remains far below Full Consumer. Do
+not use these full-context HotpotQA/WikiText-2 diagnostics as release quality
+claims. HotpotQA claim support must stay tied to the separated compressed
+protocol or dataset-specific route training/evaluation.
