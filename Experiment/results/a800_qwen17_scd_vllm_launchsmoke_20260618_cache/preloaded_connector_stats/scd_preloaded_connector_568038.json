@@ -1,0 +1,11 @@
+{
+  "connector": "SCDPreloadedConnector",
+  "pid": 568038,
+  "cache_device": "cuda",
+  "cache_hits": 7140,
+  "cache_misses": 28,
+  "cached_files": 28,
+  "cached_bytes": 1835008,
+  "final": true,
+  "timestamp_unix": 1781742921.0471957
+}

@@ -905,6 +905,84 @@ def check_qwen_batch_benchmark_evidence(root: Path, errors: list[str]) -> None:
     )
 
 
+def check_launch_smoke_metrics(
+    *,
+    root: Path,
+    errors: list[str],
+    artifact_dir: str,
+    label: str,
+    min_request_count: int,
+    expected_prompt_token_count: int | None = None,
+) -> None:
+    results_root = root.parent.parent / "results"
+    if not results_root.is_dir():
+        return
+    path = results_root / artifact_dir / "launch_smoke.json"
+    if not path.is_file():
+        fail(errors, f"missing {label} SCD-vLLM launch-smoke artifact: {path}")
+        return
+    try:
+        metrics = json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception as exc:
+        fail(errors, f"invalid {label} SCD-vLLM launch-smoke JSON {path}: {exc}")
+        return
+    if metrics.get("launch_smoke_pass") is not True:
+        fail(errors, f"{label} launch-smoke must pass")
+    if "official vLLM LLM" not in str(metrics.get("claim_boundary", "")):
+        fail(errors, f"{label} launch-smoke must declare official-vLLM claim boundary")
+    for key in ("generation_ok", "bundle_token_match"):
+        if metrics.get(key) is not True:
+            fail(errors, f"{label} launch-smoke gate {key} must be true")
+    if metrics.get("kv_connector") != "SCDPreloadedConnector":
+        fail(errors, f"{label} launch-smoke should use SCDPreloadedConnector")
+    if metrics.get("kv_connector_module_path") != "scd_vllm.preloaded_connector":
+        fail(errors, f"{label} launch-smoke should use scd_vllm.preloaded_connector")
+    if metrics.get("disable_hybrid_kv_cache_manager") is not True:
+        fail(errors, f"{label} launch-smoke must disable hybrid KV cache manager")
+    if int(metrics.get("request_count", 0) or 0) < min_request_count:
+        fail(errors, f"{label} launch-smoke request_count below expected minimum")
+    if int(metrics.get("output_tokens", 0) or 0) <= 0:
+        fail(errors, f"{label} launch-smoke output_tokens must be positive")
+    if float(metrics.get("tokens_per_second", 0.0) or 0.0) <= 0.0:
+        fail(errors, f"{label} launch-smoke tokens_per_second must be positive")
+    if expected_prompt_token_count is not None and int(metrics.get("prompt_token_count", -1) or -1) != expected_prompt_token_count:
+        fail(errors, f"{label} launch-smoke prompt_token_count should be {expected_prompt_token_count}")
+    storage = metrics.get("storage") or {}
+    if storage.get("exists") is not True or int(storage.get("safetensor_files", 0) or 0) <= 0:
+        fail(errors, f"{label} launch-smoke storage must contain safetensors")
+    if metrics.get("preloaded_connector_final_stats_collected_after_child_exit") is not True:
+        fail(errors, f"{label} launch-smoke must collect final stats after child exit")
+    stats = metrics.get("preloaded_connector_stats") or {}
+    if stats.get("exists") is not True:
+        fail(errors, f"{label} launch-smoke preloaded connector stats must exist")
+    if int(stats.get("invalid_files", 0) or 0) != 0:
+        fail(errors, f"{label} launch-smoke preloaded connector stats must not contain invalid files")
+    for key in ("worker_count", "cache_hits", "cache_misses", "cache_events", "cached_files", "cached_bytes", "final_workers"):
+        if int(stats.get(key, 0) or 0) <= 0:
+            fail(errors, f"{label} launch-smoke preloaded connector stats {key} must be positive")
+    if float(stats.get("cache_hit_rate", 0.0) or 0.0) <= 0.0:
+        fail(errors, f"{label} launch-smoke cache_hit_rate must be positive")
+
+
+def check_launch_smoke_evidence(root: Path, errors: list[str]) -> None:
+    check_launch_smoke_metrics(
+        root=root,
+        errors=errors,
+        artifact_dir="a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache",
+        label="Mistral patch26/reuse6",
+        min_request_count=8,
+        expected_prompt_token_count=229,
+    )
+    check_launch_smoke_metrics(
+        root=root,
+        errors=errors,
+        artifact_dir="a800_qwen17_scd_vllm_launchsmoke_20260618_cache",
+        label="Qwen",
+        min_request_count=128,
+        expected_prompt_token_count=27,
+    )
+
+
 def check_model_template(root: Path, errors: list[str]) -> None:
     path = root / "configs" / "models_mistrallite_to_mistral7_template.json"
     if not path.is_file():
@@ -970,10 +1048,10 @@ def check_docs(root: Path, errors: list[str]) -> None:
             "reuse08_patch24",
         ],
         "DATA_PREPARATION.md": ["cmrc2018_train.json", "hotpot_dev_distractor_v1.json", "wiki.test.txt"],
-        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "scd-vllm doctor", "scd-vllm launch-spec", "scd-vllm launch-smoke", "scd-vllm batch-benchmark", "src/scd_vllm_plugin/", "configs/scd_vllm_mvp.yaml", "scripts/scd_vllm/run_06_report.sh", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "cache_hits", "a800_qwen17_scd_vllm_preloadedbench_20260618_cache", "SCDPreloadedConnector", "kv-connector-module-path", "prefix-cache", "repeated-prefix trusted microbenchmark", "NLL/PPL"],
+        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "scd-vllm doctor", "scd-vllm launch-spec", "scd-vllm launch-smoke", "scd-vllm batch-benchmark", "src/scd_vllm_plugin/", "configs/scd_vllm_mvp.yaml", "scripts/scd_vllm/run_06_report.sh", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache", "cache_hits", "a800_qwen17_scd_vllm_preloadedbench_20260618_cache", "a800_qwen17_scd_vllm_launchsmoke_20260618_cache", "SCDPreloadedConnector", "kv-connector-module-path", "prefix-cache", "repeated-prefix trusted microbenchmark", "NLL/PPL"],
         "docs/scd_vllm_plugin_mvp.md": ["scd-vllm doctor", "strict no-fallback/no-recompute", "scd-vllm run", "scd-vllm launch-spec", "scd-vllm launch-smoke", "scd-vllm batch-benchmark", "ExampleConnector", "SCDPreloadedConnector", "kv-connector-module-path", "vllm.LLM", "patch26_reuse6"],
         "reports/scd_vllm_repo_audit.md": ["Existing entry points", "Proposed mapping to scd_vllm modules", "Implementation/release risks", "dataset-specific routes", "src/scd_vllm/injection.py"],
-        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "Cache Hits", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache", "a800_qwen17_scd_vllm_preloadedbench_20260618_cache", "plain-vLLM compatibility", "Qwen raw-bank-to-vLLM", "SCDPreloadedConnector", "launch-spec", "launch-smoke", "prefix-cache", "repeated-prefix trusted microbenchmark", "Dataset Quality Evidence", "NLL/PPL", "not a production-grade vLLM connector"],
+        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache", "a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache", "Cache Hits", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache", "a800_qwen17_scd_vllm_preloadedbench_20260618_cache", "a800_qwen17_scd_vllm_launchsmoke_20260618_cache", "plain-vLLM compatibility", "Qwen raw-bank-to-vLLM", "SCDPreloadedConnector", "launch-spec", "launch-smoke", "prefix-cache", "repeated-prefix trusted microbenchmark", "Dataset Quality Evidence", "NLL/PPL", "not a production-grade vLLM connector"],
         "LICENSE": ["MIT License", "SCD reproduction team"],
     }
     for rel, snippets in docs.items():
@@ -1082,6 +1160,7 @@ def main() -> None:
         check_qwen_vllm_evidence(root, errors)
         check_mistral_batch_benchmark_evidence(root, errors)
         check_qwen_batch_benchmark_evidence(root, errors)
+        check_launch_smoke_evidence(root, errors)
         check_model_template(root, errors)
         check_reuse_train_config(root, errors)
         check_patch_train_config(root, errors)

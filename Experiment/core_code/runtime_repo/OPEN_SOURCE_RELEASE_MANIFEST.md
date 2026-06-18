@@ -365,6 +365,10 @@ directories:
   each route. SCDPreloaded is faster than plain vLLM on this repeated-prefix
   shape, but it remains slower than native vLLM prefix caching; do not report
   it as a general serving-speed claim over vLLM.
+- `../../Experiment/results/a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache/`
+  for direct official-vLLM launch-spec consumption evidence on the Mistral
+  quality-first route. It reports `launch_smoke_pass=True`,
+  `bundle_token_match=True`, and final `SCDPreloadedConnector` cache stats.
 - `../../Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`
   for additional-model repeated-prefix trusted microbenchmark evidence. It
   compares plain vLLM, vLLM `prefix-cache`, and Qwen
@@ -372,6 +376,10 @@ directories:
   preloaded connector reduces disk-backed ExampleConnector overhead, but the
   measured SCD load throughput is still lower than both vLLM baselines and must
   not be used as a speedup claim.
+- `../../Experiment/results/a800_qwen17_scd_vllm_launchsmoke_20260618_cache/`
+  for direct official-vLLM launch-spec consumption evidence on the Qwen route.
+  It reports `launch_smoke_pass=True`, `bundle_token_match=True`,
+  `request_count=128`, and final `SCDPreloadedConnector` cache stats.
 - `../../Experiment/results/scd_vllm_multidataset_full_strict_20260617/` for
   full CMRC2018 and HotpotQA strict QA evidence.
 - `../../Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`

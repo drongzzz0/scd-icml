@@ -286,6 +286,35 @@ vLLM and vLLM's native prefix-cache baseline for this Qwen repeated-prefix
 microbenchmark. This strengthens integration evidence and reduces a known
 overhead source; it is not a serving speedup claim.
 
+## Additional Model Official vLLM Launch-Smoke Evidence
+
+This checks the same launch-spec consumption path on the Qwen3-1.7B ->
+Qwen3-1.7B-gray route. It proves that the JSON emitted by `scd-vllm
+launch-spec` can be consumed by official vLLM for a second model family. This
+is still a trusted static-prefix integration smoke test, not a production
+serving benchmark or dataset-quality result.
+
+Artifact:
+
+- `../../Experiment/results/a800_qwen17_scd_vllm_launchsmoke_20260618_cache/`
+
+Run boundary:
+
+- Host: A800, `conda activate cache`, vLLM `0.18.0`.
+- Code snapshot:
+  `/home/student_t/maqianli/SCD-ICML/runtime_repo_codex_launchsmoke_20260618_081014`.
+- GPU selection: A800 GPUs `3/4/6/7` were sampled for 60 seconds and stayed
+  at utilization `0`; the final run used `CUDA_VISIBLE_DEVICES=7`.
+- Shape: `batch_size=128`, `warmup_batches=1`, `max_new_tokens=16`.
+
+Result: `launch_smoke_pass=True`, `generation_ok=True`,
+`bundle_token_match=True`, `request_count=128`, `output_tokens=2048`,
+`tokens_per_second=6291.929930`, and
+`disable_hybrid_kv_cache_manager=True`. Final connector stats were collected
+after the vLLM child process exited: `cache_hits=7140`, `cache_misses=28`,
+`cache_events=7168`, `cache_hit_rate=0.996094`, `cached_files=28`, and
+`final_workers=1`.
+
 ## Dataset Quality Evidence
 
 Dataset quality is measured by the strict HF/SCD runtime, not by the vLLM

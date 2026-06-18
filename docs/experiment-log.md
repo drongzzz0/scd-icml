@@ -6610,3 +6610,52 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - ResearchKB:
   Harvest did not parse this result directory automatically; structured run
   recorded `run_8e4128a714704850`.
+
+## 2026-06-18 - A800 Official vLLM Launch-Smoke for Qwen Patch6/Reuse22
+
+- Experiment id:
+  `a800_qwen17_scd_vllm_launchsmoke_20260618_cache`.
+- Purpose:
+  Extend official-vLLM launch-spec consumption evidence from Mistral to the
+  second model family already present in the release evidence package:
+  Qwen3-1.7B -> Qwen3-1.7B-gray with the `paper_scd_reuse_patch_k6` route.
+- Environment:
+  Host `A800`; activation
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`;
+  code snapshot
+  `/home/student_t/maqianli/SCD-ICML/runtime_repo_codex_launchsmoke_20260618_081014`;
+  vLLM `0.18.0`. The runtime snapshot and output directory were placed under
+  `/home/student_t`, not NAS.
+- GPU selection:
+  A800 GPUs `3/4/6/7` were sampled for 60 seconds and stayed at utilization
+  `0`; the final run used `CUDA_VISIBLE_DEVICES=7`.
+- Inputs:
+  Consumer model
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`.
+  The SCD bundle/storage came from
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/`.
+- Method:
+  Generated a launch spec with `scd-vllm launch-spec` using
+  `SCDPreloadedConnector`, `max_model_len=512`, and
+  `gpu_memory_utilization=0.35`. Then ran `scd-vllm launch-smoke` with
+  `batch_size=128`, `warmup_batches=1`, and `max_new_tokens=16`.
+- Outputs:
+  `Experiment/results/a800_qwen17_scd_vllm_launchsmoke_20260618_cache/`
+  containing `launch_spec.json`, `launch_smoke.json`, stdout/stderr logs, and
+  `preloaded_connector_stats/scd_preloaded_connector_568038.json`.
+- Results:
+  `launch_smoke_pass=True`, `generation_ok=True`,
+  `bundle_token_match=True`, `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `disable_hybrid_kv_cache_manager=True`, `request_count=128`,
+  `output_tokens=2048`, `prompt_token_count=27`,
+  `tokens_per_second=6291.929930`, and `requests_per_second=393.245621`.
+  Final connector stats: `cache_hits=7140`, `cache_misses=28`,
+  `cache_events=7168`, `cache_hit_rate=0.996094`, `cached_files=28`,
+  `cached_bytes=1835008`, and `final_workers=1`.
+- Analysis:
+  The run confirms that the plug-in launch contract is not Mistral-specific.
+  It should still be reported as trusted static-prefix integration evidence,
+  not as production serving or dataset-quality evidence.
+- ResearchKB:
+  Structured run recorded `run_9f2f4f360c20424c`.

@@ -2947,3 +2947,28 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   connector-side cache reuse (`cache_hits=480`, `cache_misses=32`,
   `cache_hit_rate=0.9375`), but it remains a smoke/integration artifact rather
   than a dataset-quality or production-serving benchmark.
+
+### 2026-06-18 update - extend official-vLLM launch-smoke to Qwen
+
+- Change:
+  Ran `scd-vllm launch-smoke` on the Qwen3-1.7B -> Qwen3-1.7B-gray
+  `paper_scd_reuse_patch_k6` bundle and added a release readiness gate for
+  both Mistral and Qwen launch-smoke artifacts.
+- Rationale:
+  Mistral had the strongest official-vLLM launch-spec consumption evidence,
+  but the open-source release goal explicitly requires multiple models. Qwen
+  already had plugin smoke and batch-benchmark evidence; adding launch-smoke
+  closes the same official-vLLM-consumption gap for the second model family.
+- Verification:
+  On A800 with
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`,
+  GPUs `3/4/6/7` were sampled for 60 seconds and stayed at utilization `0`.
+  The final run used `CUDA_VISIBLE_DEVICES=7` and produced
+  `launch_smoke_pass=True`, `generation_ok=True`, `bundle_token_match=True`,
+  `request_count=128`, `output_tokens=2048`, and
+  `tokens_per_second=6291.929930`.
+- Result boundary:
+  This confirms official-vLLM consumption and connector-side cache reuse on a
+  second model (`cache_hits=7140`, `cache_misses=28`,
+  `cache_hit_rate=0.996094`). It remains a trusted static-prefix integration
+  artifact, not a production-serving or dataset-quality benchmark.
