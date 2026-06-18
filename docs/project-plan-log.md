@@ -3122,3 +3122,21 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Verification:
   Targeted SCD-vLLM plugin tests and release readiness passed after adding the
   validator and artifact checks.
+
+### 2026-06-18 update - pin A800 runtime environment to conda cache
+
+- Change:
+  Set the active A800 execution policy for remaining SCD-vLLM and SCD-ICML
+  reproduction work to use `source /opt/miniconda3/etc/profile.d/conda.sh &&
+  conda activate cache`. Do not create or place Python virtual environments on
+  NAS for A800 jobs.
+- Rationale:
+  The `cache` conda environment is already installed under the A800 user home
+  area and contains the required GPU runtime stack. Keeping the environment off
+  NAS avoids slow or fragile interpreter/package access during model loading and
+  vLLM execution.
+- Verification:
+  Aline validation on `A800mql` confirmed `CONDA_DEFAULT_ENV=cache`,
+  `CONDA_PREFIX=/home/c101-800-mql/.conda/envs/cache`,
+  Python `3.12.12`, PyTorch `2.10.0+cu128`, Transformers `5.3.0`, Datasets
+  `4.8.5`, and vLLM `0.18.0`.

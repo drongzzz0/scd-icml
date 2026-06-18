@@ -6884,3 +6884,31 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   failure case was recorded as `problem_1453a6b452fd415c`. Local harvest
   recorded `harvest_b1fbe0511e455caa` for `patch20` and
   `harvest_ea4e76f6ab70227f` for `patch26`.
+
+## 2026-06-18 10:09 +08:00 - A800 conda cache environment validation
+
+- Experiment name or id:
+  `a800_conda_cache_env_validation_20260618_1009`.
+- Purpose:
+  Confirm the runtime environment requested for remaining A800 SCD-vLLM work
+  and explicitly avoid placing virtual environments on NAS.
+- Method:
+  Created a temporary Aline channel on `A800mql`, changed to
+  `/home/c101-800-mql`, activated
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`,
+  and queried environment paths plus package versions.
+- Environment:
+  Host `A800mql`; activation `conda activate cache`; Python path
+  `/home/c101-800-mql/.conda/envs/cache/bin/python`; conda prefix
+  `/home/c101-800-mql/.conda/envs/cache`.
+- Results:
+  Verified Python `3.12.12`, PyTorch `2.10.0+cu128`, Transformers `5.3.0`,
+  Datasets `4.8.5`, and vLLM `0.18.0`. The conda environment is under the
+  A800 home directory, not NAS.
+- Analysis:
+  This environment is suitable for the next SCD-vLLM A800 runs. Future A800
+  commands should reuse this conda environment through a persistent remote
+  channel instead of creating a NAS-backed venv.
+- Next actions:
+  Use `conda activate cache` for A800 experiments, inspect GPU utilization
+  before launch, and only use idle cards with enough free memory.
