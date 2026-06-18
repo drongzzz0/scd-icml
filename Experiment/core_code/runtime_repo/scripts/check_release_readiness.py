@@ -755,6 +755,141 @@ def check_quality_reference_route(root: Path, errors: list[str]) -> None:
         fail(errors, "quality reference route WikiText-2 PPL evidence is missing")
 
 
+def load_evidence_json(path: Path, errors: list[str], label: str) -> dict:
+    if not path.is_file():
+        fail(errors, f"missing {label} evidence artifact: {path}")
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception as exc:
+        fail(errors, f"invalid {label} evidence JSON {path}: {exc}")
+        return {}
+    if not isinstance(data, dict):
+        fail(errors, f"{label} evidence must be a JSON object: {path}")
+        return {}
+    return data
+
+
+def check_quality_pair(
+    *,
+    rows: dict,
+    label: str,
+    sample_count: int,
+    errors: list[str],
+    scd_method: str = "reuse_patch",
+    require_qa_improvement: bool = False,
+    require_ttft_improvement: bool = False,
+    primary_metric: str = "qa",
+) -> None:
+    full = rows.get("full_consumer") or {}
+    scd = rows.get(scd_method) or {}
+    if not full or not scd:
+        fail(errors, f"{label} quality evidence must contain full_consumer and {scd_method} rows")
+        return
+    if int(full.get("num_samples", 0) or 0) != sample_count:
+        fail(errors, f"{label} full_consumer sample_count should be {sample_count}, got {full.get('num_samples')!r}")
+    if int(scd.get("num_samples", 0) or 0) != sample_count:
+        fail(errors, f"{label} {scd_method} sample_count should be {sample_count}, got {scd.get('num_samples')!r}")
+    if primary_metric == "qa":
+        for key in ("f1", "em"):
+            full_value = float(full.get(key, 0.0) or 0.0)
+            scd_value = float(scd.get(key, 0.0) or 0.0)
+            if full_value <= 0.0 or scd_value <= 0.0:
+                fail(errors, f"{label} QA metric {key} must be positive for both full and SCD")
+            if require_qa_improvement and scd_value < full_value:
+                fail(errors, f"{label} SCD {key} should be at least full_consumer {key}")
+    else:
+        full_nll = float(full.get("avg_nll", 0.0) or 0.0)
+        scd_nll = float(scd.get("avg_nll", 0.0) or 0.0)
+        if full_nll <= 0.0 or scd_nll <= 0.0:
+            fail(errors, f"{label} WikiText-2 avg_nll must be positive for both full and SCD")
+    if require_ttft_improvement:
+        full_ttft = float(full.get("ttft_ms", 0.0) or 0.0)
+        scd_ttft = float(scd.get("ttft_ms", 0.0) or 0.0)
+        if full_ttft <= 0.0 or scd_ttft <= 0.0 or scd_ttft >= full_ttft:
+            fail(errors, f"{label} SCD TTFT should be lower than full_consumer TTFT")
+
+
+def check_multidataset_quality_evidence(root: Path, errors: list[str]) -> None:
+    results_root = root.parent.parent / "results"
+    if not results_root.is_dir():
+        return
+
+    mistral_root = results_root / "scd_vllm_multidataset_full_strict_20260617"
+    mistral_qa_specs = [
+        ("cmrc_patch20_reuse12_per_mode_summary.json", "Mistral CMRC2018 patch20/reuse12", 3219),
+        ("cmrc_patch26_reuse6_per_mode_summary.json", "Mistral CMRC2018 patch26/reuse6", 3219),
+        ("hotpotqa_patch20_reuse12_per_mode_summary.json", "Mistral HotpotQA patch20/reuse12", 7405),
+        ("hotpotqa_patch26_reuse6_per_mode_summary.json", "Mistral HotpotQA patch26/reuse6", 7405),
+    ]
+    for filename, label, sample_count in mistral_qa_specs:
+        rows = load_evidence_json(mistral_root / filename, errors, label)
+        if rows:
+            check_quality_pair(
+                rows=rows,
+                label=label,
+                sample_count=sample_count,
+                errors=errors,
+                require_qa_improvement=True,
+                require_ttft_improvement=True,
+            )
+
+    wikitext = load_evidence_json(
+        results_root / "wikitext2_patch20_patch26_full_current_20260618_034812" / "wikitext2_summary.json",
+        errors,
+        "Mistral WikiText-2",
+    )
+    if wikitext:
+        rows = wikitext.get("rows", [])
+        if not isinstance(rows, list):
+            fail(errors, "Mistral WikiText-2 evidence rows must be a list")
+        else:
+            for route_name in ("patch20_reuse12", "patch26_reuse6"):
+                by_method = {
+                    str(row.get("method")): row
+                    for row in rows
+                    if str(row.get("route_name")) == route_name
+                }
+                check_quality_pair(
+                    rows=by_method,
+                    label=f"Mistral WikiText-2 {route_name}",
+                    sample_count=763,
+                    errors=errors,
+                    scd_method="scd_full",
+                    require_ttft_improvement=True,
+                    primary_metric="nll",
+                )
+
+    qwen = load_evidence_json(
+        results_root / "qwen17_gray_full_strict_microsharded_20260617" / "aggregate_summary.json",
+        errors,
+        "Qwen3-1.7B gray multidataset",
+    )
+    if qwen:
+        datasets = qwen.get("datasets", {})
+        expected = {
+            "cmrc2018": ("qa", 3219),
+            "hotpotqa": ("qa", 7405),
+            "wikitext2": ("nll", 763),
+        }
+        for dataset, (primary_metric, sample_count) in expected.items():
+            payload = datasets.get(dataset, {})
+            rows = payload.get("rows", []) if isinstance(payload, dict) else []
+            by_method = {
+                str(row.get("method")): row
+                for row in rows
+                if isinstance(row, dict)
+            }
+            check_quality_pair(
+                rows=by_method,
+                label=f"Qwen3-1.7B gray {dataset}",
+                sample_count=sample_count,
+                errors=errors,
+                primary_metric=primary_metric,
+                require_qa_improvement=primary_metric == "qa",
+            )
+
+
 def check_qwen_vllm_evidence(root: Path, errors: list[str]) -> None:
     results_root = root.parent.parent / "results"
     if not results_root.is_dir():
@@ -1158,6 +1293,7 @@ def main() -> None:
         check_selected_route(root, errors)
         check_vllm_demo_route(root, errors)
         check_quality_reference_route(root, errors)
+        check_multidataset_quality_evidence(root, errors)
         check_qwen_vllm_evidence(root, errors)
         check_mistral_batch_benchmark_evidence(root, errors)
         check_qwen_batch_benchmark_evidence(root, errors)

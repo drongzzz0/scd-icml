@@ -6717,3 +6717,36 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - ResearchKB:
   Harvest recorded `harvest_b5b072e585e94bb8`; structured run recorded
   `run_d6919cf38ef74054`.
+
+## 2026-06-18 - Release Readiness Multidataset Quality Gate
+
+- Experiment id:
+  `release_readiness_multidataset_quality_gate_20260618`.
+- Purpose:
+  Convert the current multi-model, multi-dataset evidence boundary into an
+  executable release check so future cleanup cannot silently remove or corrupt
+  the branch-local quality artifacts.
+- Method:
+  Added `check_multidataset_quality_evidence` to
+  `Experiment/core_code/runtime_repo/scripts/check_release_readiness.py`.
+  The gate reads Mistral CMRC2018, HotpotQA, and WikiText-2 result JSON files,
+  plus the Qwen3-1.7B gray three-dataset aggregate.
+- Parameters and inputs:
+  Mistral artifacts:
+  `Experiment/results/scd_vllm_multidataset_full_strict_20260617/` and
+  `Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`.
+  Qwen artifact:
+  `Experiment/results/qwen17_gray_full_strict_microsharded_20260617/`.
+- Acceptance checks:
+  CMRC2018 dev must have `3219` samples, HotpotQA dev must have `7405`
+  samples, and WikiText-2 test must have `763` samples. Mistral QA rows must
+  contain positive F1/EM and preserve or improve F1/EM versus Full Consumer.
+  WikiText-2 rows are checked with NLL and TTFT, not F1. Qwen rows are checked
+  as three-dataset portability/risk evidence, not speedup evidence.
+- Result:
+  `python Experiment\core_code\runtime_repo\scripts\check_release_readiness.py`
+  passed after adding the new gate.
+- Analysis:
+  This does not add a new model run, but it materially improves release
+  reliability: the publishable branch now has machine-checked evidence for the
+  core multi-dataset quality boundary and the second-model risk boundary.

@@ -326,6 +326,15 @@ full consumer, raw KV, 4-bit KV, reuse-only, and SCD. This is a structural
 release check; it does not certify that every dataset row supports the same
 quality claim.
 
+The default readiness command also reads the branch-local release evidence
+under `../../Experiment/results/`. When those artifacts are present, it gates
+the full Mistral quality evidence for CMRC2018 dev (`3219` samples), HotpotQA
+dev (`7405` samples), and WikiText-2 test (`763` samples), plus the Qwen3-1.7B
+gray three-dataset risk aggregate. This check is intentionally claim-aware:
+Mistral QA rows must preserve or improve F1/EM versus Full Consumer, WikiText-2
+is checked with NLL/TTFT rather than F1, and Qwen remains portability/risk
+evidence rather than a speedup claim.
+
 The default SCD method boundary is unchanged: non-patch layers are
 reconstructed by Reuse, selected transition layers are corrected by Patch,
 Patch and Reuse jointly cover all layers, and `fallback_layers` /

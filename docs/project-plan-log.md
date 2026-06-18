@@ -3002,3 +3002,25 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   repeated-prefix integration benchmark, not a Qwen serving-speed claim,
   because SCDPreloaded is still slower than plain vLLM and native prefix-cache
   on this microbenchmark.
+
+### 2026-06-18 update - add release gate for multidataset quality evidence
+
+- Change:
+  Extended `scripts/check_release_readiness.py` so release validation reads
+  branch-local full-dataset quality JSON artifacts instead of relying only on
+  documentation snippets. The gate now checks Mistral CMRC2018 dev, HotpotQA
+  dev, WikiText-2 test, and the Qwen3-1.7B gray three-dataset risk aggregate.
+- Rationale:
+  The open-source branch needs to remain publishable after future cleanup and
+  refactoring. If a result directory is deleted, sample counts drift, or the
+  Qwen risk evidence is accidentally framed as a speedup result, readiness
+  should fail before release.
+- Verification:
+  `python Experiment\core_code\runtime_repo\scripts\check_release_readiness.py`
+  passed after the new gate was added. The checked quality artifacts have
+  sample counts `3219` for CMRC2018 dev, `7405` for HotpotQA dev, and `763`
+  for WikiText-2 test.
+- Result boundary:
+  Mistral QA evidence remains the positive F1/EM path. WikiText-2 is checked
+  with NLL/TTFT and remains a risk-boundary dataset. Qwen3-1.7B gray remains
+  portability/risk evidence, not a release-facing speedup claim.

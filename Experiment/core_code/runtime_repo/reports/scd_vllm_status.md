@@ -345,6 +345,11 @@ train/eval leakage artifact.
 - Logit drift gate: `N/A`; the checked vLLM offline path does not expose logits.
 - Dataset quality gate: dataset-specific.
   Use F1/EM for QA datasets and NLL/PPL for WikiText-2.
+- Release readiness now reads the branch-local full-dataset JSON artifacts
+  when they are present: Mistral CMRC2018 dev (`3219`), HotpotQA dev (`7405`),
+  WikiText-2 test (`763`), and the Qwen3-1.7B gray three-dataset risk
+  aggregate. This prevents the publishable branch from relying only on
+  prose-level dataset-quality claims.
 
 ## Blockers And Limits
 
