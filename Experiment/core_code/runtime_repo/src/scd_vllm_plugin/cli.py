@@ -101,6 +101,7 @@ def _launch_spec(argv: list[str]) -> int:
         dtype=args.dtype,
         max_model_len=args.max_model_len,
         gpu_memory_utilization=args.gpu_memory_utilization,
+        tensor_parallel_size=args.tensor_parallel_size,
         seed=args.seed,
         enforce_eager=args.enforce_eager,
         enable_prefix_caching=args.enable_prefix_caching,
@@ -248,6 +249,7 @@ def _build_launch_spec_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dtype", default="bfloat16")
     parser.add_argument("--max-model-len", type=int, default=512)
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.85)
+    parser.add_argument("--tensor-parallel-size", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--enforce-eager", action="store_true")
     parser.add_argument("--enable-prefix-caching", action="store_true")

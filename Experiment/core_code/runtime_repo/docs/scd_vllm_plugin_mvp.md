@@ -149,6 +149,7 @@ scd-vllm launch-spec \
   --bundle-dir runs/scd_vllm/my_plugin_run/reuse_patch_bundle \
   --storage-dir runs/scd_vllm/my_plugin_run/example_connector_storage \
   --model /path/to/consumer \
+  --tensor-parallel-size 1 \
   --stats-dir runs/scd_vllm/my_preloaded_connector_bench/preloaded_connector_stats \
   --out runs/scd_vllm/launch_spec.json
 
@@ -159,11 +160,13 @@ scd-vllm launch-smoke \
   --out runs/scd_vllm/launch_smoke.json
 ```
 
-The JSON contains `llm_kwargs` for `vllm.LLM(**llm_kwargs)`, a
-`kv_transfer_config` using `SCDPreloadedConnector`, and the optional
-`SCD_PRELOADED_STATS_DIR` environment setting. It automatically sets
-`disable_hybrid_kv_cache_manager=True` for the preloaded connector because
-vLLM `0.18.0` rejects that connector when HMA is enabled. This spec is a
+The JSON contains `llm_kwargs` for `vllm.LLM(**llm_kwargs)`, including
+`tensor_parallel_size`, a `kv_transfer_config` using `SCDPreloadedConnector`,
+and the optional `SCD_PRELOADED_STATS_DIR` environment setting. Use
+`--tensor-parallel-size 4` or another valid vLLM tensor-parallel size when the
+consumer model cannot fit on one GPU. It automatically sets
+`disable_hybrid_kv_cache_manager=True` for the preloaded connector because vLLM
+`0.18.0` rejects that connector when HMA is enabled. This spec is a
 single-tenant trusted-bundle launch contract: verify `token_hash` and
 `route_id` before routing a request to it. `launch-smoke` consumes the same
 JSON, validates that the safety contract declares `multi_tenant_safe=false`,
@@ -217,6 +220,7 @@ launch_spec = build_preloaded_launch_spec(
     model="/path/to/consumer",
     bundle_dir="runs/scd_vllm/my_plugin_run/reuse_patch_bundle",
     storage_dir="runs/scd_vllm/my_plugin_run/example_connector_storage",
+    tensor_parallel_size=1,
     stats_dir="runs/scd_vllm/my_preloaded_connector_bench/preloaded_connector_stats",
 )
 

@@ -3245,3 +3245,27 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   Qwen2.5-32B-Instruct checkpoint from `/home/cuihanshuai/models` to
   `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct` before launching a new
   Qwen32 run from the current account.
+
+### 2026-06-18 update - add Qwen32-capable vLLM tensor-parallel launch path
+
+- Change:
+  Extended the official-vLLM launch-spec path with `tensor_parallel_size` so
+  `scd-vllm launch-spec` and `build_preloaded_launch_spec` can emit
+  `vllm.LLM(**llm_kwargs)` configurations for multi-GPU consumer models. Added
+  a vLLM dataset-evaluation entry point for CMRC2018 so Qwen32B can be checked
+  on a real full dataset instead of a single-prompt smoke.
+- Rationale:
+  Qwen2.5-32B does not fit reliably in the current strict single-device HF
+  runtime while the A800 cards have resident memory from other processes. The
+  releasable vLLM integration must be able to express TP4/TP2 model loading,
+  and the result workflow needs full-dataset F1/EM artifacts rather than only
+  connector smoke metrics.
+- Verification:
+  Local targeted tests passed with `9 passed` for
+  `tests/test_scd_vllm_plugin.py` and
+  `tests/test_scd_vllm_official_launch_example.py`. On A800 `conda activate
+  cache`, a minimal launch-spec check produced
+  `launch_spec_pass=true`, `tensor_parallel_size=4`, and a NAS Qwen32 model
+  path in `llm_kwargs`. A Qwen2.5-32B-Instruct CMRC2018 dev full vLLM baseline
+  was launched on A800 GPUs `0,1,2,3` after a 60-second zero-utilization
+  preflight.

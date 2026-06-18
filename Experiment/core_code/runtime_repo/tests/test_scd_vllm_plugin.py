@@ -113,6 +113,7 @@ def test_build_preloaded_launch_spec_for_official_vllm_kwargs(tmp_path) -> None:
         storage_dir=tmp_path / "storage",
         max_model_len=1024,
         gpu_memory_utilization=0.5,
+        tensor_parallel_size=4,
         stats_dir=tmp_path / "stats",
     )
 
@@ -131,6 +132,7 @@ def test_build_preloaded_launch_spec_for_official_vllm_kwargs(tmp_path) -> None:
     assert llm_kwargs["tokenizer"] == "tok"
     assert llm_kwargs["max_model_len"] == 1024
     assert llm_kwargs["gpu_memory_utilization"] == 0.5
+    assert llm_kwargs["tensor_parallel_size"] == 4
     assert llm_kwargs["disable_hybrid_kv_cache_manager"] is True
     assert llm_kwargs["kv_transfer_config"]["kv_connector"] == "SCDPreloadedConnector"
     assert llm_kwargs["kv_transfer_config"]["kv_connector_module_path"] == "scd_vllm.preloaded_connector"
@@ -167,6 +169,8 @@ def test_plugin_cli_launch_spec_writes_json(tmp_path, capsys) -> None:
             str(bundle),
             "--storage-dir",
             str(tmp_path / "storage"),
+            "--tensor-parallel-size",
+            "2",
             "--out",
             str(out),
         ]
@@ -178,6 +182,7 @@ def test_plugin_cli_launch_spec_writes_json(tmp_path, capsys) -> None:
     assert saved["safety"]["multi_tenant_safe"] is False
     assert saved["safety"]["dynamic_request_routing"] is False
     assert saved["safety"]["trusted_bundle_required"] is True
+    assert saved["llm_kwargs"]["tensor_parallel_size"] == 2
     assert saved["llm_kwargs"]["disable_hybrid_kv_cache_manager"] is True
     assert "scd_vllm_launch_spec" in capsys.readouterr().out
 

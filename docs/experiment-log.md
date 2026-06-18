@@ -7340,3 +7340,38 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   The queue is waiting for two sustained-idle A800 GPUs with at least `70000`
   MB free each. Preflight attempt 1 failed only because no such GPU pair was
   available; it confirmed the NAS model paths and data paths were reachable.
+
+### 2026-06-18 13:35 +08:00 A800 Qwen32 vLLM TP4 CMRC2018 full baseline
+
+- Purpose:
+  Replace Qwen1.7B-style evidence with a Qwen2.5-32B-Instruct run path and
+  verify a full-dataset quality metric through official vLLM tensor parallelism.
+- Method:
+  Added `scd_vllm.dataset_eval`, which loads CMRC2018 samples, runs batched
+  official vLLM generation, scores each prediction with the existing CMRC
+  F1/EM scorer, and writes `per_sample_metrics.jsonl` plus `summary.json`.
+  The run is a Full Consumer vLLM baseline, not an SCD reuse/patch quality
+  result.
+- Inputs:
+  Model `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`; data root
+  `/home/c101-800-mql/maqianli/no4/data`; split `cmrc2018 dev`; full split
+  (`--limit 0`).
+- Parameters:
+  `tensor_parallel_size=4`, `CUDA_VISIBLE_DEVICES=0,1,2,3`, `dtype=bfloat16`,
+  `max_model_len=2048`, `max_new_tokens=32`, `batch_size=16`,
+  `gpu_memory_utilization=0.50`, `enforce_eager=true`.
+- Preflight:
+  GPUs `0,1,2,3` had `0%` utilization for six samples over 60 seconds before
+  launch. Model and cache paths were on
+  `/home/c101-800-mql/nas`, not the `/home` development disk.
+- Outputs:
+  Run root
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_cmrc_full_tp4_20260618_133422`;
+  PID `2095269`; logs `run.log`, `run.err`; final metrics are expected at
+  `summary.json` and `per_sample_metrics.jsonl`.
+- Current status:
+  vLLM `0.18.0` accepted the TP4 configuration and initialized ranks
+  `0..3` with `world_size=4`. At the latest check, model loading was in
+  progress from the 17 NAS safetensors shards; no F1/EM result is available
+  yet and no quality claim should be made from this entry until
+  `summary.json` exists.

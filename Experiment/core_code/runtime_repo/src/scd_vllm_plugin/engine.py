@@ -168,6 +168,7 @@ class SCDVLLMEngine:
         dtype: str = "",
         max_model_len: int = 512,
         gpu_memory_utilization: float = 0.85,
+        tensor_parallel_size: int = 1,
         seed: int = 0,
         enforce_eager: bool = False,
         enable_prefix_caching: bool = False,
@@ -186,6 +187,7 @@ class SCDVLLMEngine:
             dtype=dtype or self.config.dtype,
             max_model_len=max_model_len,
             gpu_memory_utilization=gpu_memory_utilization,
+            tensor_parallel_size=tensor_parallel_size,
             seed=seed,
             enforce_eager=enforce_eager,
             enable_prefix_caching=enable_prefix_caching,
@@ -293,6 +295,7 @@ def build_preloaded_launch_spec(
     dtype: str = "bfloat16",
     max_model_len: int = 512,
     gpu_memory_utilization: float = 0.85,
+    tensor_parallel_size: int = 1,
     seed: int = 0,
     enforce_eager: bool = False,
     enable_prefix_caching: bool = False,
@@ -310,6 +313,9 @@ def build_preloaded_launch_spec(
     It is a single-tenant trusted-bundle launch contract, not a multi-tenant
     cache-sharing policy.
     """
+
+    if int(tensor_parallel_size) <= 0:
+        raise ValueError(f"tensor_parallel_size must be positive, got {tensor_parallel_size}")
 
     bundle = Path(bundle_dir)
     storage = Path(storage_dir)
@@ -342,6 +348,7 @@ def build_preloaded_launch_spec(
         "dtype": dtype,
         "max_model_len": int(max_model_len),
         "gpu_memory_utilization": float(gpu_memory_utilization),
+        "tensor_parallel_size": int(tensor_parallel_size),
         "seed": int(seed),
         "enforce_eager": bool(enforce_eager),
         "enable_prefix_caching": bool(enable_prefix_caching),
