@@ -374,17 +374,19 @@ directories:
   for higher-Reuse raw-bank-to-vLLM plugin evidence.
 - `../../Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`
   for quality-first raw-bank-to-vLLM plugin evidence.
-- `../../Experiment/results/a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache/`
+- `../../Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/patch20/`
   and
-  `../../Experiment/results/a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache/`
+  `../../Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/patch26/`
   for the main Mistral repeated-prefix trusted microbenchmark. These compare
   plain vLLM, vLLM `prefix-cache`, and Mistral `SCDPreloadedConnector` batch
-  load for the current `patch20_reuse12` and `patch26_reuse6` routes.
-  The artifact also records worker-side preloaded-cache stats:
-  `cache_misses=32`, `cache_hits=16352`, and `cache_hit_rate=0.998047` for
+  load for the current `patch20_reuse12` and `patch26_reuse6` routes with
+  `batch_size=256`, `num_batches=5`, and `expected_requests=1280`. The
+  artifact also records worker-side preloaded-cache stats:
+  `cache_misses=32`, `cache_hits=49120`, and `cache_hit_rate=0.999349` for
   each route. SCDPreloaded is faster than plain vLLM on this repeated-prefix
-  shape, but it remains slower than native vLLM prefix caching; do not report
-  it as a general serving-speed claim over vLLM.
+  shape (`3.30x` for `patch20_reuse12`, `3.12x` for `patch26_reuse6`), but it
+  remains slower than native vLLM prefix caching; do not report it as a
+  general serving-speed claim over vLLM.
 - `../../Experiment/results/a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache/`
   for direct official-vLLM launch-spec consumption evidence on the Mistral
   quality-first route. It reports `launch_smoke_pass=True`,

@@ -105,34 +105,35 @@ privacy, or arbitrary-routing claim.
 
 Artifacts:
 
-- `../../Experiment/results/a800_mistral_patch20_scd_vllm_preloadedstats_20260618_cache/`
-- `../../Experiment/results/a800_mistral_patch26_scd_vllm_preloadedstats_20260618_cache/`
+- `../../Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/patch20/`
+- `../../Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/patch26/`
 
 Run boundary:
 
 - Host: A800mql, `conda activate cache`, vLLM `0.18.0`.
-- Code snapshot: `runtime_repo_codex_stats_20260618_0717`.
-- Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
+- Code snapshot: `runtime_repo_codex_d1ce508_20260618_0915`.
+- Batch shape: `batch_size=256`, `num_batches=5`, expected requests `1280`.
 - GPU selection: A800 GPUs `0` and `1` were sampled for 60 seconds and
-  stayed at utilization `0`; both cards had resident low-priority python
-  server memory, but enough free memory for the benchmark. The runs used
-  `CUDA_VISIBLE_DEVICES=0` for `patch20_reuse12` and
-  `CUDA_VISIBLE_DEVICES=1` for `patch26_reuse6`.
+  stayed at utilization `0`; the final runs used `CUDA_VISIBLE_DEVICES=0`
+  for `patch20_reuse12` and `CUDA_VISIBLE_DEVICES=1` for `patch26_reuse6`.
+- Model-loading optimization: the Mistral-7B model was copied from NAS to
+  `/dev/shm/scd_models/Mistral-7B-v0.1` before launch to avoid repeated NAS
+  reads across the plain, prefix-cache, and SCDPreloaded stages.
 - The benchmark code now automatically disables the vLLM hybrid KV cache
   manager for `SCDPreloadedConnector`, because that connector path does not
   support HMA in vLLM `0.18.0`.
 
 | Route | Batch Pass | Plain vLLM tok/s | vLLM prefix-cache tok/s | SCDPreloaded tok/s | SCD/Plain | SCD/Prefix | Cache Hits | Cache Misses | Hit Rate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `patch20_reuse12` | true | `969.093202` | `4103.775535` | `2773.109399` | `2.861551` | `0.675746` | `16352` | `32` | `0.998047` |
-| `patch26_reuse6` | true | `988.035039` | `4233.686187` | `2657.446443` | `2.689628` | `0.627691` | `16352` | `32` | `0.998047` |
+| `patch20_reuse12` | true | `995.460475` | `5236.793824` | `3286.296158` | `3.301282` | `0.627540` | `49120` | `32` | `0.999349` |
+| `patch26_reuse6` | true | `1016.189398` | `5522.382560` | `3168.681346` | `3.118200` | `0.573789` | `49120` | `32` | `0.999349` |
 
 Interpretation: for Mistral repeated-prefix batches, SCDPreloaded is faster
 than plain vLLM because it injects the cached prefix KV instead of recomputing
 the full prefix every request. Native vLLM prefix caching remains faster than
 SCDPreloaded for this static-prefix microbenchmark. The connector stats confirm
 actual worker-side tensor reuse after the first per-layer miss: each run saw
-`32` misses, `16352` hits, and one connector worker. The release should claim
+`32` misses, `49120` hits, and one connector worker. The release should claim
 functional plug-in integration, cache-reuse evidence, and measured overhead
 boundaries, not a general serving speedup over vLLM's built-in prefix cache.
 

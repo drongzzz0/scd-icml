@@ -3066,3 +3066,26 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   `python scripts\check_release_readiness.py` passed; `git diff --check`
   passed; and `python scripts\build_release_tree.py --out ..\..\..\release_preview --force`
   built a preview whose own readiness check passed.
+
+### 2026-06-18 update - promote high-batch Mistral preloaded evidence
+
+- Change:
+  Replaced the release-facing Mistral repeated-prefix microbenchmark evidence
+  with the new A800mql high-batch run
+  `Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/`.
+  `check_release_readiness.py` now requires the new `patch20_reuse12` and
+  `patch26_reuse6` artifacts, `batch_size>=256`,
+  `expected_requests>=1280`, worker-side `SCDPreloadedConnector` stats, cache
+  hit rate at least `0.99`, and SCDPreloaded throughput faster than the plain
+  vLLM baseline.
+- Rationale:
+  Earlier b128 evidence proved connector function and worker cache hits, but
+  the release branch should use the strongest available plug-in evidence before
+  code cleanup and branch publication. The new run also avoids repeated NAS
+  model reads by loading Mistral from `/dev/shm`, while keeping the execution
+  environment as A800mql `conda activate cache`.
+- Result boundary:
+  This remains a trusted repeated-prefix static-bundle microbenchmark. It
+  supports plug-in integration, worker-side cache reuse, and measured overhead
+  boundaries. It does not claim a general serving speedup over native vLLM
+  prefix caching, dynamic routing, multi-tenant isolation, or privacy safety.

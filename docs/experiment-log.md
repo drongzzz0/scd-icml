@@ -6826,3 +6826,61 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Structured run recorded `run_7eda4bb299554033`. Local harvest scanned the
   runtime repo and skipped it because no new parseable result artifact was
   found.
+
+## 2026-06-18 - A800mql High-Batch Mistral SCDPreloadedConnector Benchmark
+
+- Experiment id:
+  `a800_mistral_d1ce508_b256_shm_20260618_0938`.
+- Purpose:
+  Strengthen the release-facing vLLM plug-in evidence with a larger
+  repeated-prefix Mistral batch benchmark for both current Mistral routes.
+- Environment:
+  Host `A800mql`, `conda activate cache`, Python 3.12.12, vLLM 0.18.0,
+  Torch 2.10.0+cu128. The code snapshot synced to the host was
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_d1ce508_20260618_0915`.
+- GPU selection:
+  The first attempt selected GPUs `3/4` after 60 seconds of utilization `0`,
+  but vLLM baseline initialization failed because free memory was below
+  `gpu_memory_utilization=0.80` after resident allocations. The final attempt
+  selected GPUs `0/1` after 60 seconds of utilization `0` and ran with
+  `gpu_memory_utilization=0.75`.
+- Method:
+  Ran `scd-vllm batch-benchmark` with `SCDPreloadedConnector`,
+  `scd_vllm.preloaded_connector`, `--include-prefix-cache-baseline`,
+  `--enforce-eager`, `--disable-hybrid-kv-cache-manager`,
+  `batch_size=256`, `num_batches=5`, `warmup_batches=1`,
+  `max_new_tokens=16`, and `max_model_len=512`. To avoid repeated NAS reads
+  across the plain, prefix-cache, and SCDPreloaded stages, the Mistral-7B model
+  was copied to `/dev/shm/scd_models/Mistral-7B-v0.1`.
+- Inputs:
+  Routes `patch20_reuse12` and `patch26_reuse6`; trusted reuse/patch bundles
+  from the current MistralLite -> Mistral-7B release evidence.
+- Outputs:
+  Local artifact:
+  `Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/`.
+- Results:
+  `patch20_reuse12` passed with plain vLLM `995.460475` tok/s, vLLM
+  prefix-cache `5236.793824` tok/s, SCDPreloaded `3286.296158` tok/s,
+  SCD/plain `3.301282`, SCD/prefix `0.627540`, `cache_hits=49120`,
+  `cache_misses=32`, and `cache_hit_rate=0.999349`.
+  `patch26_reuse6` passed with plain vLLM `1016.189398` tok/s, vLLM
+  prefix-cache `5522.382560` tok/s, SCDPreloaded `3168.681346` tok/s,
+  SCD/plain `3.118200`, SCD/prefix `0.573789`, `cache_hits=49120`,
+  `cache_misses=32`, and `cache_hit_rate=0.999349`.
+- Analysis:
+  The high-batch evidence is stronger than the earlier b128 run: it confirms
+  worker-side cache reuse at `1280` requests per route and shows that
+  SCDPreloaded is faster than plain vLLM on this repeated-prefix shape.
+  Native vLLM prefix caching remains faster, so the open-release claim remains
+  bounded to plug-in integration, reuse evidence, and overhead measurement.
+- Failure note:
+  The failed GPU3/4 attempt was caused by vLLM EngineCore memory reservation,
+  not by route correctness or connector function. The mitigation is to inspect
+  free GPU memory, use currently idle cards with enough free memory, lower
+  `gpu_memory_utilization` when resident memory exists, and keep the model copy
+  off NAS for repeated benchmark stages.
+- ResearchKB:
+  Structured run recorded `run_fc6db6315e914a97`. The memory-reservation
+  failure case was recorded as `problem_1453a6b452fd415c`. Local harvest
+  recorded `harvest_b1fbe0511e455caa` for `patch20` and
+  `harvest_ea4e76f6ab70227f` for `patch26`.
