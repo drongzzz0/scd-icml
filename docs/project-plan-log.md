@@ -3089,3 +3089,19 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   supports plug-in integration, worker-side cache reuse, and measured overhead
   boundaries. It does not claim a general serving speedup over native vLLM
   prefix caching, dynamic routing, multi-tenant isolation, or privacy safety.
+
+### 2026-06-18 update - repair Dr. Claw workspace path metadata
+
+- Change:
+  Updated `instance.json`, `.pipeline/docs/research_brief.json`, and
+  `.pipeline/tasks/tasks.json` so their project-local paths no longer point to
+  the stale `/Users/weimingming/dr-claw/scd-new` workspace. The current branch
+  staging workspace is now the canonical local path in these metadata files.
+- Rationale:
+  The SCD-ICML open-release branch should not carry stale `scd-new` absolute
+  paths in the Dr. Claw control files. Keeping these paths current prevents
+  future pipeline reads, task artifacts, and stage transitions from resolving
+  to the wrong project.
+- Verification:
+  Parsed all three JSON files and validated every mapped `instance.json` path
+  as a descendant of the current staging workspace.
