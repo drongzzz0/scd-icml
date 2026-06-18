@@ -7650,3 +7650,42 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Treat these as Qwen32 Full Consumer reference rows only. Qwen32 SCD
   reuse/patch quality and speedup are still not established; the strict HF
   Qwen32 SCD queue remains constrained by available high-free-memory GPUs.
+
+### 2026-06-18 15:44 +08:00 ser full-context HotpotQA diagnostic for CMRC-bank route
+
+- Purpose:
+  Check whether the current CMRC2018-trained MistralLite-to-Mistral-7B
+  reuse19/patch13 bank transfers to full-context HotpotQA and WikiText-2. This
+  is a diagnostic transfer check, not the compressed HotpotQA claim protocol.
+- Remote run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/extra_datasets_full_cmrcbank_20260618_121640`.
+  Bank:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222`.
+  Route: reuse19/patch13, no fallback, no recompute.
+- Local artifacts:
+  Summary-level artifacts copied to
+  `Experiment/results/ser_extra_datasets_full_cmrcbank_20260618/`.
+  Large local per-sample copies were removed after ResearchKB harvest; the
+  remote run directory keeps the original per-sample metrics.
+- HotpotQA full-context result:
+  Full Consumer `n=7405`, F1 `0.3539792271`, EM `0.2198514517`, NLL
+  `0.9909363885`, PPL `2.6937556937`, TTFT `215.3274ms`, total
+  `870.9411ms`.
+  Reuse-only F1 `0.0084988530`, EM `0.0`, NLL `9.0839903929`, PPL
+  `8813.0635398493`, TTFT `54.4804ms`, total `714.1467ms`.
+  SCD F1 `0.1037241536`, EM `0.0779203241`, NLL `1.5248959037`, PPL
+  `4.5946652566`, TTFT `60.8648ms`, total `132.1568ms`.
+- WikiText-2 result:
+  Full Consumer `n=763`, NLL `1.9838737528`, PPL `7.2708539936`;
+  reuse-only NLL `6.8323367817`, PPL `927.3553094234`;
+  SCD NLL `3.1681475597`, PPL `23.7634232360`.
+- Interpretation:
+  The selected CMRC-bank route remains much better than reuse-only on
+  HotpotQA/WikiText-2, and it is substantially faster on HotpotQA total
+  latency, but its quality is far below Full Consumer on both non-CMRC
+  diagnostics. It should not be presented as a claim-facing cross-dataset
+  generalization result. For HotpotQA claim support, use dataset-specific or
+  compressed-protocol routes already separated in the release notes.
+- Current status:
+  CMRC2018 full-dev shards from the same run are still running; wait for them
+  before writing the final aggregate summary for this full-dataset diagnostic.

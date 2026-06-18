@@ -2,6 +2,10 @@
 
 Date: 2026-06-18
 
+Status: superseded by `compact_summary.md` after HotpotQA full-context
+aggregation completed. CMRC2018 full-dev shards were still running at the time
+of the later compact summary.
+
 Remote run:
 `/disk_n/c101-3-mql/projects/SCD-ICML/runs/extra_datasets_full_cmrcbank_20260618_121640`
 
@@ -28,5 +32,6 @@ well below the full-consumer baseline. This is a quality-risk signal for the
 current CMRC-trained route when transferred to WikiText-2.
 
 Status:
-HotpotQA full shards and CMRC2018 dev full shards were still running when this
-partial summary was written.
+HotpotQA full shards have since completed and were summarized in
+`compact_summary.md`. CMRC2018 dev full shards were still running when the
+compact summary was written.

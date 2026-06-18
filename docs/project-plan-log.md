@@ -3372,3 +3372,22 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   These are Full Consumer reference baselines only. They prove the release
   branch can load and evaluate Qwen32 through official vLLM TP4 on three
   datasets, but they do not prove Qwen32 SCD reuse/patch quality or speedup.
+
+### 2026-06-18 update - keep full-context HotpotQA transfer as diagnostic only
+
+- Finding:
+  The CMRC2018-trained Mistral reuse19/patch13 route does not preserve enough
+  quality on full-context HotpotQA. On `n=7405`, Full Consumer F1/EM is
+  `0.3539792271/0.2198514517`, while SCD is
+  `0.1037241536/0.0779203241`. Reuse-only is nearly collapsed at
+  `0.0084988530/0.0`.
+- Related WikiText-2 diagnostic:
+  On WikiText-2 `n=763`, SCD improves substantially over reuse-only
+  (`PPL=23.7634` vs `927.3553`) but remains far from Full Consumer
+  (`PPL=7.2709`).
+- Decision:
+  Treat the CMRC-bank full-context HotpotQA/WikiText-2 results as negative
+  transfer diagnostics. They are useful for risk analysis and route-selection
+  motivation, but not for paper/release quality claims. Claim-facing HotpotQA
+  evidence must stay tied to the explicitly separated compressed protocol or
+  dataset-specific route training/evaluation.
