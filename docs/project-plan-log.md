@@ -3308,3 +3308,30 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   updated wrapper to the A800 runtime repo and validated it with remote
   `bash -n`; the remote model config resolves both Qwen32B directories under
   `/home/c101-800-mql/nas/models`.
+
+### 2026-06-18 update - extend official-vLLM full-dataset baselines
+
+- Change:
+  Extended `scd_vllm.dataset_eval` from a CMRC2018-only evaluator to a shared
+  full-dataset official-vLLM baseline entry point for `cmrc2018`, `hotpotqa`,
+  `hotpotqa_compressed`, `wikitext2`, and `wikitext-2`. The summary now records
+  the dataset's primary metric: F1/EM for QA datasets and PPL/NLL for
+  WikiText-2. README now includes a full-dataset official-vLLM baseline
+  command.
+- Rationale:
+  The release branch needs a Qwen32B-capable vLLM path that can check more than
+  CMRC2018 and more than a smoke prompt. WikiText-2 must not be presented as a
+  pure F1 task; its quality gate is PPL/NLL.
+- Verification:
+  Local targeted tests passed with `14 passed` across
+  `tests/test_scd_vllm_dataset_eval.py`, `tests/test_scd_vllm_plugin.py`, and
+  `tests/test_scd_vllm_official_launch_example.py`. Release readiness passed.
+  On A800mql `conda activate cache`, the evaluator import checks passed and
+  vLLM reported version `0.18.0`. Complete HotpotQA and WikiText-2 data were
+  copied to `/home/c101-800-mql/nas/SCD-ICML/data`; sample counts are `7405`
+  for HotpotQA and `763` for WikiText-2.
+- Current run:
+  Started the A800mql TP4 full-dataset Qwen2.5-32B-Instruct queue at
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618_143845`.
+  It selected `CUDA_VISIBLE_DEVICES=0,1,2,3` after a 60-second idle preflight
+  and began loading the model from NAS.

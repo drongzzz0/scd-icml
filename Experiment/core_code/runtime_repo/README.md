@@ -98,6 +98,26 @@ python examples/scd_vllm_official_launch.py \
   --dry-run
 ```
 
+For full-dataset official-vLLM quality baselines, use the dataset evaluation
+entry point. It supports `cmrc2018`, `hotpotqa`, `hotpotqa_compressed`,
+`wikitext2`, and `wikitext-2`; QA datasets report F1/EM as the primary
+metric, while WikiText-2 reports PPL/NLL as the primary metric:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+python -m scd_vllm.dataset_eval \
+  --dataset hotpotqa \
+  --data-root /path/to/data \
+  --model /path/to/consumer \
+  --tokenizer /path/to/consumer \
+  --out runs/vllm_hotpotqa_full \
+  --dtype bfloat16 \
+  --max-model-len 8192 \
+  --tensor-parallel-size 4 \
+  --apply-chat-template \
+  --extra-instruction "Answer with only the final short answer. Do not explain."
+```
+
 ## Build Reuse + Patch + Route From Scratch
 
 Use this entry point when the checkpoint banks do not already exist. It is the

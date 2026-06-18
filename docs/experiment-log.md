@@ -7497,3 +7497,43 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   before launch. The NAS cache subdirectories were created immediately under
   `/home/c101-800-mql/nas/SCD-ICML/model_cache` to avoid startup-time fallback
   to default `~/.cache` locations.
+
+### 2026-06-18 14:44 +08:00 Qwen32 official-vLLM HotpotQA/WikiText full-dataset queue
+
+- Purpose:
+  Move the Qwen2.5-32B-Instruct official-vLLM validation beyond CMRC2018 by
+  running full HotpotQA and WikiText-2 baselines through the same release
+  evaluator. This is Full Consumer evidence, not SCD reuse/patch evidence.
+- Code change:
+  Extended `scd_vllm.dataset_eval` to load `hotpotqa`,
+  `hotpotqa_compressed`, `wikitext2`, and `wikitext-2` in addition to
+  `cmrc2018`. QA datasets retain F1/EM as the primary metric; WikiText-2 now
+  computes prompt-token logprob NLL/PPL through vLLM `prompt_logprobs` and marks
+  PPL as the primary metric. Added unit tests for dataset selection and NLL
+  prompt/logprob helpers.
+- Data:
+  The A800mql `/home/c101-800-mql/maqianli/no4/data` HotpotQA file was only
+  `133` bytes, so it was not used. Copied complete data from ser to A800 NAS:
+  `/home/c101-800-mql/nas/SCD-ICML/data/HotpotQA/raw/hotpot_dev_distractor_v1.json`
+  (`46,320,117` bytes, `7405` samples) and
+  `/home/c101-800-mql/nas/SCD-ICML/data/wikitext-2/wiki.test.txt`
+  (`1,290,590` bytes, `763` samples).
+- Verification:
+  Local targeted tests passed with `14 passed`; release readiness passed. On
+  A800mql `conda activate cache`, `dataset_eval_import_check=ok`, vLLM version
+  was `0.18.0`, and torch was `2.10.0+cu128`.
+- Run:
+  Started
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618_143845`.
+  The queue waited for four GPUs with `util=0` and at least `48GB` free for
+  `60` seconds, then selected `CUDA_VISIBLE_DEVICES=0,1,2,3`.
+- Parameters:
+  Model `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`; data root
+  `/home/c101-800-mql/nas/SCD-ICML/data`; `tensor_parallel_size=4`;
+  `gpu_memory_utilization=0.34`; HotpotQA `max_model_len=8192`,
+  `batch_size=8`, chat template enabled with short-answer instruction; WikiText
+  `max_model_len=2048`, `batch_size=16`, prompt NLL/PPL enabled.
+- Current status:
+  At `2026-06-18T14:43:45+08:00`, the HotpotQA stage was loading safetensors
+  from NAS with no OOM or traceback observed. No final summary had been written
+  yet.
