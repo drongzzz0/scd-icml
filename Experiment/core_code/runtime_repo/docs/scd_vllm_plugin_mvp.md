@@ -169,6 +169,18 @@ single-tenant trusted-bundle launch contract: verify `token_hash` and
 JSON, applies its environment settings, calls official `vllm.LLM`, runs one
 trusted-prefix generation batch, and writes an auditable `launch_smoke.json`.
 
+The release preview also includes a small programmatic helper:
+
+```bash
+python examples/scd_vllm_official_launch.py \
+  --launch-spec runs/scd_vllm/launch_spec.json \
+  --dry-run
+```
+
+The dry run validates the launch spec without importing vLLM or using a GPU.
+Omit `--dry-run` to execute the same trusted-prefix smoke path through
+official vLLM and write generation metrics.
+
 ## Python API
 
 ```python

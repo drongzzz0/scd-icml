@@ -6750,3 +6750,29 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   This does not add a new model run, but it materially improves release
   reliability: the publishable branch now has machine-checked evidence for the
   core multi-dataset quality boundary and the second-model risk boundary.
+
+## 2026-06-18 - Programmatic Official-vLLM Launch Helper Validation
+
+- Experiment id:
+  `scd_vllm_official_launch_example_dryrun_20260618`.
+- Purpose:
+  Add and validate a release-facing Python example for consuming
+  `scd-vllm launch-spec` output without requiring users to copy internal CLI
+  code.
+- Method:
+  Implemented `examples/scd_vllm_official_launch.py` with a no-GPU `--dry-run`
+  mode and an execution mode that delegates to `run_launch_smoke`.
+- Inputs:
+  Unit test constructs a minimal `launch_spec.json` containing official
+  `vllm.LLM` kwargs, `SCDPreloadedConnector`, module path
+  `scd_vllm.preloaded_connector`, storage metadata, route/token hashes, and
+  trusted-bundle safety flags.
+- Results:
+  `PYTHONPATH=.;src pytest tests/test_scd_vllm_official_launch_example.py tests/test_release_tree_script.py -q`
+  passed with `2 passed`. `python scripts\check_release_readiness.py` also
+  passed after adding the helper to required files, py-compile coverage, source
+  hygiene, docs snippets, and release-tree packaging.
+- Analysis:
+  This improves the open-source plug-and-play interface without broadening the
+  claim. The helper validates a trusted static launch contract and remains
+  explicitly outside production multi-tenant serving or dynamic request routing.

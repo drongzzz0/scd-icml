@@ -44,7 +44,10 @@ After converting a validated SCD bundle to `ExampleConnector` storage, use
 contract for that trusted bundle/storage pair. Use `scd-vllm launch-smoke` to
 consume that JSON through official vLLM and write a one-batch generation
 artifact. Use `scd-vllm batch-benchmark` for repeated-prefix connector
-throughput checks. These paths are intentionally narrow: they are
+throughput checks. The release preview also includes
+`examples/scd_vllm_official_launch.py`, which can dry-run validate a launch
+spec without occupying a GPU or execute the same trusted-prefix official-vLLM
+smoke path from Python. These paths are intentionally narrow: they are
 trusted/static-prefix artifacts and must not be reported as general
 multi-tenant serving, privacy, arbitrary-routing, or dataset-quality claims.
 

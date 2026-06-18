@@ -37,6 +37,7 @@ class ReleaseTreeScriptTest(unittest.TestCase):
                 "src/scd_vllm/truekv_oracle.py",
                 "src/scd_vllm_plugin/cli.py",
                 "src/scd_vllm_plugin/engine.py",
+                "examples/scd_vllm_official_launch.py",
                 "scripts/scd_vllm/run_00_repo_audit.sh",
                 "scripts/scd_vllm/run_01_env_probe.sh",
                 "scripts/scd_vllm/run_02_hf_export.sh",

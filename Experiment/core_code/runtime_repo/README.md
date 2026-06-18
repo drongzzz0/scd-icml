@@ -83,6 +83,21 @@ Then use `scd-vllm run` to export a reconstructed reuse+patch bundle, convert
 it to vLLM ExampleConnector-compatible storage, and run the smoke injection
 path. See `docs/scd_vllm_plugin_mvp.md` for the full command.
 
+For programmatic official-vLLM integration, generate a launch spec and validate
+it without occupying a GPU:
+
+```bash
+scd-vllm launch-spec \
+  --bundle-dir runs/scd_vllm/my_plugin_run/reuse_patch_bundle \
+  --storage-dir runs/scd_vllm/my_plugin_run/example_connector_storage \
+  --model /path/to/consumer \
+  --out runs/scd_vllm/launch_spec.json
+
+python examples/scd_vllm_official_launch.py \
+  --launch-spec runs/scd_vllm/launch_spec.json \
+  --dry-run
+```
+
 ## Build Reuse + Patch + Route From Scratch
 
 Use this entry point when the checkpoint banks do not already exist. It is the

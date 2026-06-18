@@ -90,6 +90,10 @@ SCRIPT_FILES = [
     "scripts/scd_vllm/run_06_report.sh",
 ]
 
+EXAMPLE_FILES = [
+    "examples/scd_vllm_official_launch.py",
+]
+
 COPY_DIRS = [
     "src/scd_repro",
     "src/scd_vllm",
@@ -204,7 +208,7 @@ def main() -> None:
     out.mkdir(parents=True)
 
     included: list[str] = []
-    for rel in ROOT_FILES + CONFIG_FILES + SCRIPT_FILES:
+    for rel in ROOT_FILES + CONFIG_FILES + SCRIPT_FILES + EXAMPLE_FILES:
         copy_file(root, out, rel)
         included.append(rel)
     for rel in COPY_DIRS:

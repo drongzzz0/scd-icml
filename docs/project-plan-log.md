@@ -3024,3 +3024,24 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   Mistral QA evidence remains the positive F1/EM path. WikiText-2 is checked
   with NLL/TTFT and remains a risk-boundary dataset. Qwen3-1.7B gray remains
   portability/risk evidence, not a release-facing speedup claim.
+
+### 2026-06-18 update - add programmatic official-vLLM launch helper
+
+- Change:
+  Added `examples/scd_vllm_official_launch.py` to the release surface. The
+  helper reads a `scd-vllm launch-spec` JSON, performs a no-GPU `--dry-run`
+  validation, or executes the trusted-prefix official-vLLM smoke path from
+  Python.
+- Rationale:
+  The CLI already had `launch-spec` and `launch-smoke`, but a publishable
+  plug-and-play adapter should also show users the programmatic integration
+  shape. A dry-run mode lets users validate connector kwargs, storage metadata,
+  token/route identity fields, and safety flags before occupying a GPU.
+- Verification:
+  Added `tests/test_scd_vllm_official_launch_example.py` and extended
+  `tests/test_release_tree_script.py` so the helper is tested and included in
+  the release preview. Targeted tests and release readiness passed.
+- Result boundary:
+  This is still a single-tenant trusted-bundle launch helper. It does not add
+  multi-tenant serving, dynamic routing, request authentication, or privacy
+  isolation.
