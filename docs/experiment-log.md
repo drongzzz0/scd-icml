@@ -6659,3 +6659,61 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   not as production serving or dataset-quality evidence.
 - ResearchKB:
   Structured run recorded `run_9f2f4f360c20424c`.
+
+## 2026-06-18 - A800mql Qwen Preloaded Connector Stats Batch Benchmark
+
+- Experiment id:
+  `a800_qwen17_scd_vllm_preloadedstats_20260618_cache`.
+- Purpose:
+  Replace the older Qwen batched SCD-vLLM benchmark evidence with an artifact
+  that includes final worker-side `SCDPreloadedConnector` cache stats.
+- Environment:
+  Host `A800mql`; activation
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`;
+  code snapshot
+  `/home/c101-800-mql/maqianli/SCD-ICML/runtime_repo_codex_stats_20260618_0717`;
+  vLLM `0.18.0`. The run used existing model and SCD artifact directories and
+  did not create a virtual environment on NAS.
+- GPU selection:
+  GPUs `3/4/6/7` were busy with other workloads. GPUs `0/1/2` were sampled
+  for 60 seconds and stayed at utilization `0`; the final run used
+  `CUDA_VISIBLE_DEVICES=2`.
+- Inputs:
+  Consumer model
+  `/home/c101-800-mql/maqianli/SCD-ICML/assets/qwen/Qwen3-1.7B-gray`.
+  Bundle:
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/reuse_patch_qwen17_gray_cmrc_route`.
+  Storage:
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen17_scd_vllm_plugin_smoke_20260618_cache/example_connector_storage`.
+- Method:
+  Ran `scd-vllm batch-benchmark` with `batch_size=128`,
+  `num_batches=3`, `warmup_batches=1`, `max_new_tokens=16`,
+  `SCDPreloadedConnector`, `scd_vllm.preloaded_connector`,
+  `connector_cache_device=cuda`, and native vLLM prefix-cache baseline
+  enabled.
+- Outputs:
+  `Experiment/results/a800_qwen17_scd_vllm_preloadedstats_20260618_cache/`
+  containing `metrics.json`, `baseline.json`, `prefix-cache.json`,
+  `load.json`, and
+  `preloaded_connector_stats/scd_preloaded_connector_587169.json`.
+- Results:
+  `benchmark_pass=True`, `load_generation_ok=True`,
+  `bundle_token_match=True`, `storage_ready=True`,
+  `prefix_cache_generation_ok=True`, `route_id=paper_scd_reuse_patch_k6`,
+  `batch_size=128`, `expected_requests=384`, and `output_tokens=6144` for
+  each stage. Throughput: plain vLLM `11069.329059` tokens/s, native
+  prefix-cache `12135.789531` tokens/s, and SCDPreloaded load
+  `5930.711074` tokens/s. Ratios: prefix-cache/plain `1.096344`,
+  SCDPreloaded/plain `0.535779`, and SCDPreloaded/prefix-cache `0.488696`.
+  Final connector stats: `cache_hits=14308`, `cache_misses=28`,
+  `cache_events=14336`, `cache_hit_rate=0.998047`, `cached_files=28`,
+  `cached_bytes=1835008`, and `final_workers=1`.
+- Analysis:
+  The run confirms that the Qwen public connector path is active inside the
+  vLLM worker and that almost all repeated requests hit the preloaded cache.
+  It should be cited as additional-model integration evidence and an overhead
+  boundary. It should not be cited as a serving speedup over plain vLLM or
+  vLLM prefix caching.
+- ResearchKB:
+  Harvest recorded `harvest_b5b072e585e94bb8`; structured run recorded
+  `run_d6919cf38ef74054`.

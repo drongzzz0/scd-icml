@@ -403,7 +403,7 @@ and speed remain bounded by the strict runtime table below.
 
 Artifact:
 
-- `Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`
+- `Experiment/results/a800_qwen17_scd_vllm_preloadedstats_20260618_cache/`
 
 This run validates the public `scd-vllm batch-benchmark` command on the same
 Qwen3-1.7B -> Qwen3-1.7B-gray bundle as a repeated-prefix trusted
@@ -412,13 +412,13 @@ stages:
 
 - Host: A800mql.
 - Environment: `conda activate cache`.
-- Code snapshot: `runtime_repo_codex_preloaded_20260618_0634`.
+- Code snapshot: `runtime_repo_codex_stats_20260618_0717`.
 - vLLM: `0.18.0`.
 - Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`.
 - Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
-- GPU selection: A800 GPUs `3,4,6,7` stayed at `0` utilization during a
-  60-second check; GPU `7` had the lowest resident memory among those cards,
-  so the run used `CUDA_VISIBLE_DEVICES=7`.
+- GPU selection: A800 GPUs `3/4/6/7` were busy; GPUs `0/1/2` stayed at `0`
+  utilization during a 60-second check, so the run used
+  `CUDA_VISIBLE_DEVICES=2`.
 
 Result:
 
@@ -430,12 +430,15 @@ Result:
 | Load generation OK | `true` |
 | Bundle token match | `true` |
 | Storage ready | `true` |
-| Plain vLLM tokens/s | `6194.909625` |
-| vLLM prefix-cache tokens/s | `6786.831734` |
-| SCDPreloaded load tokens/s | `4294.997427` |
-| Prefix-cache/Plain tokens/s ratio | `1.095550` |
-| SCDPreloaded/Plain tokens/s ratio | `0.693311` |
-| SCDPreloaded/Prefix-cache tokens/s ratio | `0.632843` |
+| Plain vLLM tokens/s | `11069.329059` |
+| vLLM prefix-cache tokens/s | `12135.789531` |
+| SCDPreloaded load tokens/s | `5930.711074` |
+| Prefix-cache/Plain tokens/s ratio | `1.096344` |
+| SCDPreloaded/Plain tokens/s ratio | `0.535779` |
+| SCDPreloaded/Prefix-cache tokens/s ratio | `0.488696` |
+| Cache hits / misses | `14308 / 28` |
+| Cache hit rate | `0.998047` |
+| Cached files / bytes | `28 / 1835008` |
 
 Interpretation: this closes the missing batched-command evidence gap for the
 plugin and validates vLLM's external `kv_connector_module_path` mechanism for

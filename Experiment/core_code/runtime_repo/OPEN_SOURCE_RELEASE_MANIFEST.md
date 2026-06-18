@@ -369,13 +369,14 @@ directories:
   for direct official-vLLM launch-spec consumption evidence on the Mistral
   quality-first route. It reports `launch_smoke_pass=True`,
   `bundle_token_match=True`, and final `SCDPreloadedConnector` cache stats.
-- `../../Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`
+- `../../Experiment/results/a800_qwen17_scd_vllm_preloadedstats_20260618_cache/`
   for additional-model repeated-prefix trusted microbenchmark evidence. It
   compares plain vLLM, vLLM `prefix-cache`, and Qwen
   `SCDPreloadedConnector` batch load. The
-  preloaded connector reduces disk-backed ExampleConnector overhead, but the
-  measured SCD load throughput is still lower than both vLLM baselines and must
-  not be used as a speedup claim.
+  preloaded connector records worker-side cache stats (`cache_hits=14308`,
+  `cache_misses=28`, `cache_hit_rate=0.998047`) and reduces disk-backed
+  ExampleConnector overhead, but the measured SCD load throughput is still
+  lower than both vLLM baselines and must not be used as a speedup claim.
 - `../../Experiment/results/a800_qwen17_scd_vllm_launchsmoke_20260618_cache/`
   for direct official-vLLM launch-spec consumption evidence on the Qwen route.
   It reports `launch_smoke_pass=True`, `bundle_token_match=True`,

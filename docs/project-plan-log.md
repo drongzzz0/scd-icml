@@ -2972,3 +2972,33 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   second model (`cache_hits=7140`, `cache_misses=28`,
   `cache_hit_rate=0.996094`). It remains a trusted static-prefix integration
   artifact, not a production-serving or dataset-quality benchmark.
+
+### 2026-06-18 update - require Qwen worker-side preloaded-cache stats
+
+- Change:
+  Re-ran the Qwen3-1.7B -> Qwen3-1.7B-gray repeated-prefix
+  `scd-vllm batch-benchmark` using `SCDPreloadedConnector`, collected final
+  worker-side connector stats, and switched the release readiness gate from
+  the older `preloadedbench` artifact to
+  `a800_qwen17_scd_vllm_preloadedstats_20260618_cache`.
+- Rationale:
+  The previous Qwen batch artifact showed benchmark correctness and throughput
+  but did not gate on the actual worker cache-hit file. For a publishable
+  plug-and-play vLLM adapter, release evidence should prove that the public
+  connector path is active inside the vLLM worker, not merely that generation
+  completed.
+- Verification:
+  On A800mql with
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`,
+  GPUs `3/4/6/7` were busy, and GPUs `0/1/2` stayed at utilization `0` for
+  60 seconds. The final run used `CUDA_VISIBLE_DEVICES=2` and produced
+  `benchmark_pass=True`, `load_generation_ok=True`,
+  `bundle_token_match=True`, `storage_ready=True`, and
+  `prefix_cache_generation_ok=True`.
+- Result boundary:
+  This strengthens Qwen portability evidence and records worker-side
+  `SCDPreloadedConnector` cache reuse (`cache_hits=14308`,
+  `cache_misses=28`, `cache_hit_rate=0.998047`). It remains a trusted
+  repeated-prefix integration benchmark, not a Qwen serving-speed claim,
+  because SCDPreloaded is still slower than plain vLLM and native prefix-cache
+  on this microbenchmark.

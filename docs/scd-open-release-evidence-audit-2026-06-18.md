@@ -140,13 +140,12 @@ remains cautionary because it does not support Qwen acceleration.
 Additional Qwen batched SCD-vLLM evidence:
 
 - Batch benchmark artifact:
-  `Experiment/results/a800_qwen17_scd_vllm_preloadedbench_20260618_cache/`.
+  `Experiment/results/a800_qwen17_scd_vllm_preloadedstats_20260618_cache/`.
 - Model pair: Qwen3-1.7B producer -> Qwen3-1.7B-gray consumer.
 - Runtime: A800mql, `conda activate cache`, vLLM `0.18.0`,
-  `CUDA_VISIBLE_DEVICES=7`.
-- GPU selection: A800 GPUs `3,4,6,7` stayed at `0` utilization during the
-  60-second idle check; GPU `7` had the lowest resident memory among those
-  cards and was used.
+  `CUDA_VISIBLE_DEVICES=2`.
+- GPU selection: A800 GPUs `3/4/6/7` were busy; GPUs `0/1/2` stayed at `0`
+  utilization during the 60-second idle check and GPU `2` was used.
 - Route: `paper_scd_reuse_patch_k6`, patch/reuse `6/22`, fallback/recompute
   `0/0`.
 - Batch shape: `batch_size=128`, `num_batches=3`, expected requests `384`.
@@ -155,10 +154,12 @@ Additional Qwen batched SCD-vLLM evidence:
   `bundle_token_match=True`, `storage_ready=True`,
   `prefix_cache_generation_ok=True`; connector `SCDPreloadedConnector` from
   module `scd_vllm.preloaded_connector`.
-- Throughput: plain vLLM `6194.909625` tokens/s; vLLM prefix-cache baseline
-  `6786.831734` tokens/s; SCDPreloaded load `4294.997427` tokens/s.
-  Prefix-cache/plain ratio is `1.095550`; SCDPreloaded/plain ratio is
-  `0.693311`; SCDPreloaded/prefix-cache ratio is `0.632843`.
+- Throughput: plain vLLM `11069.329059` tokens/s; vLLM prefix-cache baseline
+  `12135.789531` tokens/s; SCDPreloaded load `5930.711074` tokens/s.
+  Prefix-cache/plain ratio is `1.096344`; SCDPreloaded/plain ratio is
+  `0.535779`; SCDPreloaded/prefix-cache ratio is `0.488696`.
+- Worker-side connector stats: `cache_hits=14308`, `cache_misses=28`,
+  `cache_hit_rate=0.998047`, `cached_files=28`, `cached_bytes=1835008`.
 
 This proves the repeated-prefix `scd-vllm batch-benchmark` command and the
 repository's external connector module path work for the Qwen bundle. The
