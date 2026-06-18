@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--reuse-ckpt", required=True)
     p.add_argument("--patch-ckpt", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--limit", type=int, default=200)
+    p.add_argument("--limit", type=int, default=200, help="0 means use all loadable samples")
     p.add_argument("--max-length", type=int, default=0)
     p.add_argument("--max-new-tokens", type=int, default=32)
     p.add_argument("--bandwidth-gbps", type=float, default=200.0)
@@ -303,6 +303,10 @@ def _write_summary_md(path: Path, rows: list[dict[str, object]]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _resolve_load_limit(max_eval_samples: int) -> int | None:
+    return None if int(max_eval_samples) <= 0 else int(max_eval_samples)
+
+
 def main() -> None:
     args = build_parser().parse_args()
     logger = resolve_logger(args.log)
@@ -388,7 +392,7 @@ def main() -> None:
     )
 
     cmrc_split = str(args.cmrc_split or runtime_eval_cfg.get("cmrc_split") or "dev").strip().lower()
-    samples = load_cmrc2018_samples(args.data_root, limit=max_eval_samples, split=cmrc_split)
+    samples = load_cmrc2018_samples(args.data_root, limit=_resolve_load_limit(max_eval_samples), split=cmrc_split)
     logger.info("CMRC 样本已加载: split=%s n=%d", cmrc_split, len(samples))
     if qid_allowlist:
         qid_set = set(qid_allowlist)

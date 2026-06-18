@@ -7,12 +7,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ..cmrc import load_cmrc2018_samples
-from ..io_utils import load_json, save_json
-from ..pipeline import load_patch_ckpt, load_reuse_weights
-from ..reuse import move_reuse_weights
-from ..seed import set_global_seed
-from ..strict_runtime import (
+from .cmrc import load_cmrc2018_samples
+from .io_utils import load_json, save_json
+from .pipeline import load_patch_ckpt, load_reuse_weights
+from .reuse import move_reuse_weights
+from .seed import set_global_seed
+from .strict_runtime import (
     MethodSampleResult,
     STEP_C_METHODS,
     TransformersRuntimeSession,
@@ -20,9 +20,9 @@ from ..strict_runtime import (
     evaluate_cmrc_method,
     summarize_method_results,
 )
-from ..torch_utils import clear_torch_cache, configure_torch_acceleration, resolve_torch_dtype
-from ..tracking import command_from_argv, write_manifest
-from .common import add_accel_args, load_cfg, resolve_accel_options, resolve_logger
+from .torch_utils import clear_torch_cache, configure_torch_acceleration, resolve_torch_dtype
+from .tracking import command_from_argv, write_manifest
+from .cli.common import add_accel_args, load_cfg, resolve_accel_options, resolve_logger
 
 
 METHODS = list(STEP_C_METHODS)
@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--reuse-ckpt", required=True)
     p.add_argument("--patch-ckpt", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--limit", type=int, default=200)
+    p.add_argument("--limit", type=int, default=200, help="0 means use all loadable samples")
     p.add_argument("--max-length", type=int, default=0)
     p.add_argument("--max-new-tokens", type=int, default=32)
     p.add_argument("--bandwidth-gbps", type=float, default=200.0)
@@ -243,6 +243,10 @@ def _write_summary_md(path: Path, rows: list[dict[str, object]]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _resolve_load_limit(max_eval_samples: int) -> int | None:
+    return None if int(max_eval_samples) <= 0 else int(max_eval_samples)
+
+
 def main() -> None:
     args = build_parser().parse_args()
     logger = resolve_logger(args.log)
@@ -315,7 +319,7 @@ def main() -> None:
         reuse_meta.get("rank_v", reuse_meta.get("rank")),
     )
 
-    samples = load_cmrc2018_samples(args.data_root, limit=max_eval_samples)
+    samples = load_cmrc2018_samples(args.data_root, limit=_resolve_load_limit(max_eval_samples))
     logger.info("CMRC 样本已加载: %d", len(samples))
     if qid_allowlist:
         qid_set = set(qid_allowlist)

@@ -7190,3 +7190,61 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   Monitor the queue, pull the NAS run directory after execution starts or
   completes, record F1/EM and throughput artifacts, and then update the release
   risk summary.
+
+## 2026-06-18 12:16 +08:00 - ser full HotpotQA and WikiText-2 strict eval launch
+
+- Experiment name or id:
+  `extra_datasets_full_cmrcbank_20260618_121640`.
+- Purpose:
+  Replace prior smoke or small-limit extra-dataset checks with full-dataset
+  strict evaluation for the current open-source SCD runtime, while keeping the
+  reuse/patch bank trained on CMRC2018 train data and evaluating only on held
+  out or external datasets.
+- Method:
+  Used ser `runtime_repo_codex_current_20260618`, which passed release
+  readiness and includes the current vLLM/SCD release code. Launched WikiText-2
+  full strict eval on GPU2/GPU3 with `limit=0`, and initially launched HotpotQA
+  full on GPU0/GPU1. After observing the HotpotQA single stream would take
+  hours, stopped only the unsharded HotpotQA process and relaunched HotpotQA as
+  two qid-filtered shards: `shard_00` on GPU0/GPU1 immediately and `shard_01`
+  queued to start on GPU2/GPU3 after WikiText-2 completes.
+- Parameters:
+  Route `reuse19/patch13`, `fallback=0`, `recompute=0`, `max_length=0`,
+  `max_new_tokens=32`, `bandwidth_gbps=200`, `quant_group_size=128`,
+  `dtype=bfloat16`, `seed=42`, `runtime_eval.max_eval_samples=0`.
+- Inputs:
+  Bank root
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222`;
+  data root
+  `/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854/data`;
+  route
+  `route/route_cmrc2018_fixed_patchbudget13.json`; reuse checkpoint
+  `ckpt_reuse/layerwise_seed42`; patch checkpoint
+  `ckpt_patch/native_alllayers_seed42`.
+- Environment:
+  ser, `/disk_n/c101-3-mql/venvs/A800`, four 4090D GPUs initially idle.
+- Outputs:
+  Remote run directory
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/extra_datasets_full_cmrcbank_20260618_121640`.
+- Results:
+  Launch evidence only so far. The loaders reported full sample counts:
+  HotpotQA `7405` and WikiText-2 `763`. HotpotQA qid shards contain `3703`
+  and `3702` qids, totaling `7405`. `shard_00` and WikiText-2 are running; the
+  `shard_01` waiter is active. A postprocess waiter
+  `postprocess_and_cmrc_after_hotpot.sh` is also active; it will verify the
+  merged HotpotQA artifact has `7405` qids and `7405*3` per-method rows, then
+  launch CMRC2018 dev full evaluation. No final F1/EM/PPL summary exists yet.
+- Analysis:
+  This run keeps the training source separate from evaluation: the reuse/patch
+  bank comes from CMRC2018 train, while the current evaluations are full
+  HotpotQA and full WikiText-2. Sharding changes scheduling only; it does not
+  reduce the HotpotQA evaluation set.
+- Conclusions:
+  The full extra-dataset evidence is in progress. Do not report quality numbers
+  from this run until the shard summaries and aggregate summary are produced.
+- Next actions:
+  Monitor both active processes, launch or verify `shard_01` after WikiText-2
+  releases GPU2/GPU3, aggregate HotpotQA shards by concatenating
+  `per_sample_metrics.jsonl`, verify the queued CMRC2018 dev full run starts
+  after HotpotQA aggregation, pull result artifacts, record F1/EM/PPL, and
+  update the release-risk summary.

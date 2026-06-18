@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 
 from scd_repro.cmrc import load_cmrc2018_samples
+from scd_repro.cli.eval_cmrc_strict import _resolve_load_limit as resolve_modern_cmrc_load_limit
+from scd_repro.cli_eval_cmrc_strict import _resolve_load_limit as resolve_legacy_cmrc_load_limit
 from scd_repro.text_benchmarks import load_text_benchmark_samples
 
 
@@ -58,6 +60,13 @@ class CMRCSplitTests(unittest.TestCase):
 
             with self.assertRaises(FileNotFoundError):
                 load_cmrc2018_samples(root, limit=1)
+
+    def test_cmrc_strict_eval_limit_zero_means_full_dataset(self) -> None:
+        for resolve in (resolve_modern_cmrc_load_limit, resolve_legacy_cmrc_load_limit):
+            self.assertIsNone(resolve(0))
+            self.assertIsNone(resolve(-1))
+            self.assertEqual(resolve(1), 1)
+            self.assertEqual(resolve(200), 200)
 
 
 if __name__ == "__main__":
