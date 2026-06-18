@@ -152,6 +152,7 @@ cat > "${RUN_ROOT}/run_config.json" <<EOF
   "patch_dir": "${PATCH_DIR}",
   "route_source": "${ROUTE_PATH}",
   "route": "${TARGET_ROUTE}",
+  "eval_config_template": "${EVAL_CONFIG_TEMPLATE}",
   "run_root": "${RUN_ROOT}",
   "direction": "${DIRECTION}",
   "datasets": "${DATASETS}",
