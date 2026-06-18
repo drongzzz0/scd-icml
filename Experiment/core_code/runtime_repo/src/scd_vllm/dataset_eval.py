@@ -8,7 +8,7 @@ from typing import Any, Iterable
 
 from scd_repro.cmrc import extract_answer_text, load_cmrc2018_samples, score_cmrc_prediction
 
-from .vllm_baseline import _cuda_memory_info, _cuda_synchronize, _load_torch, _load_vllm
+from .vllm_baseline import _cuda_memory_info, _cuda_synchronize, _load_torch, _load_transformers, _load_vllm
 
 
 class VLLMDatasetEvalError(RuntimeError):
@@ -38,6 +38,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--trust-remote-code", action="store_true")
     parser.add_argument("--enforce-eager", action="store_true")
     parser.add_argument("--enable-prefix-caching", action="store_true")
+    parser.add_argument("--apply-chat-template", action="store_true")
+    parser.add_argument("--system-prompt", default="")
+    parser.add_argument("--extra-instruction", default="")
     parser.add_argument("--log-every", type=int, default=50)
     return parser.parse_args(argv)
 
@@ -64,6 +67,9 @@ def run_cmrc2018_vllm_eval(
     trust_remote_code: bool = False,
     enforce_eager: bool = False,
     enable_prefix_caching: bool = False,
+    apply_chat_template: bool = False,
+    system_prompt: str = "",
+    extra_instruction: str = "",
     log_every: int = 50,
 ) -> dict[str, Any]:
     if batch_size <= 0:
@@ -88,6 +94,7 @@ def run_cmrc2018_vllm_eval(
     LLM, SamplingParams, vllm_version = _load_vllm()
     torch = _load_torch()
     tokenizer_id = tokenizer or model
+    chat_tokenizer = _load_chat_tokenizer(tokenizer_id, trust_remote_code) if apply_chat_template else None
     llm_kwargs: dict[str, Any] = {
         "model": model,
         "tokenizer": tokenizer_id,
@@ -127,7 +134,15 @@ def run_cmrc2018_vllm_eval(
     with per_sample_path.open("w", encoding="utf-8") as fh:
         for offset in range(0, len(samples), int(batch_size)):
             batch = samples[offset : offset + int(batch_size)]
-            prompts = [sample.prompt for sample in batch]
+            prompts = [
+                _format_prompt(
+                    sample.prompt,
+                    chat_tokenizer=chat_tokenizer,
+                    system_prompt=system_prompt,
+                    extra_instruction=extra_instruction,
+                )
+                for sample in batch
+            ]
             _cuda_synchronize(torch)
             batch_start = time.perf_counter()
             outputs = llm.generate(prompts, sampling, use_tqdm=False)
@@ -202,6 +217,9 @@ def run_cmrc2018_vllm_eval(
         "top_k": int(top_k),
         "seed": int(seed),
         "enable_prefix_caching": bool(enable_prefix_caching),
+        "apply_chat_template": bool(apply_chat_template),
+        "system_prompt": system_prompt,
+        "extra_instruction": extra_instruction,
         "load_seconds": load_seconds,
         "eval_seconds": eval_seconds,
         "generation_seconds_total": generation_seconds_total,
@@ -225,6 +243,43 @@ def _read_qid_allowlist(path: str | Path | None) -> set[str] | None:
         return None
     qids = {line.strip() for line in Path(path).read_text(encoding="utf-8-sig").splitlines() if line.strip()}
     return qids
+
+
+def _load_chat_tokenizer(tokenizer_id: str, trust_remote_code: bool) -> Any:
+    transformers = _load_transformers()
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        tokenizer_id,
+        trust_remote_code=trust_remote_code,
+        use_fast=True,
+    )
+    if not hasattr(tokenizer, "apply_chat_template"):
+        raise VLLMDatasetEvalError(f"tokenizer does not support apply_chat_template: {tokenizer_id}")
+    return tokenizer
+
+
+def _format_prompt(
+    prompt: str,
+    *,
+    chat_tokenizer: Any | None,
+    system_prompt: str = "",
+    extra_instruction: str = "",
+) -> str:
+    text = str(prompt or "").rstrip()
+    if extra_instruction.strip():
+        text = f"{text}\n{extra_instruction.strip()}"
+    if chat_tokenizer is None:
+        return text
+    messages: list[dict[str, str]] = []
+    if system_prompt.strip():
+        messages.append({"role": "system", "content": system_prompt.strip()})
+    messages.append({"role": "user", "content": text})
+    return str(
+        chat_tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -252,6 +307,9 @@ def main(argv: list[str] | None = None) -> int:
         trust_remote_code=args.trust_remote_code,
         enforce_eager=args.enforce_eager,
         enable_prefix_caching=args.enable_prefix_caching,
+        apply_chat_template=args.apply_chat_template,
+        system_prompt=args.system_prompt,
+        extra_instruction=args.extra_instruction,
         log_every=args.log_every,
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
