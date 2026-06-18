@@ -2918,3 +2918,32 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   The launch spec is a single-tenant trusted-bundle contract. It does not claim
   multi-tenant safety, arbitrary request routing, or production lifecycle
   management.
+
+### 2026-06-18 update - add official-vLLM launch-smoke execution gate
+
+- Change:
+  Added `scd-vllm launch-smoke` and the Python API `run_launch_smoke`. The CLI
+  now consumes `launch_spec.json`, launches official `vllm.LLM`, runs a
+  trusted-prefix generation batch, and records token-hash matching plus
+  `SCDPreloadedConnector` stats. The CLI parent process recollects connector
+  stats after the vLLM child process exits so JSON artifacts include final
+  cache-hit evidence.
+- Rationale:
+  `launch-spec` proved the configuration contract, but release users still
+  needed a direct command that demonstrates the JSON is actually consumable by
+  official vLLM. This closes that evidence gap without claiming production
+  serving, multi-tenant safety, or dynamic request routing.
+- Verification:
+  Local tests passed with `PYTHONPATH=.;src pytest tests -q` (`105 passed`) and
+  `python scripts\check_release_readiness.py`. On A800, using
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`, GPU
+  `2` stayed at utilization `0` for 60 seconds before launch. The run used
+  `CUDA_VISIBLE_DEVICES=2` and produced `launch_smoke_pass=True`,
+  `generation_ok=True`, `bundle_token_match=True`, `request_count=8`,
+  `output_tokens=128`, and `tokens_per_second=596.609039`.
+- Result boundary:
+  The evidence is for a single trusted static prefix from the Mistral
+  `patch26_reuse6` SCD bundle. It confirms official-vLLM consumption and
+  connector-side cache reuse (`cache_hits=480`, `cache_misses=32`,
+  `cache_hit_rate=0.9375`), but it remains a smoke/integration artifact rather
+  than a dataset-quality or production-serving benchmark.

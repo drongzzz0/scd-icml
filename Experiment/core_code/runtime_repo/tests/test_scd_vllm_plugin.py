@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import types
 
 import numpy as np
 
 from scd_vllm.bundle import make_manifest, write_manifest
 from scd_vllm_plugin.cli import main
-from scd_vllm_plugin.engine import SCDVLLMConfig, SCDVLLMEngine, build_preloaded_launch_spec
+from scd_vllm_plugin.engine import SCDVLLMConfig, SCDVLLMEngine, build_preloaded_launch_spec, run_launch_smoke
 
 
 def test_plugin_engine_run_smoke_pipeline_delegates_steps(monkeypatch, tmp_path) -> None:
@@ -170,6 +171,63 @@ def test_plugin_cli_launch_spec_writes_json(tmp_path, capsys) -> None:
     assert "scd_vllm_launch_spec" in capsys.readouterr().out
 
 
+def test_run_launch_smoke_consumes_launch_spec_with_official_vllm_contract(monkeypatch, tmp_path) -> None:
+    payload, stats_dir = _make_launch_smoke_payload(tmp_path)
+    launch_spec = tmp_path / "launch_spec.json"
+    launch_spec.write_text(json.dumps(payload), encoding="utf-8")
+    out = tmp_path / "launch_smoke.json"
+    captured: dict[str, object] = {}
+    fake_vllm = _fake_vllm_module(captured)
+    real_import = __import__("importlib").import_module
+
+    def fake_import(name: str):
+        if name == "vllm":
+            return fake_vllm
+        return real_import(name)
+
+    monkeypatch.setattr("scd_vllm_plugin.engine.importlib.import_module", fake_import)
+    monkeypatch.delenv("SCD_PRELOADED_STATS_DIR", raising=False)
+
+    metrics = run_launch_smoke(launch_spec=launch_spec, out=out, batch_size=2, max_new_tokens=3)
+
+    assert metrics["launch_smoke_pass"] is True
+    assert metrics["generation_ok"] is True
+    assert metrics["bundle_token_match"] is True
+    assert metrics["request_count"] == 2
+    assert metrics["output_tokens"] == 4
+    assert metrics["prompt_token_ids"] == [1, 2, 3, 4]
+    assert metrics["environment"] == {"SCD_PRELOADED_STATS_DIR": str(stats_dir)}
+    assert captured["llm_kwargs"] == payload["llm_kwargs"]
+    assert captured["sampling"] == {"max_tokens": 3, "temperature": 0.0, "top_p": 1.0, "seed": 0}
+    saved = json.loads(out.read_text(encoding="utf-8"))
+    assert saved["mode"] == "scd_vllm_launch_smoke"
+    assert saved["launch_smoke_pass"] is True
+
+
+def test_plugin_cli_launch_smoke_writes_json(monkeypatch, tmp_path, capsys) -> None:
+    payload, _stats_dir = _make_launch_smoke_payload(tmp_path)
+    launch_spec = tmp_path / "launch_spec.json"
+    launch_spec.write_text(json.dumps(payload), encoding="utf-8")
+    out = tmp_path / "launch_smoke.json"
+    fake_vllm = _fake_vllm_module({})
+    real_import = __import__("importlib").import_module
+
+    def fake_import(name: str):
+        if name == "vllm":
+            return fake_vllm
+        return real_import(name)
+
+    monkeypatch.setattr("scd_vllm_plugin.engine.importlib.import_module", fake_import)
+
+    rc = main(["launch-smoke", "--launch-spec", str(launch_spec), "--out", str(out), "--batch-size", "2", "--child"])
+
+    assert rc == 0
+    saved = json.loads(out.read_text(encoding="utf-8"))
+    assert saved["launch_smoke_pass"] is True
+    assert saved["kv_connector"] == "SCDPreloadedConnector"
+    assert "scd_vllm_launch_smoke" in capsys.readouterr().out
+
+
 def test_plugin_cli_delegates_existing_commands(monkeypatch) -> None:
     calls: list[tuple[str, list[str]]] = []
 
@@ -188,3 +246,58 @@ def test_plugin_cli_delegates_existing_commands(monkeypatch) -> None:
         ("inject", ["run", "--bundle-dir", "bundle"]),
         ("batch", ["--bundle-dir", "bundle"]),
     ]
+
+
+def _make_launch_smoke_payload(tmp_path):
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "prefix.txt").write_text("hello world", encoding="utf-8")
+    manifest = make_manifest(
+        consumer_model="consumer",
+        producer_model="producer",
+        tokenizer_id="tok",
+        token_ids=np.asarray([[1, 2, 3, 4]], dtype=np.int64),
+        bundle_type="reuse_patch",
+        dtype="bfloat16",
+        kv_spec={"num_layers": 2, "num_kv_heads": 2, "head_dim": 4},
+        route_id="route-a",
+        route={"name": "route-a"},
+    )
+    write_manifest(bundle / "manifest.json", manifest)
+    storage = tmp_path / "storage" / "hash"
+    storage.mkdir(parents=True)
+    (storage / "model.layers.0.self_attn.attn.safetensors").write_bytes(b"x")
+    stats_dir = tmp_path / "stats"
+    payload = build_preloaded_launch_spec(
+        model="consumer",
+        tokenizer="tok",
+        bundle_dir=bundle,
+        storage_dir=tmp_path / "storage",
+        stats_dir=stats_dir,
+    )
+    return payload, stats_dir
+
+
+def _fake_vllm_module(captured: dict[str, object]):
+    class FakeSamplingParams:
+        def __init__(self, **kwargs):
+            captured["sampling"] = dict(kwargs)
+
+    class FakeCompletion:
+        token_ids = [8, 9]
+        text = "ok"
+
+    class FakeRequestOutput:
+        prompt_token_ids = [1, 2, 3, 4]
+        outputs = [FakeCompletion()]
+
+    class FakeLLM:
+        def __init__(self, **kwargs):
+            captured["llm_kwargs"] = dict(kwargs)
+
+        def generate(self, prompts, sampling, use_tqdm=False):
+            captured["prompts"] = list(prompts)
+            captured["use_tqdm"] = use_tqdm
+            return [FakeRequestOutput() for _ in prompts]
+
+    return types.SimpleNamespace(LLM=FakeLLM, SamplingParams=FakeSamplingParams, __version__="fake-vllm")

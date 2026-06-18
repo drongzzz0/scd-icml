@@ -6555,3 +6555,58 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   single-tenant and trusted-prefix only.
 - ResearchKB:
   Structured run recorded `run_59ff8dacd10f4ffa`.
+
+## 2026-06-18 - A800 Official vLLM Launch-Smoke for Mistral Patch26/Reuse6
+
+- Experiment id:
+  `a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache`.
+- Purpose:
+  Verify that the `scd-vllm launch-spec` JSON is not only inspectable but can
+  be consumed by official vLLM through `vllm.LLM(**llm_kwargs)` with the
+  external `SCDPreloadedConnector`.
+- Environment:
+  Host `A800`; activation
+  `source /opt/miniconda3/etc/profile.d/conda.sh && conda activate cache`;
+  code snapshot
+  `/home/student_t/maqianli/SCD-ICML/runtime_repo_codex_launchsmoke_20260618_081014`;
+  vLLM `0.18.0`. The runtime snapshot was placed under the account home
+  directory, not NAS.
+- GPU selection:
+  GPUs `3/4/6/7` became busy with unrelated workloads and were not used. GPUs
+  `0/1/2` were sampled for 60 seconds and stayed at utilization `0`; the final
+  run used `CUDA_VISIBLE_DEVICES=2`.
+- Inputs:
+  Consumer model
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/models/Mistral-7B-v0.1`.
+  The SCD bundle/storage came from
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/plugin_run_patch26_reuse6/`.
+- Method:
+  Generated a launch spec with `scd-vllm launch-spec` using
+  `SCDPreloadedConnector`, `max_model_len=512`, and
+  `gpu_memory_utilization=0.35`. Then ran `scd-vllm launch-smoke` with
+  `batch_size=8`, `warmup_batches=1`, and `max_new_tokens=16`. During the
+  first attempt, stats embedded in `launch_smoke.json` were collected before
+  the vLLM EngineCore child exited. The CLI was updated to wrap the vLLM smoke
+  in a child process and recollect final connector stats in the parent.
+- Outputs:
+  `Experiment/results/a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache/`
+  containing `launch_spec.json`, `launch_smoke.json`, stdout/stderr logs, and
+  `preloaded_connector_stats/scd_preloaded_connector_546561.json`.
+- Results:
+  `launch_smoke_pass=True`, `generation_ok=True`,
+  `bundle_token_match=True`, `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `disable_hybrid_kv_cache_manager=True`, `request_count=8`,
+  `output_tokens=128`, `prompt_token_count=229`,
+  `tokens_per_second=596.609039`, and `requests_per_second=37.288065`.
+  Final connector stats: `cache_hits=480`, `cache_misses=32`,
+  `cache_events=512`, `cache_hit_rate=0.9375`, `cached_files=32`,
+  `cached_bytes=29360128`, and `final_workers=1`.
+- Analysis:
+  The run closes the integration-evidence gap between a static launch spec and
+  actual official-vLLM execution. It should be cited as trusted static-prefix
+  plugin evidence only, not as a dataset-quality result or production serving
+  benchmark.
+- ResearchKB:
+  Harvest did not parse this result directory automatically; structured run
+  recorded `run_8e4128a714704850`.

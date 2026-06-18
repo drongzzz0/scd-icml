@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import argparse
+import importlib
+import json
+import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from scd_vllm.bundle import read_manifest
+import numpy as np
+
+from scd_vllm.batch_benchmark import _collect_preloaded_connector_stats
+from scd_vllm.bundle import array_sha256, read_manifest, text_sha256
+from scd_vllm.hf_export import load_prompt
 from scd_vllm.injection import convert_bundle_to_example_storage, run_injection_smoke
 from scd_vllm.reconstructed_export import export_reconstructed_bundle
-from scd_vllm.truekv_oracle import summarize_storage
+from scd_vllm.truekv_oracle import _cuda_memory_info, _cuda_synchronize, _load_optional, summarize_storage
 
 
 DEFAULT_PRELOADED_CONNECTOR = "SCDPreloadedConnector"
@@ -189,6 +197,35 @@ class SCDVLLMEngine:
             require_storage=require_storage,
         )
 
+    def launch_smoke(
+        self,
+        *,
+        launch_spec: str | Path,
+        prompt: str = "",
+        prefix_file: str = "",
+        out: str | Path = "",
+        batch_size: int = 1,
+        warmup_batches: int = 0,
+        max_new_tokens: int = 16,
+        temperature: float = 0.0,
+        top_p: float = 1.0,
+        seed: int = 0,
+        use_tqdm: bool = False,
+    ) -> dict[str, Any]:
+        return run_launch_smoke(
+            launch_spec=launch_spec,
+            prompt=prompt,
+            prefix_file=prefix_file,
+            out=out,
+            batch_size=batch_size,
+            warmup_batches=warmup_batches,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            seed=seed,
+            use_tqdm=use_tqdm,
+        )
+
     def run_smoke_pipeline(
         self,
         *,
@@ -359,3 +396,160 @@ def build_preloaded_launch_spec(
 
 def _connector_requires_hma_disabled(kv_connector: str, kv_connector_module_path: str) -> bool:
     return kv_connector == DEFAULT_PRELOADED_CONNECTOR or kv_connector_module_path.endswith("preloaded_connector")
+
+
+def run_launch_smoke(
+    *,
+    launch_spec: str | Path,
+    prompt: str = "",
+    prefix_file: str = "",
+    out: str | Path = "",
+    batch_size: int = 1,
+    warmup_batches: int = 0,
+    max_new_tokens: int = 16,
+    temperature: float = 0.0,
+    top_p: float = 1.0,
+    seed: int = 0,
+    use_tqdm: bool = False,
+) -> dict[str, Any]:
+    """Instantiate official ``vllm.LLM`` from a launch spec and generate text."""
+
+    if batch_size <= 0:
+        raise ValueError(f"batch_size must be positive, got {batch_size}")
+    if warmup_batches < 0:
+        raise ValueError(f"warmup_batches must be non-negative, got {warmup_batches}")
+
+    spec_path = Path(launch_spec)
+    payload = json.loads(spec_path.read_text(encoding="utf-8-sig"))
+    llm_kwargs = dict(payload.get("llm_kwargs") or {})
+    if not llm_kwargs:
+        raise ValueError(f"launch spec does not contain llm_kwargs: {spec_path}")
+
+    environment = {str(key): str(value) for key, value in (payload.get("environment") or {}).items()}
+    for key, value in environment.items():
+        os.environ[key] = value
+
+    bundle_dir = Path(payload.get("bundle_dir") or "")
+    prompt_text = _resolve_launch_prompt(bundle_dir=bundle_dir, prompt=prompt, prefix_file=prefix_file)
+    prompts = [prompt_text] * int(batch_size)
+
+    vllm = importlib.import_module("vllm")
+    torch = _load_optional("torch")
+    llm_cls = getattr(vllm, "LLM")
+    sampling_params_cls = getattr(vllm, "SamplingParams")
+
+    memory_before = _cuda_memory_info(torch)
+    start_load = time.perf_counter()
+    llm = llm_cls(**llm_kwargs)
+    load_seconds = time.perf_counter() - start_load
+    memory_after_load = _cuda_memory_info(torch)
+
+    sampling = sampling_params_cls(
+        max_tokens=int(max_new_tokens),
+        temperature=float(temperature),
+        top_p=float(top_p),
+        seed=int(seed),
+    )
+    for _ in range(int(warmup_batches)):
+        llm.generate(prompts, sampling, use_tqdm=bool(use_tqdm))
+    _cuda_synchronize(torch)
+
+    _cuda_synchronize(torch)
+    start_generation = time.perf_counter()
+    outputs = llm.generate(prompts, sampling, use_tqdm=bool(use_tqdm))
+    _cuda_synchronize(torch)
+    generation_seconds = time.perf_counter() - start_generation
+
+    prompt_token_ids: list[int] | None = None
+    total_output_tokens = 0
+    first_output_token_ids: list[int] = []
+    first_output_text = ""
+    for request_idx, request_output in enumerate(outputs):
+        completion = request_output.outputs[0] if getattr(request_output, "outputs", None) else None
+        token_ids = [int(token) for token in (getattr(completion, "token_ids", []) or [])]
+        total_output_tokens += len(token_ids)
+        if request_idx == 0:
+            first_output_token_ids = token_ids
+            first_output_text = str(getattr(completion, "text", "") or "")
+            prompt_token_ids = [int(token) for token in (getattr(request_output, "prompt_token_ids", []) or [])]
+
+    prompt_token_hash = array_sha256(np.asarray([prompt_token_ids], dtype=np.int64)) if prompt_token_ids else ""
+    expected_token_hash = str((payload.get("bundle") or {}).get("token_hash") or "")
+    bundle_token_match = bool(prompt_token_hash and expected_token_hash and prompt_token_hash == expected_token_hash)
+    flushed_connectors = _flush_preloaded_connector_stats(final=True)
+    stats_dir = environment.get("SCD_PRELOADED_STATS_DIR", "")
+    preloaded_stats = _collect_preloaded_connector_stats(Path(stats_dir)) if stats_dir else None
+    storage_dir = str(payload.get("storage_dir") or "")
+    generation_ok = bool(len(outputs) == int(batch_size) and total_output_tokens > 0 and generation_seconds > 0.0)
+
+    metrics = {
+        "mode": "scd_vllm_launch_smoke",
+        "launch_smoke_pass": bool(generation_ok and bundle_token_match),
+        "claim_boundary": (
+            "official vLLM LLM constructed from a single trusted launch-spec JSON; "
+            "static prefix smoke, not multi-tenant serving or dynamic routing"
+        ),
+        "launch_spec": str(spec_path),
+        "vllm_version": getattr(vllm, "__version__", None),
+        "model": llm_kwargs.get("model"),
+        "tokenizer": llm_kwargs.get("tokenizer"),
+        "bundle_dir": str(bundle_dir),
+        "storage_dir": storage_dir,
+        "storage": summarize_storage(storage_dir) if storage_dir else {"exists": False},
+        "environment": environment,
+        "kv_connector": (llm_kwargs.get("kv_transfer_config") or {}).get("kv_connector"),
+        "kv_connector_module_path": (llm_kwargs.get("kv_transfer_config") or {}).get("kv_connector_module_path"),
+        "disable_hybrid_kv_cache_manager": bool(llm_kwargs.get("disable_hybrid_kv_cache_manager")),
+        "prompt_text_hash": text_sha256(prompt_text),
+        "prompt_token_count": len(prompt_token_ids or []),
+        "prompt_token_ids": prompt_token_ids or [],
+        "prompt_token_hash": prompt_token_hash,
+        "expected_token_hash": expected_token_hash,
+        "bundle_token_match": bundle_token_match,
+        "batch_size": int(batch_size),
+        "warmup_batches": int(warmup_batches),
+        "max_new_tokens": int(max_new_tokens),
+        "load_seconds": load_seconds,
+        "generation_seconds": generation_seconds,
+        "request_count": len(outputs),
+        "output_tokens": int(total_output_tokens),
+        "requests_per_second": _safe_div(len(outputs), generation_seconds),
+        "tokens_per_second": _safe_div(total_output_tokens, generation_seconds),
+        "generation_ok": generation_ok,
+        "first_output_token_ids": first_output_token_ids,
+        "first_output_text": first_output_text,
+        "preloaded_connector_stats_dir": stats_dir,
+        "preloaded_connector_stats": preloaded_stats,
+        "preloaded_connector_flushed_instances": flushed_connectors,
+        "memory_before": memory_before,
+        "memory_after_load": memory_after_load,
+    }
+    if out:
+        out_path = Path(out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return metrics
+
+
+def _resolve_launch_prompt(*, bundle_dir: Path, prompt: str, prefix_file: str) -> str:
+    if prompt or prefix_file:
+        return load_prompt(prompt, prefix_file)
+    prefix_path = bundle_dir / "prefix.txt"
+    if not prefix_path.is_file():
+        raise ValueError("no prompt/prefix-file supplied and bundle prefix.txt is missing")
+    return load_prompt(prefix_path.read_text(encoding="utf-8"), "")
+
+
+def _flush_preloaded_connector_stats(*, final: bool = False) -> int:
+    try:
+        mod = importlib.import_module("scd_vllm.preloaded_connector")
+        flush = getattr(mod, "flush_scd_preloaded_connector_stats", None)
+        if flush is None:
+            return 0
+        return int(flush(final=final) or 0)
+    except Exception:
+        return 0
+
+
+def _safe_div(numerator: float, denominator: float) -> float:
+    return float(numerator) / float(denominator) if float(denominator) else 0.0

@@ -136,6 +136,35 @@ actual worker-side tensor reuse after the first per-layer miss: each run saw
 functional plug-in integration, cache-reuse evidence, and measured overhead
 boundaries, not a general serving speedup over vLLM's built-in prefix cache.
 
+## Mistral Official vLLM Launch-Smoke Evidence
+
+This checks that the `launch-spec` JSON is directly consumable by official
+vLLM through `vllm.LLM(**llm_kwargs)`. It uses the Mistral `patch26_reuse6`
+trusted bundle and `SCDPreloadedConnector`. It is a static-prefix integration
+smoke test, not a production serving benchmark or dataset-quality result.
+
+Artifact:
+
+- `../../Experiment/results/a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache/`
+
+Run boundary:
+
+- Host: A800, `conda activate cache`, vLLM `0.18.0`.
+- Code snapshot:
+  `/home/student_t/maqianli/SCD-ICML/runtime_repo_codex_launchsmoke_20260618_081014`.
+- GPU selection: GPUs `3/4/6/7` were busy with unrelated jobs. GPUs `0/1/2`
+  were sampled for 60 seconds and stayed at utilization `0`; the final run
+  used `CUDA_VISIBLE_DEVICES=2`.
+- Shape: `batch_size=8`, `warmup_batches=1`, `max_new_tokens=16`.
+
+Result: `launch_smoke_pass=True`, `generation_ok=True`,
+`bundle_token_match=True`, `request_count=8`, `output_tokens=128`,
+`tokens_per_second=596.609039`, and
+`disable_hybrid_kv_cache_manager=True`. Final connector stats were collected
+after the vLLM child process exited: `cache_hits=480`, `cache_misses=32`,
+`cache_events=512`, `cache_hit_rate=0.9375`, `cached_files=32`, and
+`final_workers=1`.
+
 ## Additional Model vLLM Baseline Evidence
 
 This is a plain official-vLLM compatibility and generation baseline for a
@@ -331,12 +360,20 @@ scd-vllm launch-spec \
   --model <consumer-model> \
   --stats-dir <optional-stats-dir> \
   --out runs/scd_vllm/launch_spec.json
+
+scd-vllm launch-smoke \
+  --launch-spec runs/scd_vllm/launch_spec.json \
+  --batch-size 8 \
+  --max-new-tokens 16 \
+  --out runs/scd_vllm/launch_smoke.json
 ```
 
 `launch-spec` emits JSON containing official `vllm.LLM(**llm_kwargs)` inputs,
 the `SCDPreloadedConnector` KV transfer config, the HMA-disable vLLM kwarg
 required by vLLM `0.18.0`, and optional connector stats environment variables.
-It is a single-tenant trusted-bundle contract, not a dynamic request router.
+`launch-smoke` consumes the JSON through official vLLM and records a
+generation artifact with token-hash matching against the bundle manifest. This
+is a single-tenant trusted-bundle contract, not a dynamic request router.
 
 ## Next Steps
 

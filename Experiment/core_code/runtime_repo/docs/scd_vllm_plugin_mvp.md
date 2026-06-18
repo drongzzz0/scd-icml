@@ -151,6 +151,12 @@ scd-vllm launch-spec \
   --model /path/to/consumer \
   --stats-dir runs/scd_vllm/my_preloaded_connector_bench/preloaded_connector_stats \
   --out runs/scd_vllm/launch_spec.json
+
+scd-vllm launch-smoke \
+  --launch-spec runs/scd_vllm/launch_spec.json \
+  --batch-size 8 \
+  --max-new-tokens 16 \
+  --out runs/scd_vllm/launch_smoke.json
 ```
 
 The JSON contains `llm_kwargs` for `vllm.LLM(**llm_kwargs)`, a
@@ -159,14 +165,21 @@ The JSON contains `llm_kwargs` for `vllm.LLM(**llm_kwargs)`, a
 `disable_hybrid_kv_cache_manager=True` for the preloaded connector because
 vLLM `0.18.0` rejects that connector when HMA is enabled. This spec is a
 single-tenant trusted-bundle launch contract: verify `token_hash` and
-`route_id` before routing a request to it.
+`route_id` before routing a request to it. `launch-smoke` consumes the same
+JSON, applies its environment settings, calls official `vllm.LLM`, runs one
+trusted-prefix generation batch, and writes an auditable `launch_smoke.json`.
 
 ## Python API
 
 ```python
 import os
 
-from scd_vllm_plugin import SCDVLLMConfig, SCDVLLMEngine, build_preloaded_launch_spec
+from scd_vllm_plugin import (
+    SCDVLLMConfig,
+    SCDVLLMEngine,
+    build_preloaded_launch_spec,
+    run_launch_smoke,
+)
 
 engine = SCDVLLMEngine(
     SCDVLLMConfig(
@@ -198,6 +211,12 @@ launch_spec = build_preloaded_launch_spec(
 # for key, value in launch_spec["environment"].items():
 #     os.environ[key] = value
 # llm = LLM(**launch_spec["llm_kwargs"])
+
+launch_smoke_metrics = run_launch_smoke(
+    launch_spec="runs/scd_vllm/launch_spec.json",
+    batch_size=8,
+    out="runs/scd_vllm/launch_smoke.json",
+)
 ```
 
 ## Current Boundary

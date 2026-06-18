@@ -5,10 +5,12 @@ import importlib
 import json
 import os
 import time
+import weakref
 from pathlib import Path
 from typing import Any
 
 _IMPORT_ERROR: Exception | None = None
+_CONNECTOR_INSTANCES: weakref.WeakSet[Any] = weakref.WeakSet()
 
 try:
     safetensors_torch = importlib.import_module("safetensors.torch")
@@ -64,6 +66,7 @@ class SCDPreloadedConnector(ExampleConnector):
         self._scd_cache_hits = 0
         self._scd_cache_misses = 0
         self._scd_stats_dir = os.environ.get("SCD_PRELOADED_STATS_DIR", "")
+        _CONNECTOR_INSTANCES.add(self)
         if self._scd_stats_dir:
             atexit.register(self._write_scd_stats, True)
 
@@ -173,3 +176,13 @@ def _tensor_nbytes(tensor: Any) -> int:
         return int(tensor.numel()) * int(tensor.element_size())
     except Exception:
         return 0
+
+
+def flush_scd_preloaded_connector_stats(final: bool = False) -> int:
+    """Flush stats for live connector instances in this process."""
+
+    flushed = 0
+    for instance in list(_CONNECTOR_INSTANCES):
+        instance._write_scd_stats(final)
+        flushed += 1
+    return flushed

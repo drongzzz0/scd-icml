@@ -41,11 +41,12 @@ supports both raw `--reuse-ckpt/--patch-ckpt` paths and existing
 
 After converting a validated SCD bundle to `ExampleConnector` storage, use
 `scd-vllm launch-spec` to emit the official `vllm.LLM(**llm_kwargs)` launch
-contract for that trusted bundle/storage pair, or use
-`scd-vllm batch-benchmark` for repeated-prefix connector throughput checks.
-These paths are intentionally narrow: they are trusted/static-prefix artifacts
-and must not be reported as general multi-tenant serving, privacy,
-arbitrary-routing, or dataset-quality claims.
+contract for that trusted bundle/storage pair. Use `scd-vllm launch-smoke` to
+consume that JSON through official vLLM and write a one-batch generation
+artifact. Use `scd-vllm batch-benchmark` for repeated-prefix connector
+throughput checks. These paths are intentionally narrow: they are
+trusted/static-prefix artifacts and must not be reported as general
+multi-tenant serving, privacy, arbitrary-routing, or dataset-quality claims.
 
 For connector-development experiments, the package includes
 `scd_vllm.preloaded_connector.SCDPreloadedConnector`, which can be loaded by

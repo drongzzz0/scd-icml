@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -15,6 +16,7 @@ from .engine import (
     SCDVLLMConfig,
     SCDVLLMEngine,
     build_preloaded_launch_spec,
+    run_launch_smoke,
 )
 
 
@@ -36,6 +38,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return doctor.main(rest)
     if command == "launch-spec":
         return _launch_spec(rest)
+    if command == "launch-smoke":
+        return _launch_smoke(rest)
     if command == "run":
         return _run_pipeline(rest)
     print(f"unknown command: {command}", file=sys.stderr)
@@ -115,6 +119,84 @@ def _launch_spec(argv: list[str]) -> int:
     return 0 if payload.get("launch_spec_pass") else 1
 
 
+def _launch_smoke(argv: list[str]) -> int:
+    args = _build_launch_smoke_parser().parse_args(argv)
+    if not args.child and args.out:
+        return _launch_smoke_parent(args)
+    metrics = run_launch_smoke(
+        launch_spec=args.launch_spec,
+        prompt=args.prompt,
+        prefix_file=args.prefix_file,
+        out=args.out,
+        batch_size=args.batch_size,
+        warmup_batches=args.warmup_batches,
+        max_new_tokens=args.max_new_tokens,
+        temperature=args.temperature,
+        top_p=args.top_p,
+        seed=args.seed,
+        use_tqdm=args.use_tqdm,
+    )
+    print(json.dumps(metrics, ensure_ascii=False, indent=2))
+    return 0 if metrics.get("launch_smoke_pass") else 1
+
+
+def _launch_smoke_parent(args: argparse.Namespace) -> int:
+    cmd = [
+        sys.executable,
+        "-m",
+        "scd_vllm_plugin.cli",
+        "launch-smoke",
+        *_launch_smoke_child_argv(args),
+        "--child",
+    ]
+    completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    out_path = Path(args.out)
+    if completed.returncode != 0 and not out_path.is_file():
+        if completed.stdout:
+            print(completed.stdout, end="")
+        if completed.stderr:
+            print(completed.stderr, end="", file=sys.stderr)
+        return completed.returncode
+    metrics = json.loads(out_path.read_text(encoding="utf-8-sig"))
+    stats_dir = metrics.get("preloaded_connector_stats_dir") or ""
+    if stats_dir:
+        metrics["preloaded_connector_stats"] = batch_benchmark._collect_preloaded_connector_stats(Path(stats_dir))
+        metrics["preloaded_connector_final_stats_collected_after_child_exit"] = True
+        out_path.write_text(json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if completed.returncode != 0:
+        metrics["child_returncode"] = completed.returncode
+    print(json.dumps(metrics, ensure_ascii=False, indent=2))
+    return 0 if metrics.get("launch_smoke_pass") else 1
+
+
+def _launch_smoke_child_argv(args: argparse.Namespace) -> list[str]:
+    argv = [
+        "--launch-spec",
+        args.launch_spec,
+        "--out",
+        args.out,
+        "--batch-size",
+        str(args.batch_size),
+        "--warmup-batches",
+        str(args.warmup_batches),
+        "--max-new-tokens",
+        str(args.max_new_tokens),
+        "--temperature",
+        str(args.temperature),
+        "--top-p",
+        str(args.top_p),
+        "--seed",
+        str(args.seed),
+    ]
+    if args.prompt:
+        argv.extend(["--prompt", args.prompt])
+    if args.prefix_file:
+        argv.extend(["--prefix-file", args.prefix_file])
+    if args.use_tqdm:
+        argv.append("--use-tqdm")
+    return argv
+
+
 def _build_run_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="scd-vllm run",
@@ -182,6 +264,26 @@ def _build_launch_spec_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_launch_smoke_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="scd-vllm launch-smoke",
+        description="Instantiate official vLLM from a launch-spec JSON and run one trusted-prefix smoke batch.",
+    )
+    parser.add_argument("--launch-spec", required=True, help="JSON emitted by scd-vllm launch-spec")
+    parser.add_argument("--prompt", default="", help="Prompt text; defaults to bundle prefix.txt")
+    parser.add_argument("--prefix-file", default="", help="File containing prompt text")
+    parser.add_argument("--out", default="", help="Optional JSON file to write launch-smoke metrics")
+    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--warmup-batches", type=int, default=0)
+    parser.add_argument("--max-new-tokens", type=int, default=16)
+    parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--top-p", type=float, default=1.0)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--use-tqdm", action="store_true")
+    parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
+    return parser
+
+
 def _print_help(file=None) -> None:
     stream = sys.stdout if file is None else file
     stream.write(
@@ -196,6 +298,7 @@ def _print_help(file=None) -> None:
                 "  batch-benchmark Run repeated-prefix batched vLLM load benchmark for an existing bundle/storage pair",
                 "  doctor          Check plugin prerequisites and strict route coverage",
                 "  launch-spec     Emit official-vLLM LLM kwargs for a trusted SCD bundle/storage pair",
+                "  launch-smoke    Consume a launch-spec JSON through official vLLM LLM and generate",
                 "  run             Export a bundle, convert it, and run the smoke test",
                 "",
                 "Examples:",
@@ -206,6 +309,7 @@ def _print_help(file=None) -> None:
                 "  scd-vllm smoke-test --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --out runs/scd_vllm/my_smoke --overwrite",
                 "  scd-vllm batch-benchmark --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --batch-size 64 --out runs/scd_vllm/my_batch_bench",
                 "  scd-vllm launch-spec --bundle-dir runs/scd_vllm/my_bundle --storage-dir runs/scd_vllm/my_storage --model /path/to/consumer --out runs/scd_vllm/launch_spec.json",
+                "  scd-vllm launch-smoke --launch-spec runs/scd_vllm/launch_spec.json --out runs/scd_vllm/launch_smoke.json",
             ]
         )
         + "\n"
