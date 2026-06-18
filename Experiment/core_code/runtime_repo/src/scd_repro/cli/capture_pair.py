@@ -386,6 +386,12 @@ def capture_with_backend_transformers(models: dict, data: dict, args: argparse.N
 
     same_device = str(settings["model_a_device"]) == str(settings["model_b_device"])
     if same_device:
+        torch = __import__("torch")
+        a_stage_dir = out_dir / "_a_stage"
+        if a_stage_dir.exists():
+            shutil.rmtree(a_stage_dir)
+        a_stage_dir.mkdir(parents=True, exist_ok=True)
+        a_stage_entries: list[tuple[list[str], Path]] = []
         session_a = TransformersCaptureSession(str(models["model_a"]["path"]), str(settings["model_a_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
         try:
             prompt_chunks = _split_prompt_chunks(
@@ -396,10 +402,18 @@ def capture_with_backend_transformers(models: dict, data: dict, args: argparse.N
                 max_length=max_length,
             )
             logger.info("sequential same-device capture: samples=%d chunks=%d device=%s", len(prompts), len(prompt_chunks), settings["model_a_device"])
-            a_chunks: list[tuple[list[str], dict[int, dict[str, object]]]] = []
             for original_chunk in prompt_chunks:
                 for prompt_chunk, cap_a in _capture_single_chunk_with_retry(session_a, original_chunk, max_length, logger, "A"):
-                    a_chunks.append((prompt_chunk, _capture_payload_to_cpu(cap_a)))
+                    stage_path = a_stage_dir / f"a_{len(a_stage_entries):05d}.pt"
+                    torch.save({"prompts": prompt_chunk, "cap_a": _capture_payload_to_cpu(cap_a)}, stage_path)
+                    a_stage_entries.append((prompt_chunk, stage_path))
+                    logger.info(
+                        "staged A chunk=%05d samples=%d cpu_rss=%.1fMB path=%s",
+                        len(a_stage_entries) - 1,
+                        len(prompt_chunk),
+                        current_rss_mb(),
+                        stage_path,
+                    )
                     del cap_a
                     clear_torch_cache()
         finally:
@@ -409,16 +423,26 @@ def capture_with_backend_transformers(models: dict, data: dict, args: argparse.N
 
         session_b = TransformersCaptureSession(str(models["model_b"]["path"]), str(settings["model_b_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
         try:
-            for prompt_chunk, cap_a in a_chunks:
+            for prompt_chunk, stage_path in a_stage_entries:
+                stage_payload = torch.load(stage_path, map_location="cpu", weights_only=False)
+                cap_a = stage_payload["cap_a"]
+                staged_prompts = [str(x) for x in stage_payload["prompts"]]
+                if staged_prompts != prompt_chunk:
+                    raise RuntimeError(f"staged A prompt mismatch: {stage_path}")
                 b_sub_chunks = _capture_single_chunk_with_retry(session_b, prompt_chunk, max_length, logger, "B")
                 if len(b_sub_chunks) != 1 or b_sub_chunks[0][0] != prompt_chunk:
                     raise RuntimeError("B capture split a chunk after A was captured; lower chunk_samples/max_chunk_tokens and rerun")
                 _, cap_b = b_sub_chunks[0]
                 write_pair_chunk(prompt_chunk, cap_a, cap_b, session_b.tokenizer, session_b.estimate_prompt_tokens)
-                del cap_a, cap_b
+                try:
+                    stage_path.unlink()
+                except FileNotFoundError:
+                    pass
+                del stage_payload, cap_a, cap_b
                 clear_torch_cache()
         finally:
             session_b.close()
+            shutil.rmtree(a_stage_dir, ignore_errors=True)
     else:
         session_a = TransformersCaptureSession(str(models["model_a"]["path"]), str(settings["model_a_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))
         session_b = TransformersCaptureSession(str(models["model_b"]["path"]), str(settings["model_b_device"]), str(settings["dtype"]), cpu_fallback=bool(settings["cpu_fallback"]))

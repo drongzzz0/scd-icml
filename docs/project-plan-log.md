@@ -3417,3 +3417,31 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   Do not claim Qwen32 SCD reuse/patch support until a storage-backed run passes
   preflight and produces SCD metrics. Existing Qwen32 rows remain Full Consumer
   official-vLLM baselines only.
+
+### 2026-06-18 update - Qwen32 single-GPU retry guard and capture staging
+
+- Change:
+  Refined the Qwen32 A800 SCD validation path after a storage-backed
+  single-GPU sequential run failed with CUDA OOM on a partially occupied 80GB
+  A800. The Qwen32 script now treats single-GPU mode as requiring `78000MB`
+  sustained free memory by default, and the active queue first runs lightweight
+  preflight attempts before launching the full SCD pipeline.
+- Implementation approach:
+  `TransformersCaptureSession` supports `SCD_CAPTURE_STORE_DEVICE=cpu` so
+  captured KV/xnorm/residual tensors can be materialized off GPU during the
+  artifact-capture path. The same-device `capture_pair` path stages A-model
+  chunks under the current output directory and deletes them after B-model
+  pairing, avoiding the previous behavior where all A chunks accumulated in
+  process RAM.
+- Storage policy:
+  Qwen32 model weights stay under `/home/c101-800-mql/nas/models`, and
+  `MODEL_CACHE_ROOT`, HF/Transformers/ModelScope/Torch/XDG/vLLM caches, pair
+  artifacts, and run outputs stay under `/home/c101-800-mql/nas/SCD-ICML`.
+  The Conda environment remains `cache`; the environment itself is not copied
+  to NAS.
+- Current operational gate:
+  The active queue is
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_wait78000_preflight_then_run_20260618_181043`.
+  It waits for one sustained-idle A800 GPU with at least `78000MB` free before
+  launching CMRC2018 train/dev separated Qwen32 SCD with `TRAIN_LIMIT=200` and
+  `EVAL_LIMIT=200`.

@@ -7741,3 +7741,62 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   was still running. At `2026-06-18T15:57:43+08:00`, shard 00 was at
   `1329/1610`, shard 01 was at `433/1609`, the aggregate script was waiting,
   and no traceback/OOM/no-space error was observed.
+
+### 2026-06-18 18:12 +08:00 A800mql Qwen32 storage-backed retry guard
+
+- Purpose:
+  Continue the Qwen2.5-32B base -> Qwen2.5-32B-Instruct SCD validation without
+  placing model weights, caches, run outputs, or temporary capture artifacts on
+  the nearly full A800 `/home` filesystem.
+- Storage verification:
+  `/home` on A800mql had about `18G` free, while
+  `/home/c101-800-mql/nas` had about `64T` free. Both Qwen2.5-32B checkpoints
+  are storage-backed:
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B` and
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`, each about `62G` after
+  the base checkpoint repair. The user-facing model/cache/run policy is now:
+  keep Conda environment execution in `conda activate cache`, but keep
+  `MODEL_CACHE_ROOT`, `HF_HOME`, `HF_HUB_CACHE`, `HF_ASSETS_CACHE`,
+  `TRANSFORMERS_CACHE`, `MODELSCOPE_CACHE`, `TORCH_HOME`, `XDG_CACHE_HOME`,
+  vLLM cache, model weights, pair artifacts, and Qwen32 run directories under
+  `/home/c101-800-mql/nas/SCD-ICML` or `/home/c101-800-mql/nas/models`.
+- Base checkpoint repair:
+  The earlier base model path contained corrupt safetensors shards
+  `model-00009-of-00017.safetensors` through
+  `model-00017-of-00017.safetensors`. Hugging Face re-download timed out, so
+  the bad shards were moved to
+  `/home/c101-800-mql/nas/models/_corrupt/Qwen2.5-32B_20260618_171817` and the
+  missing shards were repaired from ModelScope in
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_base_repair_modelscope_20260618_172132`.
+  Post-repair validation found `17` safetensors shards and `bad []` for both
+  base and instruct checkpoints.
+- Failed run and diagnosis:
+  Run
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_single_gpu_seq_20260618_173351`
+  failed in `capture_pair` with CUDA OOM after writing one pair chunk. The
+  selected physical GPU had only about `65.7GB` free because another process
+  occupied roughly `15GB`; Qwen32 loaded at about `64GB` and left too little
+  activation headroom. This was a GPU-memory issue, not a disk-space issue.
+- Code/runtime mitigation:
+  The release runtime was updated and synced to
+  `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617`:
+  `TransformersCaptureSession` now supports `SCD_CAPTURE_STORE_DEVICE=cpu`,
+  the same-device `capture_pair` path stages A-model chunks under the current
+  output directory instead of accumulating all chunks in process RAM, and the
+  A800 Qwen32 script defaults single-GPU runs to `REQUIRED_FREE_MB=78000` while
+  keeping caches under the NAS-backed `MODEL_CACHE_ROOT`.
+- Verification:
+  Local `python -m py_compile` passed for `adapters.py`, `capture_pair.py`, and
+  `preflight_qwen32_a800.py`; local release readiness passed. Remote A800
+  checks with `/home/c101-800-mql/.conda/envs/cache/bin/python` passed for the
+  same files, and `bash -n scripts/run_a800_scd_icml_qwen32_repro.sh` passed.
+- Current queue:
+  Replaced the heavier retry loop with a lightweight preflight-first queue at
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_wait78000_preflight_then_run_20260618_181043`.
+  It repeatedly monitors for one A800 GPU that is sustained `0%` utilization
+  and has at least `78000MB` free for `60s`; only then will it start the full
+  Qwen32 CMRC2018 train/dev separated SCD run (`TRAIN_LIMIT=200`,
+  `EVAL_LIMIT=200`, train split `train`, eval split `dev`,
+  `SCD_CAPTURE_STORE_DEVICE=cpu`). At launch time no GPU met the `78000MB`
+  free threshold, so the queue was waiting rather than running on a partially
+  occupied card.

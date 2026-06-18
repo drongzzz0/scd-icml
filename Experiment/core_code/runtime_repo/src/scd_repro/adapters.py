@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Iterator, Protocol
 
@@ -68,6 +69,7 @@ class TransformersCaptureSession:
         self.torch_dtype = resolve_torch_dtype(dtype)
         self.model_path = model_path
         self.cpu_fallback = cpu_fallback
+        self.capture_store_device = str(os.environ.get("SCD_CAPTURE_STORE_DEVICE", "model") or "model").strip().lower()
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         if self.tokenizer.pad_token is None and self.tokenizer.eos_token is not None:
@@ -91,13 +93,16 @@ class TransformersCaptureSession:
         self.hooks = []
         self.target_device = resolve_device(self.device, cpu_fallback=cpu_fallback)
 
+        def materialize_capture_tensor(value):
+            target = "cpu" if self.capture_store_device == "cpu" else self.target_device
+            return value.detach().to(device=target, dtype=self.torch.float32).contiguous()
+
         def make_hook(layer_idx: int):
             def _hook(_module, args, kwargs):
                 hidden_states = _resolve_hidden_states(args, kwargs)
                 if hidden_states is None:
                     return
-                # 保留在模型所在设备，避免额外 CPU 往返。
-                self.xnorm_by_layer[layer_idx] = hidden_states.detach().to(dtype=self.torch.float32).contiguous()
+                self.xnorm_by_layer[layer_idx] = materialize_capture_tensor(hidden_states)
 
             return _hook
 
@@ -106,7 +111,7 @@ class TransformersCaptureSession:
                 hidden_states = args[0] if args else None
                 if hidden_states is None:
                     return
-                self.residual_by_layer[layer_idx] = hidden_states.detach().to(dtype=self.torch.float32).contiguous()
+                self.residual_by_layer[layer_idx] = materialize_capture_tensor(hidden_states)
 
             return _hook
 
@@ -162,8 +167,8 @@ class TransformersCaptureSession:
             if resid_tensor is None:
                 raise RuntimeError(f"层 {layer_idx} 无法提取 residual state（未命中 hook）")
             payload[layer_idx] = {
-                "k": kv[0].detach().to(dtype=self.torch.float32).contiguous(),
-                "v": kv[1].detach().to(dtype=self.torch.float32).contiguous(),
+                "k": materialize_capture_tensor(kv[0]),
+                "v": materialize_capture_tensor(kv[1]),
                 "xnorm": x_tensor.contiguous(),
                 "resid": resid_tensor.contiguous(),
             }

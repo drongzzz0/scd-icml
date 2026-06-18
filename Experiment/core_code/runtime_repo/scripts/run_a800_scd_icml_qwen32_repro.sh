@@ -44,7 +44,11 @@ BANDWIDTH_GBPS="${BANDWIDTH_GBPS:-200}"
 QUANT_GROUP_SIZE="${QUANT_GROUP_SIZE:-128}"
 
 REQUIRED_GPUS="${REQUIRED_GPUS:-2}"
-REQUIRED_FREE_MB="${REQUIRED_FREE_MB:-70000}"
+if [ -z "${REQUIRED_FREE_MB+x}" ] && [ "${REQUIRED_GPUS}" = "1" ]; then
+  REQUIRED_FREE_MB=78000
+else
+  REQUIRED_FREE_MB="${REQUIRED_FREE_MB:-70000}"
+fi
 GPU_MONITOR_SECONDS="${GPU_MONITOR_SECONDS:-60}"
 GPU_SAMPLE_INTERVAL="${GPU_SAMPLE_INTERVAL:-10}"
 
@@ -79,6 +83,7 @@ export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-4}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-4}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+export SCD_CAPTURE_STORE_DEVICE="${SCD_CAPTURE_STORE_DEVICE:-cpu}"
 mkdir -p "${MODEL_CACHE_ROOT}/hf_home" \
   "${MODEL_CACHE_ROOT}/hf_hub" \
   "${MODEL_CACHE_ROOT}/hf_assets" \
@@ -127,6 +132,7 @@ cat > "${RUN_ROOT}/run_config.json" <<EOF
   "torch_home": "${TORCH_HOME}",
   "xdg_cache_home": "${XDG_CACHE_HOME}",
   "vllm_cache_root": "${VLLM_CACHE_ROOT}",
+  "scd_capture_store_device": "${SCD_CAPTURE_STORE_DEVICE}",
   "seed": ${SEED},
   "train_limit": ${TRAIN_LIMIT},
   "eval_limit": ${EVAL_LIMIT},
