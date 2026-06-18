@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 CONDA_ENV="${CONDA_ENV:-cache}"
 VENV="${VENV:-}"
-DATA_ROOT="${DATA_ROOT:-/home/student_t/maqianli/no4/data}"
+DATA_ROOT="${DATA_ROOT:-/home/c101-800-mql/maqianli/no4/data}"
 MODELS_CONFIG="${MODELS_CONFIG:-configs/models_a800_qwen25_32b_base_to_instruct_template.json}"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -13,8 +13,12 @@ choose_default_run_parent() {
     echo "${RUN_PARENT}"
     return
   fi
-  if [ -d /nas/mql ] && [ -w /nas/mql ]; then
-    echo "/nas/mql/SCD-ICML/runs"
+  if [ -d /home/c101-800-mql/maqianli/SCD-ICML/runs ] && [ -w /home/c101-800-mql/maqianli/SCD-ICML/runs ]; then
+    echo "/home/c101-800-mql/maqianli/SCD-ICML/runs"
+    return
+  fi
+  if [ -d /home/c101-800-mql/nas/mql ] && [ -w /home/c101-800-mql/nas/mql ]; then
+    echo "/home/c101-800-mql/nas/mql/SCD-ICML/runs"
     return
   fi
   if [ -d /dev/shm ] && [ -w /dev/shm ]; then
@@ -29,7 +33,7 @@ choose_default_run_parent() {
     echo "/data/SCD-ICML/runs"
     return
   fi
-  echo "/home/student_t/maqianli/SCD-ICML/runs"
+  echo "/home/c101-800-mql/maqianli/SCD-ICML/runs"
 }
 DEFAULT_RUN_PARENT="$(choose_default_run_parent)"
 RUN_ROOT="${RUN_ROOT:-${DEFAULT_RUN_PARENT}/scd_icml_qwen32_repro_${STAMP}}"

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323"
-VENV="/disk_n/c101-3-1/venvs/A800"
+ROOT="/disk_n/c101-3-mql/projects/scd-repro-codex-mistral-instruct-20260323"
+VENV="/disk_n/c101-3-mql/venvs/A800"
 
 RUN_ROOT="${ROOT}/runs/qwen17_to_gray_cmrc"
 SEED="${SEED:-42}"

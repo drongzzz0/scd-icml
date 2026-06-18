@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REMOTE_WORK_ROOT="/disk_n/c101-3-1"
-REMOTE_VENV="/disk_n/c101-3-1/venvs/A800/bin/activate"
-REMOTE_CACHE_ROOT="/disk_n/c101-3-1/.modelscope_cache"
-TARGET_DIR="/disk_n/c101-3-1/models/Qwen3.5-4B-Base"
+REMOTE_WORK_ROOT="/disk_n/c101-3-mql"
+REMOTE_VENV="/disk_n/c101-3-mql/venvs/A800/bin/activate"
+REMOTE_CACHE_ROOT="/disk_n/c101-3-mql/.modelscope_cache"
+TARGET_DIR="/disk_n/c101-3-mql/models/Qwen3.5-4B-Base"
 MODEL_ID="${1:-Qwen/Qwen3.5-4B-Base}"
 
 if [[ ! -f "${REMOTE_VENV}" ]]; then

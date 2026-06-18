@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="${ROOT:-/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323}"
-VENV="${VENV:-/disk_n/c101-3-1/venvs/A800}"
-DATA_SOURCE_DIR="${DATA_SOURCE_DIR:-/disk_n/c101-3-1/projects/scd_main/legacy/no4/data/cmrc2018}"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+VENV="${VENV:-/disk_n/c101-3-mql/venvs/A800}"
+DATA_SOURCE_DIR="${DATA_SOURCE_DIR:-/disk_n/c101-3-mql/projects/scd_main/legacy/no4/data/cmrc2018}"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_ROOT="${RUN_ROOT:-${ROOT}/runs/mistrallite_to_mistral7_tunedfresh_${STAMP}}"
@@ -61,13 +61,15 @@ PATCH_DIR="${RUN_ROOT}/ckpt_patch/xnorm_nativekv_shared_residual_mlp_all32_e1_h2
 PATCH_DIR_SHARDED="${PATCH_DIR}_sharded_w${LAYERS_PER_SHARD}"
 TRAIN_ONLY_ROOT="${RUN_ROOT}/data_trainonly"
 LOCAL_CMRC_DIR="${TRAIN_ONLY_ROOT}/cmrc2018"
+EVAL_ROOT="${RUN_ROOT}/data_eval_dev"
+EVAL_CMRC_DIR="${EVAL_ROOT}/cmrc2018"
 PROMPTS_JSON="${RUN_ROOT}/prompts/cmrc2018_train_prompts_seed${SEED}_n${TRAIN_LIMIT}.json"
 SEARCH_OUT="${RUN_ROOT}/blockwise_search/strictstop_b1_replayk${REPLAY_TOP_K}_f1pct5"
 BASE_REUSE_CFG="${SEARCH_OUT}/generated_eval_baseline_reuse_only.json"
 BASE_REUSE_OUT="${RUN_ROOT}/strict_eval/strict_baseline_reuse_only"
 HYBRID_OUT="${RUN_ROOT}/strict_eval/strict_hybrid"
 
-mkdir -p "${RUN_ROOT}" "${MEASURE_DIR}" "$(dirname "${PROFILE_PATH}")" "${LOCAL_CMRC_DIR}" "$(dirname "${PROMPTS_JSON}")" "${SEARCH_OUT}"
+mkdir -p "${RUN_ROOT}" "${MEASURE_DIR}" "$(dirname "${PROFILE_PATH}")" "${LOCAL_CMRC_DIR}" "${EVAL_CMRC_DIR}" "$(dirname "${PROMPTS_JSON}")" "${SEARCH_OUT}"
 
 cd "${ROOT}"
 source "${VENV}/bin/activate"
@@ -76,10 +78,12 @@ export OMP_NUM_THREADS="${OMP_NUM_THREADS:-16}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-16}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-16}"
 
-cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${LOCAL_CMRC_DIR}/cmrc2018_dev.json"
 cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${LOCAL_CMRC_DIR}/cmrc2018_train.json"
+cp "${DATA_SOURCE_DIR}/cmrc2018_dev.json" "${EVAL_CMRC_DIR}/cmrc2018_dev.json"
+cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${EVAL_CMRC_DIR}/cmrc2018_train.json"
 if [ -f "${DATA_SOURCE_DIR}/README.md" ]; then
   cp "${DATA_SOURCE_DIR}/README.md" "${LOCAL_CMRC_DIR}/README.md"
+  cp "${DATA_SOURCE_DIR}/README.md" "${EVAL_CMRC_DIR}/README.md"
 fi
 
 cat > "${MEASURE_DIR}/gpu_assignment.json" <<EOF
@@ -101,7 +105,7 @@ import json
 from pathlib import Path
 from scd_repro.cmrc import load_cmrc2018_samples
 
-rows = load_cmrc2018_samples("${TRAIN_ONLY_ROOT}", limit=int("${TRAIN_LIMIT}"))
+rows = load_cmrc2018_samples("${TRAIN_ONLY_ROOT}", limit=int("${TRAIN_LIMIT}"), split="train")
 out = Path("${PROMPTS_JSON}")
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps([row.prompt for row in rows], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -419,7 +423,7 @@ PY
 python -m scd_repro.cli.eval_cmrc_strict \
   --models-config "${MODELS_CONFIG}" \
   --eval-config "${BASE_REUSE_CFG}" \
-  --data-root "${TRAIN_ONLY_ROOT}" \
+  --data-root "${EVAL_ROOT}" \
   --route "${ROUTE_TEMPLATE}" \
   --reuse-ckpt "${REUSE_DIR}" \
   --patch-ckpt "${PATCH_DIR_SHARDED}" \
@@ -439,7 +443,7 @@ run_stage_if_needed "strict_hybrid" "${PRODUCER_GPU},${CONSUMER_GPU}" "$(cat <<E
 python -m scd_repro.cli.eval_cmrc_strict \
   --models-config "${MODELS_CONFIG}" \
   --eval-config "${SEARCH_OUT}/generated_eval_reuse_patch_only.json" \
-  --data-root "${TRAIN_ONLY_ROOT}" \
+  --data-root "${EVAL_ROOT}" \
   --route "${SEARCH_OUT}/selected_hybrid_route.json" \
   --reuse-ckpt "${REUSE_DIR}" \
   --patch-ckpt "${PATCH_DIR_SHARDED}" \

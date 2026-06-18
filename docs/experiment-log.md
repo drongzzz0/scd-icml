@@ -6912,3 +6912,56 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
 - Next actions:
   Use `conda activate cache` for A800 experiments, inspect GPU utilization
   before launch, and only use idle cards with enough free memory.
+
+## 2026-06-18 10:23 +08:00 - Release-script path and train/eval split hardening
+
+- Experiment name or id:
+  `release_script_hygiene_20260618_1023`.
+- Purpose:
+  Reduce open-release reproducibility risk before more multi-model and
+  multi-dataset SCD-vLLM experiments by removing stale remote defaults and
+  train/eval leakage patterns from runnable helper scripts.
+- Method:
+  Searched the runtime and experiment scripts for stale `ser` and A800 account
+  paths, checked ResearchKB context for KV-cache reuse reproducibility and
+  safety risks, verified the current A800mql data path by read-only Aline
+  probing, then patched scripts and release-readiness checks.
+- Inputs:
+  Current branch `codex/scd-icml-open-release-20260611`; runtime repo scripts
+  under `Experiment/core_code/runtime_repo/scripts`; A800mql path probe for
+  `/home/c101-800-mql/maqianli/no4/data/cmrc2018`.
+- Environment:
+  Local Windows PowerShell for code changes and tests. A800mql was used only
+  for read-only path probing; no remote experiment was launched.
+- Execution steps:
+  Updated A800 helper defaults from `student_t` to `c101-800-mql`, updated ser
+  defaults from `/disk_n/c101-3-1` to `/disk_n/c101-3-mql`, made runtime repo
+  ser scripts derive `ROOT` from the local checkout where practical, removed
+  train-to-dev copying from calibration helpers, and added release-readiness
+  guards against stale paths and train/dev split spoofing.
+- Outputs:
+  Patched shell/Python helper scripts plus `.gitkeep` placeholders for missing
+  canonical project directories.
+- Results:
+  `check_release_readiness.py` passed. Full runtime repo test suite passed with
+  `107 passed`. `git diff --check` passed. `instance.json` mapped-path
+  validation passed. Search found no remaining executable-script pattern that
+  copies `cmrc2018_train.json` into `cmrc2018_dev.json`. Because local Windows
+  did not have Bash on `PATH`, the changed shell scripts were also streamed
+  read-only to `A800mql` and checked with `bash -n -`; all changed shell
+  scripts passed.
+- Analysis:
+  This does not add new quality or throughput numbers, but it materially
+  improves the release branch by making subsequent SCD-vLLM runs less likely to
+  use stale host paths or contaminated train/eval splits.
+- Conclusions:
+  The next experimental step can resume from a cleaner release branch using
+  A800 `conda activate cache` or ser `/disk_n/c101-3-mql/venvs/A800` defaults.
+- Next actions:
+  Launch the next full-dataset multi-model SCD-vLLM run only after checking
+  current GPU utilization and confirming the selected model/data paths.
+- ResearchKB:
+  Structured run recorded `run_560eeb1fb94a4882`. Local harvest scanned the
+  runtime repo and recorded no additional parseable result artifact because the
+  updated evidence is represented in this log entry and the release-readiness
+  command output.

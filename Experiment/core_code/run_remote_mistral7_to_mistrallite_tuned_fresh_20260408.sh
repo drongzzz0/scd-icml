@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_RUNTIME_ROOT="${SCRIPT_DIR}/runtime_repo"
-REMOTE_ROOT="${REMOTE_ROOT:-/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323}"
+REMOTE_ROOT="${REMOTE_ROOT:-/disk_n/c101-3-mql/projects/scd-repro-codex-mistral-instruct-20260323}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_ROOT="${RUN_ROOT:-${REMOTE_ROOT}/runs/mistral7_to_mistrallite_tunedfresh_${STAMP}}"
 

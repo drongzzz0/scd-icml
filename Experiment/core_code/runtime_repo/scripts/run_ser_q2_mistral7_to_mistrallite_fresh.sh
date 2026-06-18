@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="${ROOT:-/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323}"
-VENV="${VENV:-/disk_n/c101-3-1/venvs/A800}"
-DATA_SOURCE_DIR="${DATA_SOURCE_DIR:-/disk_n/c101-3-1/projects/scd_main/legacy/no4/data/cmrc2018}"
+ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+VENV="${VENV:-/disk_n/c101-3-mql/venvs/A800}"
+DATA_SOURCE_DIR="${DATA_SOURCE_DIR:-/disk_n/c101-3-mql/projects/scd_main/legacy/no4/data/cmrc2018}"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 RUN_ROOT="${RUN_ROOT:-${ROOT}/runs/scd-q2-m7_to_lite-fresh-${STAMP}}"
@@ -62,7 +62,6 @@ export OMP_NUM_THREADS="${OMP_NUM_THREADS:-16}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-16}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-16}"
 
-cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${CALIB_CMRC_DIR}/cmrc2018_dev.json"
 cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${CALIB_CMRC_DIR}/cmrc2018_train.json"
 cp "${DATA_SOURCE_DIR}/cmrc2018_dev.json" "${EVAL_CMRC_DIR}/cmrc2018_dev.json"
 cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${EVAL_CMRC_DIR}/cmrc2018_train.json"
@@ -87,7 +86,7 @@ import json
 from pathlib import Path
 from scd_repro.cmrc import load_cmrc2018_samples
 
-rows = load_cmrc2018_samples("${CALIB_ROOT}", limit=int("${CALIB_SAMPLES}"))
+rows = load_cmrc2018_samples("${CALIB_ROOT}", limit=int("${CALIB_SAMPLES}"), split="train")
 out = Path("${PROMPTS_JSON}")
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps([row.prompt for row in rows], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

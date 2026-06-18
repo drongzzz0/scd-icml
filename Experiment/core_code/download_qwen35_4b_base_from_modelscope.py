@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-dir",
-        default="/disk_n/c101-3-1/models/Qwen3.5-4B-Base",
+        default="/disk_n/c101-3-mql/models/Qwen3.5-4B-Base",
         help="Destination directory on the remote host.",
     )
     return parser.parse_args()

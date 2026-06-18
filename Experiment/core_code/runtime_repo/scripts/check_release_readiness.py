@@ -285,6 +285,11 @@ SHELL_FILES = [
     "scripts/scd_vllm/run_06_report.sh",
 ]
 
+STALE_RELEASE_SCRIPT_SNIPPETS = {
+    "/disk_n/c101-3-1": "/disk_n/c101-3-mql",
+    "/home/student_t": "/home/c101-800-mql",
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check release readiness for the SCD-ICML Mistral reproduction path")
@@ -343,6 +348,12 @@ def check_shell_scripts(root: Path, errors: list[str]) -> None:
         text = data.decode("utf-8", errors="replace")
         if "set -euo pipefail" not in text:
             fail(errors, f"shell script missing strict mode: {rel}")
+        for stale, replacement in STALE_RELEASE_SCRIPT_SNIPPETS.items():
+            if stale in text:
+                fail(errors, f"release shell script {rel} contains stale host path {stale}; use {replacement} or an env override")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if "cmrc2018_train.json" in line and "cmrc2018_dev.json" in line:
+                fail(errors, f"release shell script {rel}:{line_no} appears to copy CMRC train data into the dev split")
         if bash:
             try:
                 subprocess.run(

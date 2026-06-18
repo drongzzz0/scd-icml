@@ -3140,3 +3140,45 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
   `CONDA_PREFIX=/home/c101-800-mql/.conda/envs/cache`,
   Python `3.12.12`, PyTorch `2.10.0+cu128`, Transformers `5.3.0`, Datasets
   `4.8.5`, and vLLM `0.18.0`.
+
+### 2026-06-18 update - harden release scripts against stale paths and split leakage
+
+- Change:
+  Updated ser/A800 helper scripts so their defaults no longer point to the old
+  `/disk_n/c101-3-1` or `/home/student_t` accounts. A800 scripts now default
+  to `/home/c101-800-mql/maqianli/...` paths and use the already activated
+  Python environment by default. Runtime repo ser scripts now default to
+  `/disk_n/c101-3-mql/venvs/A800` and, where applicable, derive `ROOT` from
+  the checked-out runtime repo.
+- Change:
+  Removed the risky pattern where helper scripts copied
+  `cmrc2018_train.json` into a `cmrc2018_dev.json` slot. Train/calibration
+  prompt generation now calls `load_cmrc2018_samples(..., split="train")`,
+  while strict eval stages use a separate `EVAL_ROOT` populated with the real
+  `cmrc2018_dev.json`.
+- Change:
+  Extended `check_release_readiness.py` so release shell scripts fail if they
+  contain stale host paths or copy CMRC train data into the dev split.
+- Rationale:
+  The open-source branch should not make it easy to run future SCD-vLLM or
+  SCD-ICML experiments on stale accounts or with train/eval leakage. This is a
+  release-readiness fix, not a new result claim.
+- Verification:
+  `python Experiment\\core_code\\runtime_repo\\scripts\\check_release_readiness.py`
+  passed. `PYTHONPATH=.;src pytest tests -q` passed with `107 passed`.
+  `git diff --check` passed. A script search found no remaining
+  `cmrc2018_train.json` to `cmrc2018_dev.json` copy pattern.
+
+### 2026-06-18 update - restore canonical pipeline directories
+
+- Change:
+  Added `.gitkeep` placeholders for the empty canonical directories referenced
+  by `instance.json`: `Survey/references`, `Survey/reports`,
+  `Ideation/ideas`, `Ideation/references`, `Experiment/datasets`,
+  `Promotion/homepage`, `Promotion/audio`, and `Promotion/video`.
+- Rationale:
+  The Dr. Claw project metadata should resolve to existing in-workspace
+  directories before future research or release tasks write artifacts.
+- Verification:
+  Validated every mapped `instance.json` path as both a descendant of the
+  current staging workspace and an existing filesystem path.

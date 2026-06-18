@@ -12,6 +12,10 @@ from pathlib import Path
 from scd_repro.cmrc import load_cmrc2018_samples
 
 
+A800_DATA_ROOT = os.environ.get("DATA_ROOT", "/home/c101-800-mql/maqianli/no4/data")
+A800_OUTPUT_ROOT = os.environ.get("OUTPUT_ROOT", "/home/c101-800-mql/maqianli/SCD-ICML/runs/scd-paper-cmrc-7b2lite-200")
+
+
 def load_json_cfg(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
@@ -32,8 +36,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--data-config", default="configs/data_a800.yaml")
     p.add_argument("--train-config", default="configs/train.yaml")
     p.add_argument("--eval-config", default="configs/eval.yaml")
-    p.add_argument("--data-root", default="/home/student_t/maqianli/no4/data")
-    p.add_argument("--output-root", default="/nas/mql/scd-paper-cmrc-7b2lite-200")
+    p.add_argument("--data-root", default=A800_DATA_ROOT)
+    p.add_argument("--output-root", default=A800_OUTPUT_ROOT)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--gpu-devices", default="5,6")
     p.add_argument("--max-length", type=int, default=0)
