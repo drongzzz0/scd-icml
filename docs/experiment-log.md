@@ -7375,3 +7375,38 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   progress from the 17 NAS safetensors shards; no F1/EM result is available
   yet and no quality claim should be made from this entry until
   `summary.json` exists.
+
+### 2026-06-18 13:54 +08:00 A800 Qwen32 vLLM TP4 CMRC2018 full result
+
+- Result:
+  Qwen2.5-32B-Instruct Full Consumer baseline completed on the full CMRC2018
+  dev split with `3219` samples. Final F1 was `0.4156507535`; EM was
+  `0.0043491768`.
+- Runtime:
+  vLLM `0.18.0`; tensor parallel size `4`; GPUs `0,1,2,3`; `bfloat16`;
+  `max_model_len=2048`; `max_new_tokens=32`; `batch_size=16`;
+  `gpu_memory_utilization=0.50`; `enforce_eager=true`.
+- Timing:
+  Model load from NAS took `716.7035` seconds. Dataset evaluation took
+  `312.7507` seconds, with `98,758` output tokens and
+  `316.6041` output tokens per second over the generation sections.
+- Artifacts:
+  Remote run root:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_cmrc_full_tp4_20260618_133422`.
+  Local copy:
+  `Experiment/results/a800_qwen32_vllm_cmrc_full_tp4_20260618/`, containing
+  `summary.json`, `per_sample_metrics.jsonl`, command, preflight, stdout, and
+  stderr logs.
+- Analysis:
+  This proves the current branch can load and evaluate Qwen32B through official
+  vLLM TP4 from NAS-backed model storage. It is a Full Consumer baseline only,
+  not an SCD reuse/patch result and not evidence for Qwen32B SCD speedup.
+  The very low exact match appears to be mostly answer-format mismatch: the
+  first prediction included a full sentence while the reference answer was the
+  span `光荣和ω-force`. A follow-up should add stricter answer extraction or a
+  CMRC-specific generation prompt before using Qwen32B baseline quality as a
+  final comparison target.
+- ResearchKB:
+  Harvested local artifacts as `harvest_65368399d230de84` (`run.log`),
+  `harvest_aeecc6873def53c2` (`per_sample_metrics.jsonl`), and
+  `harvest_c25ea00488abbdce` (`summary.json`).
