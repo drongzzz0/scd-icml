@@ -7573,3 +7573,36 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   `2026-06-18T15:07:10+08:00`, HotpotQA shard 01 was `2955/3702` and CMRC2018
   shard 00 was `254/1610`; shard 00 HotpotQA and WikiText-2 summaries already
   exist, with aggregation waiting for the remaining shards.
+
+### 2026-06-18 15:24 +08:00 Qwen32 official-vLLM HotpotQA full baseline completed
+
+- Purpose:
+  Record the completed Qwen2.5-32B-Instruct Full Consumer baseline on complete
+  HotpotQA dev data using the official-vLLM dataset evaluator. This is a
+  baseline quality artifact, not a SCD reuse/patch result.
+- Run:
+  Remote run root:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618_143845`.
+  Local artifact copy:
+  `Experiment/results/a800_qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618/`.
+- Parameters:
+  Model and tokenizer
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`;
+  dataset `hotpotqa`; split `dev`; sample count `7405`; tensor parallel size
+  `4`; `max_model_len=8192`; `max_new_tokens=32`; `batch_size=8`;
+  `gpu_memory_utilization=0.34`; chat template enabled with the instruction
+  `Answer with only the final short answer. Do not explain.`
+- Result:
+  Full Consumer HotpotQA `F1=0.7459153089`, `EM=0.5856853477`.
+  Model load time was `1041.1066s`; eval time was `1253.9666s`; generation
+  time was `1251.5142s`; output throughput was `29.5019` tokens/s. No OOM,
+  `No space`, traceback, or runtime error was observed.
+- Artifact handling:
+  Copied `summary.json`, `per_sample_metrics.jsonl`, stdout/stderr logs, and
+  `run_config.json` into the local result directory. Harvested the narrow local
+  result directory with ResearchKB as project `KV Cache Reuse`; it recorded the
+  summary and per-sample metrics.
+- Next action:
+  The same A800 run has started WikiText-2 evaluation and is currently loading
+  the same NAS Qwen32 checkpoint through TP4. Wait for its PPL/NLL summary
+  before closing the Qwen32 full-baseline coverage for the three-dataset set.

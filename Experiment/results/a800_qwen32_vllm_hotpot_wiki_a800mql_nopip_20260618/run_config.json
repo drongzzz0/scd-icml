@@ -1,0 +1,12 @@
+{
+  "repo": "/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617",
+  "run_root": "/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_vllm_hotpot_wiki_a800mql_nopip_20260618_143845",
+  "data_root": "/home/c101-800-mql/nas/SCD-ICML/data",
+  "model": "/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct",
+  "cuda_visible_devices": "0,1,2,3",
+  "tensor_parallel_size": 4,
+  "gpu_memory_utilization": 0.34,
+  "hotpotqa_sample_count_expected": 7405,
+  "wikitext2_sample_count_expected": 763,
+  "cache_root": "/home/c101-800-mql/nas/SCD-ICML/model_cache"
+}
