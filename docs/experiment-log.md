@@ -7965,3 +7965,20 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   progress around `29/3219` samples. GPU1 and GPU3 were about `80%` utilized,
   with producer-side GPUs 0 and 2 loaded but lighter. Final F1/EM/PPL should
   be read only after all three dataset summaries are produced.
+
+### 2026-06-18 19:59 +08:00 Local SCD-vLLM release checks while remote runs execute
+
+- Purpose:
+  Verify that the publishable SCD-vLLM packaging and release-tree guardrails
+  still pass after the Qwen32 capture fix and ser route-eval sync work.
+- Commands:
+  From `Experiment/core_code/runtime_repo` in the staging branch:
+  `PYTHONPATH=src python -m pytest tests/test_scd_vllm_bundle.py tests/test_scd_vllm_injection.py tests/test_scd_vllm_hf_export.py tests/test_scd_vllm_reconstructed_export.py tests/test_scd_vllm_official_launch_example.py tests/test_scd_vllm_dataset_eval.py tests/test_route_guardrails.py tests/test_release_tree_script.py tests/test_text_benchmarks.py tests/test_cmrc_split.py -q`.
+  Result: `40 passed in 42.07s`.
+  Then `PYTHONPATH=src python scripts/check_release_readiness.py`.
+  Result: `release readiness check passed`.
+- Boundary:
+  These checks validate package structure, no-fallback route guardrails,
+  SCD-vLLM bundle/export/injection utilities, loader behavior, and release-tree
+  hygiene. They do not replace the running remote quality metrics for
+  `patch26_reuse6`, `patch20_reuse12`, or Qwen32.
