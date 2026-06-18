@@ -7248,3 +7248,25 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   `per_sample_metrics.jsonl`, verify the queued CMRC2018 dev full run starts
   after HotpotQA aggregation, pull result artifacts, record F1/EM/PPL, and
   update the release-risk summary.
+
+### 2026-06-18 12:32 +08:00 scheduler update
+
+- Change:
+  Replaced the first postprocess waiter with a more parallel scheduler. CMRC2018
+  dev is now split into two qid shards, `1610` and `1609` samples. CMRC shard
+  `00` waits only for HotpotQA shard `00` and then starts on GPU0/GPU1; CMRC
+  shard `01` waits only for HotpotQA shard `01` and then starts on GPU2/GPU3.
+  A final aggregate waiter waits for WikiText-2, both HotpotQA shards, and both
+  CMRC shards, then re-aggregates HotpotQA and CMRC from their
+  `per_sample_metrics.jsonl` files.
+- Rationale:
+  The previous schedule would leave GPU0/GPU1 idle after HotpotQA shard `00`
+  completed while waiting for shard `01`. The new schedule keeps the full
+  datasets unchanged but reduces expected wall-clock time by launching CMRC
+  as soon as each GPU pair is released.
+- Verification:
+  Confirmed the old postprocess waiter was stopped and the new waiters are
+  active. Confirmed CMRC qid files contain `1610 + 1609 = 3219` samples. The
+  aggregate script will assert per-method sample counts for HotpotQA `7405`,
+  CMRC2018 dev `3219`, and WikiText-2 `763` before writing
+  `aggregate_summary.json`.
