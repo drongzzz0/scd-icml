@@ -1,3 +1,10 @@
+"""把 SCD bundle 转成 vLLM ExampleConnector storage 并做 smoke。
+
+本模块只覆盖可信静态 prefix 的最小验证路径：转换 bundle、检查 token
+hash、对齐 vLLM block，并运行一批 generation smoke。它不负责动态路由
+或多租户隔离。
+"""
+
 from __future__ import annotations
 
 import argparse

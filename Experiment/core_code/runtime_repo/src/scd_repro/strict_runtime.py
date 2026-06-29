@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import json
 import math
 import inspect
 import time
@@ -11,7 +12,7 @@ from typing import Any
 from transformers.cache_utils import DynamicCache
 from transformers.models.mistral.modeling_mistral import create_causal_mask, create_sliding_window_causal_mask
 
-from .cmrc import CMRCSample, extract_answer_text, score_cmrc_prediction
+from .cmrc import ANSWER_CUTOFF_SEPARATORS, CMRCSample, extract_answer_text, score_cmrc_prediction
 from .direct_kv_residual_patch import PATCH_FIT_MODE_DIRECT_KV_KNORM_RESIDUAL_MLP_V1, PATCH_FIT_MODE_XNORM_NATIVEKV_RESIDUAL_MLP_V1, PATCH_FIT_MODE_XNORM_NATIVEKV_SHARED_RESIDUAL_MLP_V1, infer_direct_kv_residual_patch_layer_torch, infer_xnorm_nativekv_residual_patch_layer_torch, infer_xnorm_nativekv_shared_residual_patch_torch, load_direct_kv_residual_patch_layer_from_ckpt, load_xnorm_nativekv_residual_patch_layer_from_ckpt, load_xnorm_nativekv_shared_residual_patch_from_ckpt
 from .io_utils import load_bundle
 from .patch import (
@@ -118,6 +119,18 @@ class MethodTiming:
 
 
 @dataclass
+class GenerationResult:
+    text: str
+    first_decode_ms: float
+    decode_total_ms: float
+    first_token_id: int | None
+    generated_token_count: int
+    stop_reason: str
+    raw_decoded_text: str
+    generation_trace: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
 class MethodSampleResult:
     qid: str
     method: str
@@ -130,6 +143,10 @@ class MethodSampleResult:
     prompt_tokens: int
     prefix_tokens: int
     first_token_id: int | None
+    generated_token_count: int = 0
+    stop_reason: str = ""
+    raw_decoded_text: str = ""
+    generation_trace: list[dict[str, Any]] = field(default_factory=list)
     avg_logp: float = 0.0
     avg_nll: float = 0.0
     teacher_logp_sum: float = 0.0
@@ -170,17 +187,253 @@ class TransformersRuntimeSession:
             "trust_remote_code": True,
             "low_cpu_mem_usage": True,
         }
-        self.model = AutoModelForCausalLM.from_pretrained(model_path, **load_kwargs)
         if self.device != "cpu":
+            load_kwargs["device_map"] = {"": self.device}
+        self.model = AutoModelForCausalLM.from_pretrained(model_path, **load_kwargs)
+        if self.device != "cpu" and not hasattr(self.model, "hf_device_map"):
             self.model.to(self.device)
         self.model.eval()
         self.layers = _get_decoder_layers(self.model)
         self.target_device = resolve_device(self.device, cpu_fallback=cpu_fallback)
         self.rope_spec = rope_spec_from_hf_config(self.model.config)
+        stop_ids = set(int(x) for x in (getattr(self.tokenizer, "all_special_ids", []) or []) if x is not None)
+        for token_id in (self.tokenizer.eos_token_id, self.tokenizer.pad_token_id):
+            if token_id is not None:
+                stop_ids.add(int(token_id))
+        self.stop_token_ids = stop_ids
+        self._stop_verifier_cache: dict[str, dict[str, Any]] = {}
 
     def _synchronize(self) -> None:
         if str(self.target_device).startswith("cuda"):
             self.torch.cuda.synchronize(self.target_device)
+
+    def _is_stop_token(self, token_id: int) -> bool:
+        return int(token_id) in self.stop_token_ids
+
+    def _generation_trace_enabled(self, generation_stop: dict[str, Any] | None = None) -> bool:
+        cfg = generation_stop or {}
+        return bool(cfg.get("trace_enabled", False))
+
+    def _apply_stop_token_logit_bias(
+        self,
+        logits: Any,
+        generation_stop: dict[str, Any] | None = None,
+        *,
+        next_token_step: int,
+    ) -> Any:
+        cfg = generation_stop or {}
+        bias = float(cfg.get("stop_token_logit_bias", cfg.get("eos_logit_bias", 0.0)) or 0.0)
+        if bias == 0.0:
+            return logits
+        start_step = int(cfg.get("stop_token_bias_start_step", cfg.get("eos_bias_start_step", 1)) or 1)
+        if int(next_token_step) < start_step:
+            return logits
+        stop_ids = [int(x) for x in self.stop_token_ids if 0 <= int(x) < int(logits.shape[-1])]
+        if not stop_ids:
+            return logits
+        biased = logits.clone()
+        biased[:, stop_ids] = biased[:, stop_ids] + bias
+        return biased
+
+    def _stop_verifier_cfg(self, generation_stop: dict[str, Any] | None = None) -> dict[str, Any]:
+        cfg = generation_stop or {}
+        verifier = cfg.get("verifier", {})
+        return verifier if isinstance(verifier, dict) else {}
+
+    def _load_stop_verifier(self, verifier_cfg: dict[str, Any]) -> dict[str, Any] | None:
+        if not bool(verifier_cfg.get("enabled", False)):
+            return None
+        path = str(verifier_cfg.get("artifact", "") or verifier_cfg.get("path", "")).strip()
+        if not path:
+            return None
+        if path not in self._stop_verifier_cache:
+            self._stop_verifier_cache[path] = json.loads(Path(path).read_text(encoding="utf-8"))
+        return self._stop_verifier_cache[path]
+
+    @staticmethod
+    def _sigmoid(x: float) -> float:
+        if x >= 0.0:
+            z = math.exp(-x)
+            return float(1.0 / (1.0 + z))
+        z = math.exp(x)
+        return float(z / (1.0 + z))
+
+    @staticmethod
+    def _compact_text_for_stop(text: str) -> str:
+        return "".join(str(text or "").split()).lower()
+
+    def _logit_stop_features(self, logits: Any, selected_token_id: int | None = None) -> dict[str, float]:
+        with self.torch.no_grad():
+            log_probs = self.torch.log_softmax(logits.to(dtype=self.torch.float32), dim=-1)
+            k = min(2, int(log_probs.shape[-1]))
+            top = self.torch.topk(log_probs, k=k, dim=-1).values[0]
+            top1 = float(self.torch.exp(top[0]).item()) if k >= 1 else 0.0
+            top2 = float(self.torch.exp(top[1]).item()) if k >= 2 else 0.0
+            selected_prob = 0.0
+            if selected_token_id is not None and 0 <= int(selected_token_id) < int(log_probs.shape[-1]):
+                selected_prob = float(self.torch.exp(log_probs[0, int(selected_token_id)]).item())
+            stop_prob = 0.0
+            stop_ids = [int(x) for x in self.stop_token_ids if 0 <= int(x) < int(log_probs.shape[-1])]
+            if stop_ids:
+                stop_prob = float(self.torch.exp(self.torch.logsumexp(log_probs[:, stop_ids], dim=-1))[0].item())
+        return {
+            "top1_prob": top1,
+            "top2_prob": top2,
+            "top_prob_gap": max(0.0, top1 - top2),
+            "selected_token_prob": selected_prob,
+            "stop_token_prob": stop_prob,
+        }
+
+    def _stop_text_features(
+        self,
+        generated: list[int],
+        answer_context: str | None = None,
+    ) -> tuple[dict[str, float], str]:
+        raw_text = self.tokenizer.decode(generated, skip_special_tokens=False)
+        visible_text = self.tokenizer.decode(generated, skip_special_tokens=True)
+        answer = self._decode_generated_answer(generated, answer_context=answer_context)
+        compact_answer = self._compact_text_for_stop(answer)
+        compact_context = self._compact_text_for_stop(answer_context or "")
+        answer_in_context = 1.0 if compact_answer and len(compact_answer) >= 2 and compact_answer in compact_context else 0.0
+        answer_is_visible_prefix = 1.0 if visible_text.strip().startswith(answer.strip()) and answer.strip() else 0.0
+        last_char = answer.strip()[-1:] if answer.strip() else ""
+        features = {
+            "generated_token_count": float(len(generated)),
+            "answer_char_len": float(len(answer.strip())),
+            "raw_char_len": float(len(raw_text)),
+            "visible_char_len": float(len(visible_text.strip())),
+            "answer_in_context": answer_in_context,
+            "answer_is_visible_prefix": answer_is_visible_prefix,
+            "has_newline": 1.0 if ("\n" in raw_text or "\r" in raw_text) else 0.0,
+            "ends_ascii_punct": 1.0 if last_char in {".", ",", ":", ";", "!", "?", "-", "_", "/"} else 0.0,
+            "ends_digit": 1.0 if last_char.isdigit() else 0.0,
+            "ends_ascii_alpha": 1.0 if last_char.isascii() and last_char.isalpha() else 0.0,
+        }
+        return features, answer
+
+    def _make_stop_features(
+        self,
+        logits: Any,
+        generated: list[int],
+        selected_token_id: int | None = None,
+        answer_context: str | None = None,
+    ) -> tuple[dict[str, float], str]:
+        text_features, answer = self._stop_text_features(generated, answer_context=answer_context)
+        text_features.update(self._logit_stop_features(logits, selected_token_id=selected_token_id))
+        return text_features, answer
+
+    def _score_stop_verifier(self, artifact: dict[str, Any], features: dict[str, float]) -> float:
+        names = [str(x) for x in artifact.get("feature_names", [])]
+        weights = [float(x) for x in artifact.get("weights", [])]
+        means = [float(x) for x in artifact.get("feature_mean", [0.0 for _ in names])]
+        scales = [float(x) for x in artifact.get("feature_scale", [1.0 for _ in names])]
+        score = float(artifact.get("bias", 0.0) or 0.0)
+        for idx, name in enumerate(names):
+            value = float(features.get(name, 0.0))
+            scale = scales[idx] if idx < len(scales) and abs(scales[idx]) > 1e-12 else 1.0
+            mean = means[idx] if idx < len(means) else 0.0
+            weight = weights[idx] if idx < len(weights) else 0.0
+            score += weight * ((value - mean) / scale)
+        return self._sigmoid(score)
+
+    def _verifier_stop_decision(
+        self,
+        logits: Any,
+        generated: list[int],
+        generation_stop: dict[str, Any] | None = None,
+        answer_context: str | None = None,
+        selected_token_id: int | None = None,
+    ) -> tuple[str | None, dict[str, Any]]:
+        verifier_cfg = self._stop_verifier_cfg(generation_stop)
+        artifact = self._load_stop_verifier(verifier_cfg)
+        features, answer = self._make_stop_features(
+            logits,
+            generated,
+            selected_token_id=selected_token_id,
+            answer_context=answer_context,
+        )
+        record: dict[str, Any] = {
+            "step": int(len(generated)),
+            "token_id": None if selected_token_id is None else int(selected_token_id),
+            "answer_text": answer,
+            "features": features,
+        }
+        if artifact is None:
+            return None, record
+
+        score = self._score_stop_verifier(artifact, features)
+        record["verifier_score"] = float(score)
+        threshold = float(verifier_cfg.get("threshold", artifact.get("threshold", 0.5)) or 0.5)
+        min_tokens = int(verifier_cfg.get("min_generated_tokens", artifact.get("min_generated_tokens", 1)) or 0)
+        min_chars = int(verifier_cfg.get("min_answer_chars", artifact.get("min_answer_chars", 1)) or 0)
+        max_chars = int(verifier_cfg.get("max_answer_chars", artifact.get("max_answer_chars", 0)) or 0)
+        answer_len = int(features.get("answer_char_len", 0.0))
+        if len(generated) < min_tokens or answer_len < min_chars:
+            return None, record
+        if max_chars > 0 and answer_len > max_chars:
+            return None, record
+        if score >= threshold:
+            return "verifier_stop", record
+        return None, record
+
+    def _generated_has_text_boundary(self, generated: list[int]) -> bool:
+        if not generated:
+            return False
+        raw_text = self.tokenizer.decode(generated, skip_special_tokens=False)
+        if "\n" in raw_text or "\r" in raw_text:
+            return True
+        visible_text = self.tokenizer.decode(generated, skip_special_tokens=True)
+        for sep in ANSWER_CUTOFF_SEPARATORS:
+            if sep in {"\n", "\r"}:
+                continue
+            if sep and (sep in raw_text or sep in visible_text):
+                return True
+        return False
+
+    def _generated_has_context_span_boundary(self, generated: list[int], answer_context: str | None = None) -> bool:
+        if not generated or not answer_context:
+            return False
+        visible_text = self.tokenizer.decode(generated, skip_special_tokens=True)
+        base_answer = extract_answer_text(visible_text)
+        context_answer = extract_answer_text(visible_text, context=answer_context)
+        return bool(base_answer and context_answer and context_answer != base_answer)
+
+    def _decode_generated_answer(self, generated: list[int], answer_context: str | None = None) -> str:
+        return extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True), context=answer_context)
+
+    def _soft_stop_reason(
+        self,
+        logits: Any,
+        generated: list[int],
+        generation_stop: dict[str, Any] | None = None,
+        answer_context: str | None = None,
+    ) -> str | None:
+        cfg = generation_stop or {}
+        if not bool(cfg.get("enabled", False)):
+            return None
+        min_tokens = int(cfg.get("min_generated_tokens", 1) or 0)
+        if len(generated) < min_tokens:
+            return None
+        min_chars = int(cfg.get("min_answer_chars", 0) or 0)
+        if min_chars > 0:
+            answer = self._decode_generated_answer(generated, answer_context=answer_context)
+            if len(answer.strip()) < min_chars:
+                return None
+
+        probs = self.torch.softmax(logits.to(dtype=self.torch.float32), dim=-1)
+        vocab_size = int(probs.shape[-1])
+        stop_ids = [int(x) for x in self.stop_token_ids if 0 <= int(x) < vocab_size]
+        stop_threshold = float(cfg.get("stop_token_prob", 0.0) or 0.0)
+        if stop_threshold > 0.0 and stop_ids:
+            stop_prob = float(probs[:, stop_ids].sum().item())
+            if stop_prob >= stop_threshold:
+                margin = float(cfg.get("stop_token_margin", 0.0) or 0.0)
+                if margin <= 0.0:
+                    return "soft_stop_token"
+                top_prob = float(self.torch.max(probs).item())
+                if top_prob > 0.0 and stop_prob >= top_prob * margin:
+                    return "soft_stop_token"
+        return None
 
     def tokenize(self, prompt: str, max_length: int | None = None) -> tuple[Any, Any]:
         kwargs = {"return_tensors": "pt", "padding": False}
@@ -290,7 +543,9 @@ class TransformersRuntimeSession:
         capture: PrefillCapture,
         max_new_tokens: int = 32,
         align_first_decode_to_cache: bool = False,
-    ) -> tuple[str, float, float, int | None]:
+        answer_context: str | None = None,
+        generation_stop: dict[str, Any] | None = None,
+    ) -> GenerationResult:
         if align_first_decode_to_cache:
             prefix_tokens = int(capture.input_ids.shape[1]) - 1
             if prefix_tokens <= 0:
@@ -308,9 +563,10 @@ class TransformersRuntimeSession:
                 prompt_attention_mask=capture.attention_mask,
                 prefix_tokens=prefix_tokens,
                 max_new_tokens=max_new_tokens,
+                answer_context=answer_context,
+                generation_stop=generation_stop,
             )
 
-        eos_token_id = self.tokenizer.eos_token_id
         generated: list[int] = []
         attention_mask = capture.attention_mask.clone()
         past = build_dynamic_cache(self.model, capture.past_key_values)
@@ -319,20 +575,48 @@ class TransformersRuntimeSession:
         first_decode_ms = 0.0
         first_token_id: int | None = None
         logits = capture.logits_last
+        stop_reason = "max_new_tokens"
+        trace_enabled = self._generation_trace_enabled(generation_stop)
+        generation_trace: list[dict[str, Any]] = []
         for step in range(max_new_tokens):
             self._synchronize()
             step_start = time.perf_counter()
-            token = int(self.torch.argmax(logits, dim=-1).item())
+            decode_logits = self._apply_stop_token_logit_bias(
+                logits,
+                generation_stop,
+                next_token_step=len(generated) + 1,
+            )
+            soft_reason = self._soft_stop_reason(decode_logits, generated, generation_stop, answer_context=answer_context)
+            if soft_reason:
+                stop_reason = soft_reason
+                break
+            token = int(self.torch.argmax(decode_logits, dim=-1).item())
             self._synchronize()
             elapsed = (time.perf_counter() - step_start) * 1000.0
             if step == 0:
                 first_decode_ms = elapsed
                 first_token_id = token
-            if eos_token_id is not None and token == int(eos_token_id):
+            if self._is_stop_token(token):
+                stop_reason = "stop_token"
                 break
             generated.append(token)
-            text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
-            if text and "\n" in text:
+            verifier_reason, step_record = self._verifier_stop_decision(
+                decode_logits,
+                generated,
+                generation_stop,
+                answer_context=answer_context,
+                selected_token_id=token,
+            )
+            if trace_enabled:
+                generation_trace.append(step_record)
+            if self._generated_has_text_boundary(generated):
+                stop_reason = "text_boundary"
+                break
+            if self._generated_has_context_span_boundary(generated, answer_context=answer_context):
+                stop_reason = "context_span_boundary"
+                break
+            if verifier_reason:
+                stop_reason = verifier_reason
                 break
             attention_mask = self.torch.cat([attention_mask, self.torch.ones((1, 1), device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
             with self.torch.no_grad():
@@ -348,8 +632,18 @@ class TransformersRuntimeSession:
 
         self._synchronize()
         decode_total_ms = (time.perf_counter() - decode_start) * 1000.0
-        text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
-        return text, float(first_decode_ms), float(decode_total_ms), first_token_id
+        raw_decoded_text = self.tokenizer.decode(generated, skip_special_tokens=False)
+        text = self._decode_generated_answer(generated, answer_context=answer_context)
+        return GenerationResult(
+            text=text,
+            first_decode_ms=float(first_decode_ms),
+            decode_total_ms=float(decode_total_ms),
+            first_token_id=first_token_id,
+            generated_token_count=len(generated),
+            stop_reason=stop_reason,
+            raw_decoded_text=raw_decoded_text,
+            generation_trace=generation_trace,
+        )
 
     def generate_from_cache(
         self,
@@ -358,7 +652,9 @@ class TransformersRuntimeSession:
         prompt_attention_mask: Any,
         prefix_tokens: int,
         max_new_tokens: int = 32,
-    ) -> tuple[str, float, float, int | None]:
+        answer_context: str | None = None,
+        generation_stop: dict[str, Any] | None = None,
+    ) -> GenerationResult:
         total_prompt_tokens = int(prompt_input_ids.shape[1])
         if total_prompt_tokens < 2:
             raise ValueError("从 prefix cache 恢复生成时，prompt 至少需要 2 个 token")
@@ -384,7 +680,6 @@ class TransformersRuntimeSession:
         past = build_dynamic_cache(self.model, [(k.contiguous(), v.contiguous()) for k, v in cache_layers])
         last_token = prompt_input_ids[:, prefix_tokens : prefix_tokens + 1].to(self.target_device)
         attention_mask = prompt_attention_mask[:, : prefix_tokens + 1].to(self.target_device)
-        eos_token_id = self.tokenizer.eos_token_id
 
         self._synchronize()
         decode_start = time.perf_counter()
@@ -402,18 +697,55 @@ class TransformersRuntimeSession:
         generated: list[int] = []
         logits = out.logits[:, -1, :].detach()
         past = out.past_key_values
-        token = int(self.torch.argmax(logits, dim=-1).item())
+        trace_enabled = self._generation_trace_enabled(generation_stop)
+        generation_trace: list[dict[str, Any]] = []
+        decode_logits = self._apply_stop_token_logit_bias(
+            logits,
+            generation_stop,
+            next_token_step=1,
+        )
+        token = int(self.torch.argmax(decode_logits, dim=-1).item())
         first_token_id: int | None = token
-        if eos_token_id is None or token != int(eos_token_id):
-            generated.append(token)
-        else:
-            text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
-            return text, float(first_decode_ms), float(first_decode_ms), first_token_id
+        if self._is_stop_token(token):
+            raw_decoded_text = self.tokenizer.decode(generated, skip_special_tokens=False)
+            text = self._decode_generated_answer(generated, answer_context=answer_context)
+            return GenerationResult(
+                text=text,
+                first_decode_ms=float(first_decode_ms),
+                decode_total_ms=float(first_decode_ms),
+                first_token_id=first_token_id,
+                generated_token_count=len(generated),
+                stop_reason="stop_token",
+                raw_decoded_text=raw_decoded_text,
+                generation_trace=generation_trace,
+            )
+        generated.append(token)
+        stop_reason = "max_new_tokens"
+        verifier_reason, step_record = self._verifier_stop_decision(
+            decode_logits,
+            generated,
+            generation_stop,
+            answer_context=answer_context,
+            selected_token_id=token,
+        )
+        if trace_enabled:
+            generation_trace.append(step_record)
 
         attention_mask = self.torch.cat([attention_mask, self.torch.ones((1, 1), device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
+        if self._generated_has_text_boundary(generated):
+            stop_reason = "text_boundary"
+        elif self._generated_has_context_span_boundary(generated, answer_context=answer_context):
+            stop_reason = "context_span_boundary"
+        elif verifier_reason:
+            stop_reason = verifier_reason
         for _ in range(1, max_new_tokens):
-            text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
-            if text and "\n" in text:
+            if stop_reason != "max_new_tokens":
+                break
+            if self._generated_has_text_boundary(generated):
+                stop_reason = "text_boundary"
+                break
+            if self._generated_has_context_span_boundary(generated, answer_context=answer_context):
+                stop_reason = "context_span_boundary"
                 break
             with self.torch.no_grad():
                 out = self.model(
@@ -422,20 +754,54 @@ class TransformersRuntimeSession:
                     past_key_values=past,
                     use_cache=True,
                     return_dict=True,
-                )
+            )
             past = out.past_key_values
             logits = out.logits[:, -1, :].detach()
-            token = int(self.torch.argmax(logits, dim=-1).item())
-            if eos_token_id is None or token != int(eos_token_id):
-                generated.append(token)
-            else:
+            decode_logits = self._apply_stop_token_logit_bias(
+                logits,
+                generation_stop,
+                next_token_step=len(generated) + 1,
+            )
+            soft_reason = self._soft_stop_reason(decode_logits, generated, generation_stop, answer_context=answer_context)
+            if soft_reason:
+                stop_reason = soft_reason
+                break
+            token = int(self.torch.argmax(decode_logits, dim=-1).item())
+            if self._is_stop_token(token):
+                stop_reason = "stop_token"
+                break
+            generated.append(token)
+            verifier_reason, step_record = self._verifier_stop_decision(
+                decode_logits,
+                generated,
+                generation_stop,
+                answer_context=answer_context,
+                selected_token_id=token,
+            )
+            if trace_enabled:
+                generation_trace.append(step_record)
+            if self._generated_has_context_span_boundary(generated, answer_context=answer_context):
+                stop_reason = "context_span_boundary"
+                break
+            if verifier_reason:
+                stop_reason = verifier_reason
                 break
             attention_mask = self.torch.cat([attention_mask, self.torch.ones((1, 1), device=attention_mask.device, dtype=attention_mask.dtype)], dim=1)
 
         self._synchronize()
         decode_total_ms = (time.perf_counter() - decode_start) * 1000.0
-        text = extract_answer_text(self.tokenizer.decode(generated, skip_special_tokens=True))
-        return text, float(first_decode_ms), float(decode_total_ms), first_token_id
+        raw_decoded_text = self.tokenizer.decode(generated, skip_special_tokens=False)
+        text = self._decode_generated_answer(generated, answer_context=answer_context)
+        return GenerationResult(
+            text=text,
+            first_decode_ms=float(first_decode_ms),
+            decode_total_ms=float(decode_total_ms),
+            first_token_id=first_token_id,
+            generated_token_count=len(generated),
+            stop_reason=stop_reason,
+            raw_decoded_text=raw_decoded_text,
+            generation_trace=generation_trace,
+        )
 
     def close(self) -> None:
         graph_cache = getattr(self, "__runtime_consumer_native_proj_graph_cache__", None)
@@ -3606,14 +3972,17 @@ def evaluate_cmrc_method(
     fail_on_missing_patch_fields: bool = False,
     measure_teacher_forced_metrics: bool = True,
     align_full_consumer_first_decode: bool = False,
+    generation_stop: dict[str, Any] | None = None,
 ) -> MethodSampleResult:
     prefix_tokens = int(consumer_capture.input_ids.shape[1]) - 1
     target_ids = _target_answer_ids(consumer_session, sample.answers, max_new_tokens=max_new_tokens)
     if method in {"oracle", "full_consumer"}:
-        answer, first_decode_ms, decode_total_ms, first_token_id = consumer_session.generate_from_prefill(
+        generation = consumer_session.generate_from_prefill(
             consumer_capture,
             max_new_tokens=max_new_tokens,
             align_first_decode_to_cache=align_full_consumer_first_decode,
+            answer_context=sample.context,
+            generation_stop=generation_stop,
         )
         avg_logp, avg_nll, teacher_token_count = _teacher_forced_from_prefill(consumer_session, consumer_capture, target_ids) if measure_teacher_forced_metrics else (0.0, 0.0, 0)
         timing = MethodTiming(
@@ -3628,11 +3997,11 @@ def evaluate_cmrc_method(
             rebuild_materialize_ms=0.0,
             patch_infer_ms=0.0,
             recompute_ms=0.0,
-            decode_first_ms=float(first_decode_ms),
-            decode_rest_ms=max(0.0, float(decode_total_ms - first_decode_ms)),
-            decode_total_ms=float(decode_total_ms),
-            ttft_ms=float(consumer_capture.prefill_ms + first_decode_ms),
-            total_ms=float(consumer_capture.prefill_ms + decode_total_ms),
+            decode_first_ms=float(generation.first_decode_ms),
+            decode_rest_ms=max(0.0, float(generation.decode_total_ms - generation.first_decode_ms)),
+            decode_total_ms=float(generation.decode_total_ms),
+            ttft_ms=float(consumer_capture.prefill_ms + generation.first_decode_ms),
+            total_ms=float(consumer_capture.prefill_ms + generation.decode_total_ms),
             bytes_transferred=0,
             raw_cache_bytes=_raw_cache_payload_bytes(consumer_capture, prefix_tokens, transfer_dtype),
             compression_ratio=None,
@@ -3658,12 +4027,14 @@ def evaluate_cmrc_method(
             fail_on_missing_route_fields=fail_on_missing_route_fields,
             fail_on_missing_patch_fields=fail_on_missing_patch_fields,
         )
-        answer, first_decode_ms, decode_total_ms, first_token_id = consumer_session.generate_from_cache(
+        generation = consumer_session.generate_from_cache(
             cache_layers=cache_layers,
             prompt_input_ids=consumer_capture.input_ids,
             prompt_attention_mask=consumer_capture.attention_mask,
             prefix_tokens=prefix_tokens,
             max_new_tokens=max_new_tokens,
+            answer_context=sample.context,
+            generation_stop=generation_stop,
         )
         avg_logp, avg_nll, teacher_token_count = (
             _teacher_forced_from_cache(
@@ -3677,12 +4048,13 @@ def evaluate_cmrc_method(
             if measure_teacher_forced_metrics
             else (0.0, 0.0, 0)
         )
-        timing.decode_first_ms = float(first_decode_ms)
-        timing.decode_rest_ms = max(0.0, float(decode_total_ms - first_decode_ms))
-        timing.decode_total_ms = float(decode_total_ms)
+        timing.decode_first_ms = float(generation.first_decode_ms)
+        timing.decode_rest_ms = max(0.0, float(generation.decode_total_ms - generation.first_decode_ms))
+        timing.decode_total_ms = float(generation.decode_total_ms)
         timing.ttft_ms = float(timing.encode_ms + timing.transfer_ms + timing.rebuild_ms + timing.patch_infer_ms + timing.recompute_ms + timing.decode_first_ms)
         timing.total_ms = float(timing.encode_ms + timing.transfer_ms + timing.rebuild_ms + timing.patch_infer_ms + timing.recompute_ms + timing.decode_total_ms)
 
+    answer = generation.text
     score = score_cmrc_prediction(answer, sample.answers)
     return MethodSampleResult(
         qid=sample.qid,
@@ -3695,7 +4067,11 @@ def evaluate_cmrc_method(
         gold_answers=list(sample.answers),
         prompt_tokens=int(consumer_capture.input_ids.shape[1]),
         prefix_tokens=prefix_tokens,
-        first_token_id=first_token_id,
+        first_token_id=generation.first_token_id,
+        generated_token_count=int(generation.generated_token_count),
+        stop_reason=str(generation.stop_reason),
+        raw_decoded_text=str(generation.raw_decoded_text),
+        generation_trace=list(generation.generation_trace),
         avg_logp=float(avg_logp),
         avg_nll=float(avg_nll),
         teacher_logp_sum=float(avg_logp * max(1, int(teacher_token_count))) if int(teacher_token_count) > 0 else 0.0,
@@ -3722,6 +4098,15 @@ def summarize_method_results(results: list[MethodSampleResult]) -> dict[str, Any
         "em": mean(lambda x: x.em),
         "avg_logp": avg_logp,
         "avg_nll": avg_nll,
+        "generated_token_count": mean(lambda x: x.generated_token_count),
+        "pred_output_char_len": mean(lambda x: len(x.pred_text or "")),
+        "raw_output_char_len": mean(lambda x: len(x.raw_decoded_text or "")),
+        "stop_token_rate": mean(lambda x: 1.0 if x.stop_reason == "stop_token" else 0.0),
+        "text_boundary_rate": mean(lambda x: 1.0 if x.stop_reason == "text_boundary" else 0.0),
+        "context_span_boundary_rate": mean(lambda x: 1.0 if x.stop_reason == "context_span_boundary" else 0.0),
+        "soft_stop_token_rate": mean(lambda x: 1.0 if x.stop_reason == "soft_stop_token" else 0.0),
+        "verifier_stop_rate": mean(lambda x: 1.0 if x.stop_reason == "verifier_stop" else 0.0),
+        "max_new_tokens_hit_rate": mean(lambda x: 1.0 if x.stop_reason == "max_new_tokens" else 0.0),
         "payload_mb": mean(lambda x: x.payload_mb),
         "ttft_ms": mean(lambda x: x.timing.ttft_ms),
         "producer_prefill_ms": mean(lambda x: x.timing.producer_prefill_ms),

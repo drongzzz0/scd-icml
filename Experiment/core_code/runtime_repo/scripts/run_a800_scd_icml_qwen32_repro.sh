@@ -38,6 +38,7 @@ EVAL_LIMIT="${EVAL_LIMIT:-200}"
 TRAIN_CMRC_SPLIT="${TRAIN_CMRC_SPLIT:-train}"
 EVAL_CMRC_SPLIT="${EVAL_CMRC_SPLIT:-dev}"
 DATASETS="${DATASETS:-cmrc2018}"
+PROMPT_STYLE="${PROMPT_STYLE:-default}"
 # Qwen32 single-GPU transformers capture has very little activation headroom on
 # partially occupied A800 cards. Use 512 by default for the release smoke/full
 # train-dev gate, and override MAX_LENGTH explicitly for full-context runs.
@@ -142,6 +143,7 @@ cat > "${RUN_ROOT}/run_config.json" <<EOF
   "train_cmrc_split": "${TRAIN_CMRC_SPLIT}",
   "eval_cmrc_split": "${EVAL_CMRC_SPLIT}",
   "datasets": "${DATASETS}",
+  "prompt_style": "${PROMPT_STYLE}",
   "max_length": ${MAX_LENGTH},
   "max_new_tokens": ${MAX_NEW_TOKENS},
   "bandwidth_gbps": ${BANDWIDTH_GBPS},
@@ -205,25 +207,34 @@ PY
 
 make_eval_config() {
   local out_path="$1"
-  python - "${EVAL_CONFIG_TEMPLATE}" "${out_path}" "${EVAL_LIMIT}" "${BANDWIDTH_GBPS}" "${EVAL_CMRC_SPLIT}" <<'PY'
+  python - "${EVAL_CONFIG_TEMPLATE}" "${out_path}" "${EVAL_LIMIT}" "${BANDWIDTH_GBPS}" "${EVAL_CMRC_SPLIT}" "${PROMPT_STYLE}" <<'PY'
 import json, sys
-template, out_path, eval_limit, bandwidth, cmrc_split = sys.argv[1], sys.argv[2], int(sys.argv[3]), float(sys.argv[4]), sys.argv[5]
+template, out_path, eval_limit, bandwidth, cmrc_split, prompt_style = sys.argv[1], sys.argv[2], int(sys.argv[3]), float(sys.argv[4]), sys.argv[5], sys.argv[6]
 cfg = json.load(open(template, encoding="utf-8-sig"))
 cfg.setdefault("network", {})["bandwidth_gbps"] = bandwidth
 cfg.setdefault("runtime_eval", {})["max_eval_samples"] = eval_limit
 cfg.setdefault("runtime_eval", {})["cmrc_split"] = cmrc_split or "dev"
+cfg.setdefault("runtime_eval", {})["prompt_style"] = prompt_style or "default"
 open(out_path, "w", encoding="utf-8").write(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n")
 PY
 }
 
 make_train_prompts() {
   local out_path="$1"
-  python - "${DATA_ROOT}" "${TRAIN_LIMIT}" "${out_path}" "${TRAIN_CMRC_SPLIT}" <<'PY'
+  python - "${DATA_ROOT}" "${TRAIN_LIMIT}" "${out_path}" "${TRAIN_CMRC_SPLIT}" "${PROMPT_STYLE}" "${MODELS_CONFIG}" <<'PY'
 import json, sys
 from pathlib import Path
+from transformers import AutoTokenizer
+from scd_repro.io_utils import load_json
+from scd_repro.prompting import apply_prompt_style_to_samples, normalize_prompt_style
 from scd_repro.text_benchmarks import load_text_benchmark_samples
-data_root, limit, out_path, train_cmrc_split = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4] or "train"
+data_root, limit, out_path, train_cmrc_split, prompt_style, models_config = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4] or "train", sys.argv[5], sys.argv[6]
 samples = load_text_benchmark_samples("cmrc2018", data_root, limit=limit, cmrc_split=train_cmrc_split)
+style = normalize_prompt_style(prompt_style)
+if style not in {"", "default", "cmrc_default"}:
+    models = load_json(models_config)
+    tokenizer = AutoTokenizer.from_pretrained(str(models["model_b"]["path"]), trust_remote_code=True)
+    samples = apply_prompt_style_to_samples(samples, style=style, tokenizer=tokenizer, dataset="cmrc2018")
 out = Path(out_path)
 out.write_text(json.dumps([row.prompt for row in samples], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 out.with_suffix(out.suffix + ".meta.json").write_text(
@@ -231,6 +242,7 @@ out.with_suffix(out.suffix + ".meta.json").write_text(
         {
             "dataset": "cmrc2018",
             "split": train_cmrc_split,
+            "prompt_style": style or "default",
             "limit": limit,
             "sample_count": len(samples),
             "qids": [row.qid for row in samples],

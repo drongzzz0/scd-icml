@@ -1,3 +1,10 @@
+"""SCD-vLLM 原型流程的程序化 API。
+
+Engine 负责把配置对象转成三个顺序步骤：重建 SCD bundle、转换成
+ExampleConnector storage、运行 smoke/launch-spec。它保持薄封装，避免
+把 vLLM 内部实现和 SCD 离线复现代码直接耦合。
+"""
+
 from __future__ import annotations
 
 import argparse

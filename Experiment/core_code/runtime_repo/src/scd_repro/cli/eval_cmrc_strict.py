@@ -10,6 +10,7 @@ from typing import Any
 from ..cmrc import load_cmrc2018_samples
 from ..io_utils import load_json, save_json
 from ..pipeline import load_patch_ckpt, load_reuse_weights
+from ..prompting import apply_prompt_style_to_samples, normalize_prompt_style
 from ..reuse import move_reuse_weights
 from ..seed import set_global_seed
 from ..strict_runtime import (
@@ -37,7 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--reuse-ckpt", required=True)
     p.add_argument("--patch-ckpt", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--limit", type=int, default=200, help="0 means use all loadable samples")
+    p.add_argument("--limit", type=int, default=200)
+    p.add_argument("--sample-offset", type=int, default=0)
     p.add_argument("--max-length", type=int, default=0)
     p.add_argument("--max-new-tokens", type=int, default=32)
     p.add_argument("--bandwidth-gbps", type=float, default=200.0)
@@ -76,6 +78,10 @@ def _sample_result_to_dict(row: MethodSampleResult) -> dict[str, object]:
         "prompt_tokens": row.prompt_tokens,
         "prefix_tokens": row.prefix_tokens,
         "first_token_id": row.first_token_id,
+        "generated_token_count": row.generated_token_count,
+        "stop_reason": row.stop_reason,
+        "raw_decoded_text": row.raw_decoded_text,
+        "generation_trace": row.generation_trace,
         "bytes_transferred": row.timing.bytes_transferred,
         "raw_cache_bytes": row.timing.raw_cache_bytes,
         "compression_ratio": row.timing.compression_ratio,
@@ -259,6 +265,9 @@ def _write_summary_csv(path: Path, rows: list[dict[str, object]]) -> None:
         "avg_nll",
         "f1",
         "em",
+        "generated_token_count",
+        "max_new_tokens_hit_rate",
+        "verifier_stop_rate",
         "bytes_transferred",
         "raw_cache_bytes",
         "compression_ratio",
@@ -290,21 +299,17 @@ def _write_summary_md(path: Path, rows: list[dict[str, object]]) -> None:
     lines = [
         "# Strict Runtime Comparison",
         "",
-        "| mode | avg_logp | avg_nll | f1 | em | bytes | compression | ttft_ms | delta_ttft_vs_full |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| mode | avg_logp | avg_nll | f1 | em | gen_tokens | max_new | verifier_stop | bytes | compression | ttft_ms | delta_ttft_vs_full |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
         compression = row.get("compression_ratio")
         delta_ttft = row.get("delta_ttft_vs_full")
         lines.append(
-            f"| {row['method_label']} | {float(row['avg_logp']):.4f} | {float(row['avg_nll']):.4f} | {float(row['f1']):.4f} | {float(row['em']):.4f} | {float(row['bytes_transferred']):.1f} | {0.0 if compression is None else float(compression):.3f} | {float(row['ttft_ms']):.2f} | {0.0 if delta_ttft is None else float(delta_ttft):.2f} |"
+            f"| {row['method_label']} | {float(row['avg_logp']):.4f} | {float(row['avg_nll']):.4f} | {float(row['f1']):.4f} | {float(row['em']):.4f} | {float(row.get('generated_token_count', 0.0)):.2f} | {float(row.get('max_new_tokens_hit_rate', 0.0)):.3f} | {float(row.get('verifier_stop_rate', 0.0)):.3f} | {float(row['bytes_transferred']):.1f} | {0.0 if compression is None else float(compression):.3f} | {float(row['ttft_ms']):.2f} | {0.0 if delta_ttft is None else float(delta_ttft):.2f} |"
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def _resolve_load_limit(max_eval_samples: int) -> int | None:
-    return None if int(max_eval_samples) <= 0 else int(max_eval_samples)
 
 
 def main() -> None:
@@ -316,6 +321,7 @@ def main() -> None:
     eval_cfg = load_cfg(args.eval_config) if args.eval_config else {}
     runtime_eval_cfg = _runtime_eval_cfg(eval_cfg)
     methods = _select_runtime_methods(runtime_eval_cfg)
+    prompt_style = normalize_prompt_style(runtime_eval_cfg.get("prompt_style", ""))
 
     accel = resolve_accel_options(models_cfg, args)
     configure_torch_acceleration(str(accel["accel_mode"]))
@@ -333,11 +339,15 @@ def main() -> None:
     transfer_dtype = resolve_torch_dtype(dtype)
     bandwidth_gbps = float(network_cfg.get("bandwidth_gbps", args.bandwidth_gbps))
     max_eval_samples = int(runtime_eval_cfg.get("max_eval_samples", args.limit))
+    sample_offset = int(runtime_eval_cfg.get("sample_offset", args.sample_offset) or 0)
     default_recompute_segment_length = int(runtime_eval_cfg.get("default_recompute_segment_length", 0) or 0)
     override_route_recompute_length = runtime_eval_cfg.get("override_route_recompute_length", None)
     override_route_recompute_length = None if override_route_recompute_length in {"", None} else int(override_route_recompute_length)
     measure_teacher_forced_metrics = bool(runtime_eval_cfg.get("measure_teacher_forced_metrics", True))
     align_full_consumer_first_decode = bool(runtime_eval_cfg.get("align_full_consumer_first_decode", False))
+    generation_stop_cfg = runtime_eval_cfg.get("generation_stop", {})
+    if not isinstance(generation_stop_cfg, dict):
+        generation_stop_cfg = {}
     save_per_sample_metrics = bool(runtime_eval_cfg.get("save_per_sample_metrics", True))
     save_generation_outputs = bool(runtime_eval_cfg.get("save_generation_outputs", True))
     fail_on_missing_route_fields = bool(runtime_eval_cfg.get("fail_on_missing_route_fields", True))
@@ -392,7 +402,16 @@ def main() -> None:
     )
 
     cmrc_split = str(args.cmrc_split or runtime_eval_cfg.get("cmrc_split") or "dev").strip().lower()
-    samples = load_cmrc2018_samples(args.data_root, limit=_resolve_load_limit(max_eval_samples), split=cmrc_split)
+    load_limit = max_eval_samples
+    if sample_offset > 0 and max_eval_samples > 0:
+        load_limit = sample_offset + max_eval_samples
+    samples = load_cmrc2018_samples(args.data_root, limit=load_limit, split=cmrc_split)
+    if sample_offset > 0:
+        before_offset = len(samples)
+        samples = samples[sample_offset:]
+        logger.info("CMRC sample_offset=%d applied: %d -> %d", sample_offset, before_offset, len(samples))
+    if max_eval_samples > 0:
+        samples = samples[:max_eval_samples]
     logger.info("CMRC 样本已加载: split=%s n=%d", cmrc_split, len(samples))
     if qid_allowlist:
         qid_set = set(qid_allowlist)
@@ -400,6 +419,18 @@ def main() -> None:
         logger.info("应用 qid 子集过滤后保留样本: %d / %d", len(samples), len(qid_allowlist))
         if not samples:
             raise ValueError("qid 子集过滤后没有剩余样本；注意当前过滤只作用在已加载样本窗口内")
+    if prompt_style not in {"", "default", "cmrc_default"}:
+        from transformers import AutoTokenizer
+
+        prompt_tokenizer = AutoTokenizer.from_pretrained(model_b_path, trust_remote_code=True)
+        samples = apply_prompt_style_to_samples(
+            samples,
+            style=prompt_style,
+            tokenizer=prompt_tokenizer,
+            dataset="cmrc2018",
+        )
+        logger.info("applied prompt_style=%s to %d CMRC samples", prompt_style, len(samples))
+
     consumer_capture_xnorm, consumer_capture_residual = _consumer_capture_flags(methods)
 
     producer = TransformersRuntimeSession(model_a_path, producer_device, dtype)
@@ -443,6 +474,7 @@ def main() -> None:
                     fail_on_missing_patch_fields=fail_on_missing_patch_fields,
                     measure_teacher_forced_metrics=measure_teacher_forced_metrics,
                     align_full_consumer_first_decode=align_full_consumer_first_decode,
+                    generation_stop=generation_stop_cfg,
                 )
                 all_results[method].append(result)
                 row = _sample_result_to_dict(result)
@@ -489,7 +521,9 @@ def main() -> None:
                 "methods": methods,
                 "strict_mode": bool(runtime_eval_cfg.get("strict_mode", True)),
                 "align_full_consumer_first_decode": align_full_consumer_first_decode,
+                "generation_stop": generation_stop_cfg,
                 "qid_allowlist": qid_allowlist,
+                "sample_offset": sample_offset,
             },
             "modes": per_mode_summary,
             "delta_vs_full_consumer": {method: _comparison_row(row, full_baseline) for method, row in per_mode_summary.items()},

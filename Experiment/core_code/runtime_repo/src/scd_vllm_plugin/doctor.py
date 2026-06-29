@@ -1,3 +1,10 @@
+"""SCD-vLLM 运行前静态检查。
+
+doctor 检查 vLLM import、模型/ckpt/bundle 路径、路线严格性和 bundle
+manifest。它应该在占用 GPU 之前运行，用来尽早拒绝不完整或不安全的
+launch 配置。
+"""
+
 from __future__ import annotations
 
 import argparse

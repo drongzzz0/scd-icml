@@ -25,46 +25,6 @@ src/scd_repro/
 
 Other package modules imported by these files are also required.
 
-The release also includes the experimental vLLM adapter facade:
-
-```text
-src/scd_vllm/
-src/scd_vllm_plugin/
-docs/scd_vllm_plugin_mvp.md
-```
-
-The public plugin entry point is `scd-vllm`. Run `scd-vllm doctor` before GPU
-work to verify that local artifacts exist, vLLM can import, and the selected
-route is a strict no-fallback/no-recompute mixed reuse+patch route. The doctor
-supports both raw `--reuse-ckpt/--patch-ckpt` paths and existing
-`--bundle-dir` artifacts.
-
-After converting a validated SCD bundle to `ExampleConnector` storage, use
-`scd-vllm launch-spec` to emit the official `vllm.LLM(**llm_kwargs)` launch
-contract for that trusted bundle/storage pair. Use `scd-vllm launch-smoke` to
-consume that JSON through official vLLM and write a one-batch generation
-artifact. Use `scd-vllm batch-benchmark` for repeated-prefix connector
-throughput checks. The release preview also includes
-`examples/scd_vllm_official_launch.py`, which can dry-run validate a launch
-spec without occupying a GPU or execute the same trusted-prefix official-vLLM
-smoke path from Python. These paths are intentionally narrow: they are
-trusted/static-prefix artifacts and must not be reported as general
-multi-tenant serving, privacy, arbitrary-routing, or dataset-quality claims.
-`launch-smoke` now rejects launch specs that do not explicitly declare
-`multi_tenant_safe=false`, `dynamic_request_routing=false`, and
-`trusted_bundle_required=true`; `check_release_readiness.py` also verifies this
-safety contract for the stored Mistral and Qwen launch-spec artifacts.
-
-For connector-development experiments, the package includes
-`scd_vllm.preloaded_connector.SCDPreloadedConnector`, which can be loaded by
-vLLM with `--kv-connector SCDPreloadedConnector` and
-`--kv-connector-module-path scd_vllm.preloaded_connector`. It memoizes loaded
-SCD KV tensors per worker to avoid repeated safetensors reads for identical
-batch prefixes. `scd-vllm launch-spec` automatically sets the HMA-disable
-vLLM kwarg required by this connector in vLLM `0.18.0` and can set
-`SCD_PRELOADED_STATS_DIR` for connector stats. This is an experimental
-connector prototype, not a production multi-tenant cache manager.
-
 ## Required Lightweight Tests
 
 ```text
@@ -87,7 +47,6 @@ configs/models_mistrallite_to_mistral7_template.json
 configs/models_ser_mistrallite_to_mistral7_mql.json
 configs/models_ser_mistrallite_to_mistral7_mql_single_gpu.json
 configs/models_ser_mistral7_to_mistrallite_mql.json
-configs/scd_vllm_mvp.yaml
 configs/train_reuse_mistral_self_layerwise_20260404.json
 configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_alllayers_e1_h2048_r512_b2_20260404.json
 configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_paper_k6_e1_h2048_r512_b2_20260404.json
@@ -96,8 +55,6 @@ configs/mistral_self_patch_xnorm_nativekv_linear_parallel_20260404.json
 configs/route_selection.yaml
 configs/route_reuse_patchonly_all32_20260404.json
 configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json
-configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json
-configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json
 ```
 
 `eval_scd_icml_no_fallback_no_recompute.json` is the release-facing aggregate
@@ -110,14 +67,6 @@ they are not part of the default open-source release preview.
 The `models_ser_*_mql.json` files document the verified local run. Users on a
 new machine should copy `models_mistrallite_to_mistral7_template.json` and pass
 it through `MODELS_CONFIG_LITE_TO_7B`.
-
-The `reuse19_patch13` route is the paper-aligned maximum-Reuse reference for
-the current Mistral evidence package. The `patch20_reuse12` route is the
-current higher-Reuse/speed vLLM plugin demo route because it has full CMRC2018/HotpotQA quality
-evidence and passes the reconstructed vLLM greedy smoke check from raw trained
-Reuse/Patch banks. The `patch26_reuse6` route is the current quality-first
-reference route for CMRC2018 and WikiText-2; it also passes the same
-raw-bank-to-vLLM greedy smoke check.
 
 ## Required Scripts
 
@@ -158,14 +107,6 @@ scripts/validate_scd_route.py
 scripts/check_release_readiness.py
 scripts/check_release_smoke_status.py
 scripts/build_release_tree.py
-scripts/scd_vllm/run_00_repo_audit.sh
-scripts/scd_vllm/run_01_env_probe.sh
-scripts/scd_vllm/run_02_hf_export.sh
-scripts/scd_vllm/run_03_vllm_baseline.sh
-scripts/scd_vllm/run_04_truekv_oracle.sh
-scripts/scd_vllm/run_05_reconstructed_export.sh
-scripts/scd_vllm/run_05_scd_injection.sh
-scripts/scd_vllm/run_06_report.sh
 ```
 
 `run_ser_scd_icml_mistral_repro.sh` is the main claim-facing entry point. It
@@ -274,12 +215,6 @@ figure names, has an `ok` artifact-bundle manifest, and can enforce literal
 claim-boundary text such as the restored neighboring-baseline table label, the
 HotpotQA full7405 selected-route statement, and the current claim-facing table
 labels.
-The `scripts/scd_vllm/run_00_*.sh` through `run_06_*.sh` wrappers are the
-release-facing vLLM integration phase commands. They drive the repo audit,
-environment probe, HF bundle export, plain vLLM baseline, TrueKV oracle,
-reconstructed SCD bundle export, SCD injection smoke, and final status report.
-The default knobs live in `configs/scd_vllm_mvp.yaml`, while host/model-specific
-paths should be supplied through environment variables.
 
 ## Required Documentation
 
@@ -288,17 +223,11 @@ README.md
 REPRODUCING_SCD_ICML.md
 DATA_PREPARATION.md
 OPEN_SOURCE_RELEASE_MANIFEST.md
-docs/scd_vllm_plugin_mvp.md
-reports/scd_vllm_repo_audit.md
-reports/scd_vllm_status.md
 LICENSE
 ```
 
 `REPRODUCING_SCD_ICML.md` defines the no-fallback/no-recompute reproduction
 boundary. `DATA_PREPARATION.md` explains portable data/model paths.
-`reports/scd_vllm_status.md` is the release-facing vLLM evidence boundary and
-records the A800 `conda activate cache` environment, the two vLLM-smoke-checked
-routes, and the non-production connector limits.
 
 ## Release Check
 
@@ -333,94 +262,62 @@ full consumer, raw KV, 4-bit KV, reuse-only, and SCD. This is a structural
 release check; it does not certify that every dataset row supports the same
 quality claim.
 
-The default readiness command also reads the branch-local release evidence
-under `../../Experiment/results/`. When those artifacts are present, it gates
-the full Mistral quality evidence for CMRC2018 dev (`3219` samples), HotpotQA
-dev (`7405` samples), and WikiText-2 test (`763` samples), plus the Qwen3-1.7B
-gray three-dataset risk aggregate. This check is intentionally claim-aware:
-Mistral QA rows must preserve or improve F1/EM versus Full Consumer, WikiText-2
-is checked with NLL/TTFT rather than F1, and Qwen remains portability/risk
-evidence rather than a speedup claim.
-
-The same readiness command now gates train/eval split evidence. It checks that
-the release routes declare a CMRC2018 train-200 calibration bank, that strict
-CMRC/HotpotQA/WikiText-2 evaluations use full dev/test artifacts instead of a
-qid allowlist, and that the Qwen strict run records CMRC2018 train samples for
-calibration while evaluating CMRC2018 dev, HotpotQA dev, and WikiText-2 test.
-This prevents future cleanup from accidentally replacing the release evidence
-with a train-set evaluation or a stale partial-evaluation artifact.
-
-The default SCD method boundary is unchanged: non-patch layers are
-reconstructed by Reuse, selected transition layers are corrected by Patch,
-Patch and Reuse jointly cover all layers, and `fallback_layers` /
-recomputation are not allowed in the claim-facing `scd_full` path. Validate any
-published route with:
+The default SCD route must follow the paper implementation boundary:
+non-patch layers are reconstructed by Reuse, selected transition layers are
+corrected by Patch, Patch and Reuse jointly cover all layers, and
+`fallback_layers` / recomputation are not allowed in the claim-facing
+`scd_full` path. The selected route should maximize Reuse while preserving
+F1/EM against the full-consumer/oracle baseline. The current
+CMRC200 F1/EM-primary selected route is
+`configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json`.
+It uses 19 Reuse layers and 13 Patch layers. All 13 one-layer Reuse20
+extensions from this route were tested on CMRC200 and failed to preserve F1;
+avg NLL is an auxiliary risk signal rather than the primary selector. Validate the route
+with:
 
 ```bash
 python scripts/validate_scd_route.py --route <route.json> --require-mixed
 ```
 
-The current open-release route roles are:
+The current verified aggregate run is
+`/disk_n/c101-3-mql/projects/SCD-ICML/runs/scd_icml_selected_reuse19_5method_aggregate_20260610_034426`.
+It contains 15 rows for CMRC2018, HotpotQA, and WikiText-2 across
+`full_consumer`, `raw_kv`, `quantized_4bit`, `reuse_only`, and `scd_full`, and
+passes `scripts/check_release_readiness.py --run-root`.
 
-- `reuse19_patch13`: paper-aligned maximum-Reuse reference route. It remains
-  useful for historical comparison, but it is not the current vLLM demo route.
-- `patch20_reuse12`: current vLLM plugin demo route. It has raw-bank-to-vLLM
-  smoke evidence with `greedy_1tok_match=True` and `greedy_ntok_match=True`.
-- `patch26_reuse6`: current quality-first reference route for CMRC2018 and
-  WikiText-2. It also has raw-bank-to-vLLM smoke evidence with
-  `greedy_1tok_match=True` and `greedy_ntok_match=True`.
+Use this aggregate's CMRC2018 rows as the current selected-route quality
+evidence. Do not use its HotpotQA rows for quality claims: later full-context,
+no-truncation HotpotQA runs fixed the abnormal baseline and show poor
+Reuse19/Patch13 retention. The current HotpotQA evidence is:
 
-The current branch-local release evidence is summarized in
-`../../docs/scd-vllm-open-release-status-2026-06-17.md` and in these artifact
-directories:
+- `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_fullcontext_full_scd_20260610_115952`
+  reports Full Consumer F1 `0.4005`, EM `0.265` versus SCD F1 `0.1383`, EM
+  `0.105`.
+- `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_full_banks_20260610_192156`
+  reports Full Consumer F1 `0.3838`, EM `0.235` versus SCD mixed-from-banks F1
+  `0.0920`, EM `0.065` on a disjoint heldout split.
 
-- `../../Experiment/results/a800_scd_vllm_raw_bank_patch20_run_20260618_032217/`
-  for higher-Reuse raw-bank-to-vLLM plugin evidence.
-- `../../Experiment/results/a800_scd_vllm_raw_bank_patch26_run_20260618_044521/`
-  for quality-first raw-bank-to-vLLM plugin evidence.
-- `../../Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/patch20/`
-  and
-  `../../Experiment/results/a800_mistral_d1ce508_b256_shm_20260618_0938/patch26/`
-  for the main Mistral repeated-prefix trusted microbenchmark. These compare
-  plain vLLM, vLLM `prefix-cache`, and Mistral `SCDPreloadedConnector` batch
-  load for the current `patch20_reuse12` and `patch26_reuse6` routes with
-  `batch_size=256`, `num_batches=5`, and `expected_requests=1280`. The
-  artifact also records worker-side preloaded-cache stats:
-  `cache_misses=32`, `cache_hits=49120`, and `cache_hit_rate=0.999349` for
-  each route. SCDPreloaded is faster than plain vLLM on this repeated-prefix
-  shape (`3.30x` for `patch20_reuse12`, `3.12x` for `patch26_reuse6`), but it
-  remains slower than native vLLM prefix caching; do not report it as a
-  general serving-speed claim over vLLM.
-- `../../Experiment/results/a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache/`
-  for direct official-vLLM launch-spec consumption evidence on the Mistral
-  quality-first route. It reports `launch_smoke_pass=True`,
-  `bundle_token_match=True`, final `SCDPreloadedConnector` cache stats, and
-  an explicit single-tenant trusted-bundle launch-spec safety contract.
-- `../../Experiment/results/a800_qwen17_scd_vllm_preloadedstats_20260618_cache/`
-  for additional-model repeated-prefix trusted microbenchmark evidence. It
-  compares plain vLLM, vLLM `prefix-cache`, and Qwen
-  `SCDPreloadedConnector` batch load. The
-  preloaded connector records worker-side cache stats (`cache_hits=14308`,
-  `cache_misses=28`, `cache_hit_rate=0.998047`) and reduces disk-backed
-  ExampleConnector overhead, but the measured SCD load throughput is still
-  lower than both vLLM baselines and must not be used as a speedup claim.
-- `../../Experiment/results/a800_qwen17_scd_vllm_launchsmoke_20260618_cache/`
-  for direct official-vLLM launch-spec consumption evidence on the Qwen route.
-  It reports `launch_smoke_pass=True`, `bundle_token_match=True`,
-  `request_count=128`, final `SCDPreloadedConnector` cache stats, and an
-  explicit single-tenant trusted-bundle launch-spec safety contract.
-- `../../Experiment/results/scd_vllm_multidataset_full_strict_20260617/` for
-  full CMRC2018 and HotpotQA strict QA evidence.
-- `../../Experiment/results/wikitext2_patch20_patch26_full_current_20260618_034812/`
-  for full WikiText-2 NLL/PPL evidence.
+The older snapshot at
+`/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854` has a
+stronger HotpotQA patch-only result, but that path uses question-aware evidence
+compression and `max_length=512`; treat it as a separate compressed-prompt
+benchmark, not as evidence for the diagnostic full-context rows. The current
+runtime exposes this protocol as `--dataset hotpotqa_compressed`, and this is
+the paper-facing HotpotQA protocol. The current full7405 bracket is closed for
+the first passing/failing pair and can be refined with intervening reuse counts.
+A question-text overlap audit found that the old full7405 eval includes the
+100 training questions, but removing those 100 samples leaves Patch-only at F1
+`0.3514`, EM `0.2516`, so the old result is not primarily explained by the
+small overlap.
 
-For QA datasets, use F1/EM as the primary quality metrics. For WikiText-2, use
-NLL/PPL as the primary language-modeling metrics. Do not claim that one route
-is universally best across all datasets: `patch20_reuse12` is the higher-Reuse
-and speed-oriented vLLM demo route, while `patch26_reuse6` is the safer
-quality route for CMRC2018 and WikiText-2. Both strict WikiText-2 routes
-improve TTFT but worsen PPL relative to Full Consumer, so report that trade-off
-explicitly.
+Current consolidation note: the paper-facing HotpotQA reproduction should now
+be checked under the GitHub-compatible `hotpotqa_compressed` protocol with
+`MAX_LENGTH=512` and full7405 evaluation. The full-context rows above are
+diagnostic evidence that the CMRC-selected route is not universal; they should
+not replace the compressed-protocol full7405 route table. The current
+full7405 boundary is closed: `reuse04_patch28`, `reuse05_patch27`, and
+`reuse06_patch26` pass the absolute F1-drop gate, while `reuse07_patch25` and
+`reuse08_patch24` fail. The selected full7405 route is `reuse06_patch26`.
 
 ## Historical Files
 

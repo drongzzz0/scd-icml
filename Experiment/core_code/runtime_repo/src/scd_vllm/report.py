@@ -1,3 +1,9 @@
+"""汇总 vLLM 集成证据的报告生成器。
+
+报告只聚合已有 repo audit、env probe、baseline、TrueKV oracle、
+bundle export 和 injection smoke 结果；缺失证据会被标出，不会被填充。
+"""
+
 from __future__ import annotations
 
 import argparse

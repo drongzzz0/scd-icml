@@ -115,6 +115,7 @@ cat > "${MEASURE_DIR}/gpu_assignment.json" <<EOF
 EOF
 
 cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${CALIB_CMRC_DIR}/cmrc2018_train.json"
+cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${CALIB_CMRC_DIR}/cmrc2018_dev.json"
 cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${EVAL_CMRC_DIR}/cmrc2018_train.json"
 cp "${DATA_SOURCE_DIR}/cmrc2018_dev.json" "${EVAL_CMRC_DIR}/cmrc2018_dev.json"
 
@@ -123,7 +124,7 @@ import json
 from pathlib import Path
 from scd_repro.cmrc import load_cmrc2018_samples
 
-rows = load_cmrc2018_samples("${CALIB_ROOT}", limit=int("${CALIB_SAMPLES}"), split="train")
+rows = load_cmrc2018_samples("${CALIB_ROOT}", limit=int("${CALIB_SAMPLES}"))
 out = Path("${PROMPTS_JSON}")
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps([row.prompt for row in rows], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

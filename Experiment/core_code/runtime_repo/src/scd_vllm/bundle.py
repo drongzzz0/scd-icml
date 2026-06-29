@@ -1,3 +1,10 @@
+"""SCD cache bundle 的 manifest 和完整性校验。
+
+bundle 是 vLLM 集成路径的交换格式：它绑定 token 序列、KV shape、路线
+hash、模型标识和质量门限。后续转换为 ExampleConnector storage 之前，
+必须先通过这里的 schema 和 hash 校验。
+"""
+
 from __future__ import annotations
 
 import hashlib

@@ -51,74 +51,6 @@ MAX_LENGTH=256 MAX_NEW_TOKENS=8 \
 bash scripts/run_ser_scd_icml_mistral_repro.sh
 ```
 
-The experimental vLLM adapter is exposed through the `scd-vllm` console
-script. Start with the static doctor check before launching GPU work:
-
-```bash
-scd-vllm doctor \
-  --producer-model /path/to/producer \
-  --consumer-model /path/to/consumer \
-  --reuse-ckpt /path/to/reuse \
-  --patch-ckpt /path/to/patch \
-  --route configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json
-```
-
-For the current vLLM demo route, use
-`configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json`.
-It keeps strict reuse+patch-only semantics and is the route with the strongest
-reuse/speed trade-off among the currently validated vLLM smoke routes.
-For quality-first CMRC2018 and WikiText-2 comparisons, use
-`configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json`.
-It also has raw-bank-to-vLLM greedy-smoke evidence in this branch.
-
-For an already reconstructed SCD bundle, check the bundle artifact instead:
-
-```bash
-scd-vllm doctor \
-  --bundle-dir runs/scd_vllm/my_bundle \
-  --route runs/scd_vllm/my_bundle/route.json
-```
-
-Then use `scd-vllm run` to export a reconstructed reuse+patch bundle, convert
-it to vLLM ExampleConnector-compatible storage, and run the smoke injection
-path. See `docs/scd_vllm_plugin_mvp.md` for the full command.
-
-For programmatic official-vLLM integration, generate a launch spec and validate
-it without occupying a GPU:
-
-```bash
-scd-vllm launch-spec \
-  --bundle-dir runs/scd_vllm/my_plugin_run/reuse_patch_bundle \
-  --storage-dir runs/scd_vllm/my_plugin_run/example_connector_storage \
-  --model /path/to/consumer \
-  --out runs/scd_vllm/launch_spec.json
-
-python examples/scd_vllm_official_launch.py \
-  --launch-spec runs/scd_vllm/launch_spec.json \
-  --dry-run
-```
-
-For full-dataset official-vLLM quality baselines, use the dataset evaluation
-entry point. It supports `cmrc2018`, `hotpotqa`, `hotpotqa_compressed`,
-`wikitext2`, and `wikitext-2`; QA datasets report F1/EM as the primary
-metric, while WikiText-2 reports PPL/NLL as the primary metric:
-
-```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3 \
-python -m scd_vllm.dataset_eval \
-  --dataset hotpotqa \
-  --data-root /path/to/data \
-  --model /path/to/consumer \
-  --tokenizer /path/to/consumer \
-  --cache-root /path/to/storage/model_cache \
-  --out runs/vllm_hotpotqa_full \
-  --dtype bfloat16 \
-  --max-model-len 8192 \
-  --tensor-parallel-size 4 \
-  --apply-chat-template \
-  --extra-instruction "Answer with only the final short answer. Do not explain."
-```
-
 ## Build Reuse + Patch + Route From Scratch
 
 Use this entry point when the checkpoint banks do not already exist. It is the
@@ -185,9 +117,8 @@ explicit guarded entry point:
 
 ```bash
 CONDA_ENV=cache \
-SCD_STORAGE_ROOT=/home/c101-800-mql/nas/SCD-ICML \
 MODELS_CONFIG=configs/models_a800_qwen25_32b_base_to_instruct_template.json \
-DATA_ROOT=/home/c101-800-mql/nas/SCD-ICML/data \
+DATA_ROOT=/home/student_t/maqianli/no4/data \
 DATASETS=cmrc2018 \
 bash scripts/run_a800_scd_icml_qwen32_repro.sh
 ```
@@ -197,8 +128,6 @@ This runner is intentionally fail-closed. It first runs
 rejects VL checkpoints, and requires two GPUs with sustained zero utilization
 and enough free memory before capture/training/evaluation starts. Do not use the
 legacy Qwen1.7B diagnostic scripts as evidence for the Qwen-32B paper row.
-It also keeps run outputs and model/runtime caches under `SCD_STORAGE_ROOT` by
-default; avoid pointing `MODEL_CACHE_ROOT` at a small `/home` or dev partition.
 The wrapper also waits by default for enough GPU memory before capture, train,
 and eval stages; override `WAIT_CAPTURE_FREE_MB`, `WAIT_TRAIN_FREE_MB`, and
 `WAIT_EVAL_FREE_MB` only if you have inspected GPU availability.

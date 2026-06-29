@@ -1,3 +1,10 @@
+"""``scd-vllm`` 命令行入口。
+
+这个 facade 把 bundle 导出、ExampleConnector 转换、doctor、launch-spec、
+launch-smoke 和一键 smoke pipeline 收在一个命令下。每个子命令仍委托
+给更小的实现模块，便于测试和单独复用。
+"""
+
 from __future__ import annotations
 
 import argparse

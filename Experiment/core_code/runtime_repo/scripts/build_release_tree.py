@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
@@ -14,9 +13,6 @@ ROOT_FILES = [
     "REPRODUCING_SCD_ICML.md",
     "DATA_PREPARATION.md",
     "OPEN_SOURCE_RELEASE_MANIFEST.md",
-    "docs/scd_vllm_plugin_mvp.md",
-    "reports/scd_vllm_repo_audit.md",
-    "reports/scd_vllm_status.md",
     "pyproject.toml",
 ]
 
@@ -30,7 +26,6 @@ CONFIG_FILES = [
     "configs/models_ser_mistrallite_to_mistral7_mql.json",
     "configs/models_ser_mistrallite_to_mistral7_mql_single_gpu.json",
     "configs/models_ser_mistral7_to_mistrallite_mql.json",
-    "configs/scd_vllm_mvp.yaml",
     "configs/train_reuse_mistral_self_layerwise_20260404.json",
     "configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_paper_k6_e1_h2048_r512_b2_20260404.json",
     "configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_alllayers_e1_h2048_r512_b2_20260404.json",
@@ -39,8 +34,6 @@ CONFIG_FILES = [
     "configs/route_selection.yaml",
     "configs/route_reuse_patchonly_all32_20260404.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
-    "configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
-    "configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json",
 ]
 
 SCRIPT_FILES = [
@@ -80,24 +73,10 @@ SCRIPT_FILES = [
     "scripts/check_release_readiness.py",
     "scripts/check_release_smoke_status.py",
     "scripts/build_release_tree.py",
-    "scripts/scd_vllm/run_00_repo_audit.sh",
-    "scripts/scd_vllm/run_01_env_probe.sh",
-    "scripts/scd_vllm/run_02_hf_export.sh",
-    "scripts/scd_vllm/run_03_vllm_baseline.sh",
-    "scripts/scd_vllm/run_04_truekv_oracle.sh",
-    "scripts/scd_vllm/run_05_reconstructed_export.sh",
-    "scripts/scd_vllm/run_05_scd_injection.sh",
-    "scripts/scd_vllm/run_06_report.sh",
-]
-
-EXAMPLE_FILES = [
-    "examples/scd_vllm_official_launch.py",
 ]
 
 COPY_DIRS = [
     "src/scd_repro",
-    "src/scd_vllm",
-    "src/scd_vllm_plugin",
     "tests",
 ]
 
@@ -189,9 +168,7 @@ def write_report(root: Path, out: Path, included: list[str]) -> None:
 
 def run_check(out: Path) -> None:
     cmd = [sys.executable, str(out / "scripts" / "check_release_readiness.py"), "--root", str(out)]
-    env = dict(os.environ)
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    subprocess.run(cmd, check=True, env=env)
+    subprocess.run(cmd, check=True)
 
 
 def main() -> None:
@@ -208,7 +185,7 @@ def main() -> None:
     out.mkdir(parents=True)
 
     included: list[str] = []
-    for rel in ROOT_FILES + CONFIG_FILES + SCRIPT_FILES + EXAMPLE_FILES:
+    for rel in ROOT_FILES + CONFIG_FILES + SCRIPT_FILES:
         copy_file(root, out, rel)
         included.append(rel)
     for rel in COPY_DIRS:

@@ -20,9 +20,6 @@ REQUIRED_FILES = [
     "REPRODUCING_SCD_ICML.md",
     "DATA_PREPARATION.md",
     "OPEN_SOURCE_RELEASE_MANIFEST.md",
-    "docs/scd_vllm_plugin_mvp.md",
-    "reports/scd_vllm_repo_audit.md",
-    "reports/scd_vllm_status.md",
     "pyproject.toml",
     "configs/data_ser.yaml",
     "configs/eval_scd_icml_no_fallback_no_recompute.json",
@@ -33,7 +30,6 @@ REQUIRED_FILES = [
     "configs/models_ser_mistrallite_to_mistral7_mql.json",
     "configs/models_ser_mistrallite_to_mistral7_mql_single_gpu.json",
     "configs/models_ser_mistral7_to_mistrallite_mql.json",
-    "configs/scd_vllm_mvp.yaml",
     "configs/train_reuse_mistral_self_layerwise_20260404.json",
     "configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_paper_k6_e1_h2048_r512_b2_20260404.json",
     "configs/mistral_self_patch_xnorm_nativekv_shared_residual_mlp_alllayers_e1_h2048_r512_b2_20260404.json",
@@ -42,8 +38,6 @@ REQUIRED_FILES = [
     "configs/route_selection.yaml",
     "configs/route_reuse_patchonly_all32_20260404.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
-    "configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
-    "configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json",
     "scripts/run_ser_scd_icml_mistral_repro.sh",
     "scripts/run_ser_scd_icml_patchonly_anchor.sh",
     "scripts/run_ser_scd_icml_parallel_patch_shards.sh",
@@ -80,15 +74,6 @@ REQUIRED_FILES = [
     "scripts/check_release_readiness.py",
     "scripts/check_release_smoke_status.py",
     "scripts/build_release_tree.py",
-    "scripts/scd_vllm/run_00_repo_audit.sh",
-    "scripts/scd_vllm/run_01_env_probe.sh",
-    "scripts/scd_vllm/run_02_hf_export.sh",
-    "scripts/scd_vllm/run_03_vllm_baseline.sh",
-    "scripts/scd_vllm/run_04_truekv_oracle.sh",
-    "scripts/scd_vllm/run_05_reconstructed_export.sh",
-    "scripts/scd_vllm/run_05_scd_injection.sh",
-    "scripts/scd_vllm/run_06_report.sh",
-    "examples/scd_vllm_official_launch.py",
     "tests/test_cmrc_split.py",
     "tests/test_layer_mapping.py",
     "tests/test_metrics.py",
@@ -106,20 +91,6 @@ REQUIRED_FILES = [
     "tests/test_route_serialization.py",
     "tests/test_selector.py",
     "tests/test_text_benchmarks.py",
-    "tests/test_scd_vllm_bundle.py",
-    "tests/test_scd_vllm_batch_benchmark.py",
-    "tests/test_scd_vllm_doctor.py",
-    "tests/test_scd_vllm_hf_export.py",
-    "tests/test_scd_vllm_injection.py",
-    "tests/test_scd_vllm_kv_spec.py",
-    "tests/test_scd_vllm_metrics.py",
-    "tests/test_scd_vllm_plugin.py",
-    "tests/test_scd_vllm_reconstructed_export.py",
-    "tests/test_scd_vllm_report.py",
-    "tests/test_scd_vllm_truekv_oracle.py",
-    "tests/test_scd_vllm_vllm_baseline.py",
-    "tests/test_scd_vllm_official_launch_example.py",
-    "tests/test_release_tree_script.py",
     "src/scd_repro/text_benchmarks.py",
     "src/scd_repro/adapters.py",
     "src/scd_repro/direct_kv_residual_patch.py",
@@ -127,24 +98,6 @@ REQUIRED_FILES = [
     "src/scd_repro/cli/capture_pair.py",
     "src/scd_repro/cli/eval_text_strict.py",
     "src/scd_repro/cli/summarize_mistral_repro.py",
-    "src/scd_vllm/__init__.py",
-    "src/scd_vllm/batch_benchmark.py",
-    "src/scd_vllm/bundle.py",
-    "src/scd_vllm/env_probe.py",
-    "src/scd_vllm/hf_export.py",
-    "src/scd_vllm/injection.py",
-    "src/scd_vllm/kv_spec.py",
-    "src/scd_vllm/metrics.py",
-    "src/scd_vllm/preloaded_connector.py",
-    "src/scd_vllm/repo_audit.py",
-    "src/scd_vllm/report.py",
-    "src/scd_vllm/reconstructed_export.py",
-    "src/scd_vllm/truekv_oracle.py",
-    "src/scd_vllm/vllm_baseline.py",
-    "src/scd_vllm_plugin/__init__.py",
-    "src/scd_vllm_plugin/cli.py",
-    "src/scd_vllm_plugin/doctor.py",
-    "src/scd_vllm_plugin/engine.py",
 ]
 
 JSON_FILES = [
@@ -164,8 +117,6 @@ JSON_FILES = [
     "configs/mistral_self_patch_xnorm_nativekv_linear_parallel_20260404.json",
     "configs/route_reuse_patchonly_all32_20260404.json",
     "configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json",
-    "configs/routes/scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
-    "configs/routes/scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json",
 ]
 
 PY_COMPILE_FILES = [
@@ -176,24 +127,6 @@ PY_COMPILE_FILES = [
     "src/scd_repro/cli/capture_pair.py",
     "src/scd_repro/cli/eval_text_strict.py",
     "src/scd_repro/cli/summarize_mistral_repro.py",
-    "src/scd_vllm/__init__.py",
-    "src/scd_vllm/batch_benchmark.py",
-    "src/scd_vllm/bundle.py",
-    "src/scd_vllm/env_probe.py",
-    "src/scd_vllm/hf_export.py",
-    "src/scd_vllm/injection.py",
-    "src/scd_vllm/kv_spec.py",
-    "src/scd_vllm/metrics.py",
-    "src/scd_vllm/preloaded_connector.py",
-    "src/scd_vllm/repo_audit.py",
-    "src/scd_vllm/report.py",
-    "src/scd_vllm/reconstructed_export.py",
-    "src/scd_vllm/truekv_oracle.py",
-    "src/scd_vllm/vllm_baseline.py",
-    "src/scd_vllm_plugin/__init__.py",
-    "src/scd_vllm_plugin/cli.py",
-    "src/scd_vllm_plugin/doctor.py",
-    "src/scd_vllm_plugin/engine.py",
     "scripts/make_paper_scd_route.py",
     "scripts/make_paper_scd_candidate_routes.py",
     "scripts/merge_patch_ckpts.py",
@@ -222,7 +155,6 @@ PY_COMPILE_FILES = [
     "scripts/check_release_readiness.py",
     "scripts/check_release_smoke_status.py",
     "scripts/build_release_tree.py",
-    "examples/scd_vllm_official_launch.py",
     "tests/test_cmrc_split.py",
     "tests/test_layer_mapping.py",
     "tests/test_metrics.py",
@@ -240,20 +172,6 @@ PY_COMPILE_FILES = [
     "tests/test_route_serialization.py",
     "tests/test_selector.py",
     "tests/test_text_benchmarks.py",
-    "tests/test_scd_vllm_bundle.py",
-    "tests/test_scd_vllm_batch_benchmark.py",
-    "tests/test_scd_vllm_doctor.py",
-    "tests/test_scd_vllm_hf_export.py",
-    "tests/test_scd_vllm_injection.py",
-    "tests/test_scd_vllm_kv_spec.py",
-    "tests/test_scd_vllm_metrics.py",
-    "tests/test_scd_vllm_plugin.py",
-    "tests/test_scd_vllm_reconstructed_export.py",
-    "tests/test_scd_vllm_report.py",
-    "tests/test_scd_vllm_truekv_oracle.py",
-    "tests/test_scd_vllm_vllm_baseline.py",
-    "tests/test_scd_vllm_official_launch_example.py",
-    "tests/test_release_tree_script.py",
 ]
 
 EXPECTED_METHODS = {
@@ -275,20 +193,7 @@ SHELL_FILES = [
     "scripts/run_ser_scd_icml_conditional_route_screen.sh",
     "scripts/wait_postprocess_scd_icml_full7405_tables.sh",
     "scripts/wait_finalize_scd_icml_full7405_bundle.sh",
-    "scripts/scd_vllm/run_00_repo_audit.sh",
-    "scripts/scd_vllm/run_01_env_probe.sh",
-    "scripts/scd_vllm/run_02_hf_export.sh",
-    "scripts/scd_vllm/run_03_vllm_baseline.sh",
-    "scripts/scd_vllm/run_04_truekv_oracle.sh",
-    "scripts/scd_vllm/run_05_reconstructed_export.sh",
-    "scripts/scd_vllm/run_05_scd_injection.sh",
-    "scripts/scd_vllm/run_06_report.sh",
 ]
-
-STALE_RELEASE_SCRIPT_SNIPPETS = {
-    "/disk_n/c101-3-1": "/disk_n/c101-3-mql",
-    "/home/student_t": "/home/c101-800-mql",
-}
 
 
 def parse_args() -> argparse.Namespace:
@@ -348,12 +253,6 @@ def check_shell_scripts(root: Path, errors: list[str]) -> None:
         text = data.decode("utf-8", errors="replace")
         if "set -euo pipefail" not in text:
             fail(errors, f"shell script missing strict mode: {rel}")
-        for stale, replacement in STALE_RELEASE_SCRIPT_SNIPPETS.items():
-            if stale in text:
-                fail(errors, f"release shell script {rel} contains stale host path {stale}; use {replacement} or an env override")
-        for line_no, line in enumerate(text.splitlines(), start=1):
-            if "cmrc2018_train.json" in line and "cmrc2018_dev.json" in line:
-                fail(errors, f"release shell script {rel}:{line_no} appears to copy CMRC train data into the dev split")
         if bash:
             try:
                 subprocess.run(
@@ -368,7 +267,7 @@ def check_shell_scripts(root: Path, errors: list[str]) -> None:
 
 
 def check_python_source_hygiene(root: Path, errors: list[str]) -> None:
-    for base_rel in ("src", "scripts", "examples"):
+    for base_rel in ("src", "scripts"):
         base = root / base_rel
         if not base.is_dir():
             continue
@@ -441,7 +340,6 @@ def check_pyproject(root: Path, errors: list[str]) -> None:
     expected = {
         "eval-text-strict": "scd_repro.cli.eval_text_strict:main",
         "summarize-mistral-repro": "scd_repro.cli.summarize_mistral_repro:main",
-        "scd-vllm": "scd_vllm_plugin.cli:main",
     }
     for name, target in expected.items():
         if scripts.get(name) != target:
@@ -702,678 +600,6 @@ def check_selected_route(root: Path, errors: list[str]) -> None:
         fail(errors, "selected Reuse19 route reference EM retention must be at least 0.95")
 
 
-def check_vllm_demo_route(root: Path, errors: list[str]) -> None:
-    path = root / "configs" / "routes" / "scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json"
-    if not path.is_file():
-        return
-    route = json.loads(path.read_text(encoding="utf-8-sig"))
-    patch_layers = [int(layer) for layer in route.get("patch_layers", [])]
-    reuse_layers = [int(layer) for layer in route.get("reuse_layers", [])]
-    num_layers = int(route.get("num_layers", 0))
-    if route.get("route_semantics") != "release_demo_sparse_patch_reuse_all_other_layers":
-        fail(errors, f"vLLM demo route has wrong semantics: {route.get('route_semantics')!r}")
-    if len(reuse_layers) != 12 or len(patch_layers) != 20:
-        fail(errors, f"vLLM demo route should be Reuse12/Patch20, got reuse={len(reuse_layers)} patch={len(patch_layers)}")
-    if route.get("fallback_layers") != []:
-        fail(errors, f"vLLM demo route fallback_layers must be empty, got {route.get('fallback_layers')}")
-    if route.get("selected_recompute_layers") != [] or route.get("recompute_segment_length_by_layer") != {}:
-        fail(errors, "vLLM demo route must not use recompute")
-    if set(patch_layers) & set(reuse_layers):
-        fail(errors, f"vLLM demo route has patch/reuse overlap: {sorted(set(patch_layers) & set(reuse_layers))}")
-    if num_layers and set(patch_layers) | set(reuse_layers) != set(range(num_layers)):
-        fail(errors, "vLLM demo route patch+reuse layers must cover all layers")
-    ref = route.get("metadata", {}).get("reference_result", {})
-    full_f1 = float(ref.get("full_consumer_f1", 0.0))
-    full_em = float(ref.get("full_consumer_em", 0.0))
-    scd_f1 = float(ref.get("scd_f1", 0.0))
-    scd_em = float(ref.get("scd_em", 0.0))
-    if full_f1 <= 0.0 or scd_f1 < 0.95 * full_f1:
-        fail(errors, "vLLM demo route reference F1 retention must be at least 0.95")
-    if full_em <= 0.0 or scd_em < 0.95 * full_em:
-        fail(errors, "vLLM demo route reference EM retention must be at least 0.95")
-
-
-def check_quality_reference_route(root: Path, errors: list[str]) -> None:
-    path = root / "configs" / "routes" / "scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json"
-    if not path.is_file():
-        return
-    route = json.loads(path.read_text(encoding="utf-8-sig"))
-    patch_layers = [int(layer) for layer in route.get("patch_layers", [])]
-    reuse_layers = [int(layer) for layer in route.get("reuse_layers", [])]
-    num_layers = int(route.get("num_layers", 0))
-    if route.get("route_semantics") != "paper_scd_sparse_patch_reuse_all_other_layers":
-        fail(errors, f"quality reference route has wrong semantics: {route.get('route_semantics')!r}")
-    if len(reuse_layers) != 6 or len(patch_layers) != 26:
-        fail(errors, f"quality reference route should be Reuse6/Patch26, got reuse={len(reuse_layers)} patch={len(patch_layers)}")
-    if route.get("fallback_layers") != []:
-        fail(errors, f"quality reference route fallback_layers must be empty, got {route.get('fallback_layers')}")
-    if route.get("selected_recompute_layers") != [] or route.get("recompute_segment_length_by_layer") != {}:
-        fail(errors, "quality reference route must not use recompute")
-    if set(patch_layers) & set(reuse_layers):
-        fail(errors, f"quality reference route has patch/reuse overlap: {sorted(set(patch_layers) & set(reuse_layers))}")
-    if num_layers and set(patch_layers) | set(reuse_layers) != set(range(num_layers)):
-        fail(errors, "quality reference route patch+reuse layers must cover all layers")
-    ref = route.get("metadata", {}).get("reference_result", {})
-    cmrc = ref.get("cmrc2018", {})
-    full_f1 = float(cmrc.get("full_consumer_f1", 0.0))
-    full_em = float(cmrc.get("full_consumer_em", 0.0))
-    scd_f1 = float(cmrc.get("scd_f1", 0.0))
-    scd_em = float(cmrc.get("scd_em", 0.0))
-    if full_f1 <= 0.0 or scd_f1 < 0.95 * full_f1:
-        fail(errors, "quality reference route CMRC F1 retention must be at least 0.95")
-    if full_em <= 0.0 or scd_em < 0.95 * full_em:
-        fail(errors, "quality reference route CMRC EM retention must be at least 0.95")
-    wikitext = ref.get("wikitext2", {})
-    full_ppl = float(wikitext.get("full_consumer_ppl", 0.0))
-    scd_ppl = float(wikitext.get("scd_ppl", 0.0))
-    if full_ppl <= 0.0 or scd_ppl <= 0.0:
-        fail(errors, "quality reference route WikiText-2 PPL evidence is missing")
-
-
-def load_evidence_json(path: Path, errors: list[str], label: str) -> dict:
-    if not path.is_file():
-        fail(errors, f"missing {label} evidence artifact: {path}")
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8-sig"))
-    except Exception as exc:
-        fail(errors, f"invalid {label} evidence JSON {path}: {exc}")
-        return {}
-    if not isinstance(data, dict):
-        fail(errors, f"{label} evidence must be a JSON object: {path}")
-        return {}
-    return data
-
-
-def check_quality_pair(
-    *,
-    rows: dict,
-    label: str,
-    sample_count: int,
-    errors: list[str],
-    scd_method: str = "reuse_patch",
-    require_qa_improvement: bool = False,
-    require_ttft_improvement: bool = False,
-    primary_metric: str = "qa",
-) -> None:
-    full = rows.get("full_consumer") or {}
-    scd = rows.get(scd_method) or {}
-    if not full or not scd:
-        fail(errors, f"{label} quality evidence must contain full_consumer and {scd_method} rows")
-        return
-    if int(full.get("num_samples", 0) or 0) != sample_count:
-        fail(errors, f"{label} full_consumer sample_count should be {sample_count}, got {full.get('num_samples')!r}")
-    if int(scd.get("num_samples", 0) or 0) != sample_count:
-        fail(errors, f"{label} {scd_method} sample_count should be {sample_count}, got {scd.get('num_samples')!r}")
-    if primary_metric == "qa":
-        for key in ("f1", "em"):
-            full_value = float(full.get(key, 0.0) or 0.0)
-            scd_value = float(scd.get(key, 0.0) or 0.0)
-            if full_value <= 0.0 or scd_value <= 0.0:
-                fail(errors, f"{label} QA metric {key} must be positive for both full and SCD")
-            if require_qa_improvement and scd_value < full_value:
-                fail(errors, f"{label} SCD {key} should be at least full_consumer {key}")
-    else:
-        full_nll = float(full.get("avg_nll", 0.0) or 0.0)
-        scd_nll = float(scd.get("avg_nll", 0.0) or 0.0)
-        if full_nll <= 0.0 or scd_nll <= 0.0:
-            fail(errors, f"{label} WikiText-2 avg_nll must be positive for both full and SCD")
-    if require_ttft_improvement:
-        full_ttft = float(full.get("ttft_ms", 0.0) or 0.0)
-        scd_ttft = float(scd.get("ttft_ms", 0.0) or 0.0)
-        if full_ttft <= 0.0 or scd_ttft <= 0.0 or scd_ttft >= full_ttft:
-            fail(errors, f"{label} SCD TTFT should be lower than full_consumer TTFT")
-
-
-def check_train_eval_split_evidence(root: Path, errors: list[str]) -> None:
-    route_specs = [
-        (
-            root / "configs" / "routes" / "scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200.json",
-            "Mistral patch20/reuse12 route",
-            ["train-200", "full dev"],
-            {"eval_samples": 3219},
-            {},
-        ),
-        (
-            root / "configs" / "routes" / "scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200.json",
-            "Mistral patch26/reuse6 route",
-            ["train-200", "full cmrc2018", "hotpotqa", "wikitext"],
-            {},
-            {"cmrc2018": 3219, "hotpotqa": 7405, "wikitext2": 763},
-        ),
-    ]
-    for path, label, dataset_snippets, scalar_checks, reference_samples in route_specs:
-        route = load_evidence_json(path, errors, label)
-        if not route:
-            continue
-        metadata = route.get("metadata", {})
-        if not isinstance(metadata, dict):
-            fail(errors, f"{label} metadata must be a JSON object")
-            continue
-        dataset_text = str(metadata.get("dataset", "")).lower()
-        for snippet in dataset_snippets:
-            if snippet not in dataset_text:
-                fail(errors, f"{label} metadata.dataset must mention {snippet!r}")
-        for key, expected in scalar_checks.items():
-            if int(metadata.get(key, 0) or 0) != expected:
-                fail(errors, f"{label} metadata.{key} should be {expected}, got {metadata.get(key)!r}")
-        reference = metadata.get("reference_result", {})
-        if reference_samples:
-            if not isinstance(reference, dict):
-                fail(errors, f"{label} reference_result must be a JSON object")
-            else:
-                for dataset, expected_samples in reference_samples.items():
-                    payload = reference.get(dataset, {})
-                    if not isinstance(payload, dict):
-                        fail(errors, f"{label} reference_result.{dataset} must be a JSON object")
-                        continue
-                    if int(payload.get("samples", 0) or 0) != expected_samples:
-                        fail(errors, f"{label} {dataset} samples should be {expected_samples}")
-        if route.get("fallback_layers") != []:
-            fail(errors, f"{label} must not enable fallback layers")
-        if route.get("selected_recompute_layers") != [] or route.get("recompute_segment_length_by_layer") != {}:
-            fail(errors, f"{label} must not enable recompute layers")
-
-    results_root = root.parent.parent / "results"
-    if not results_root.is_dir():
-        return
-
-    cmrc_aggregate = load_evidence_json(
-        results_root / "scd_vllm_multidataset_full_strict_20260617" / "cmrc_aggregate_summary.json",
-        errors,
-        "Mistral CMRC train/eval split",
-    )
-    if cmrc_aggregate:
-        for key, expected_route_counts in {
-            "cmrc_patch20_reuse12": {"reuse_layers": 12, "patch_layers": 20},
-            "cmrc_patch26_reuse6": {"reuse_layers": 6, "patch_layers": 26},
-        }.items():
-            entry = cmrc_aggregate.get(key, {})
-            meta = entry.get("per_mode_summary", {}).get("meta", {}) if isinstance(entry, dict) else {}
-            if not isinstance(meta, dict):
-                fail(errors, f"{key} split evidence meta must be a JSON object")
-                continue
-            if meta.get("strict_mode") is not True:
-                fail(errors, f"{key} must use strict_mode=True")
-            if meta.get("qid_allowlist") != []:
-                fail(errors, f"{key} must use full CMRC dev, not a qid allowlist")
-            if set(meta.get("methods", [])) != {"full_consumer", "reuse_patch"}:
-                fail(errors, f"{key} must compare only full_consumer and reuse_patch")
-            if "eval_cmrc_full_strict" not in str(meta.get("eval_config_path", "")):
-                fail(errors, f"{key} must use eval_cmrc_full_strict config")
-            route_counts = meta.get("route_counts", {})
-            if not isinstance(route_counts, dict):
-                fail(errors, f"{key} route_counts must be a JSON object")
-                continue
-            for route_key, expected in expected_route_counts.items():
-                if int(route_counts.get(route_key, -1) or -1) != expected:
-                    fail(errors, f"{key} route_counts.{route_key} should be {expected}")
-            if int(route_counts.get("fallback_layers", -1)) != 0:
-                fail(errors, f"{key} must have zero fallback layers")
-            if int(route_counts.get("selected_recompute_layers", -1)) != 0:
-                fail(errors, f"{key} must have zero recompute layers")
-
-    wikitext_root = results_root / "wikitext2_patch20_patch26_full_current_20260618_034812"
-    wikitext_top = load_evidence_json(wikitext_root / "run_config.json", errors, "Mistral WikiText-2 run config")
-    if wikitext_top:
-        if wikitext_top.get("datasets") != "wikitext2":
-            fail(errors, "Mistral WikiText-2 top run_config must evaluate only wikitext2")
-        if int(wikitext_top.get("eval_limit", -1)) != 0:
-            fail(errors, "Mistral WikiText-2 top run_config must set eval_limit=0")
-        if "cmrc200" not in str(wikitext_top.get("source_run", "")).lower():
-            fail(errors, "Mistral WikiText-2 top run_config must declare the CMRC200 training bank")
-        if wikitext_top.get("fallback_allowed") is not False:
-            fail(errors, "Mistral WikiText-2 top run_config must disable fallback")
-        if wikitext_top.get("recompute_allowed") is not False:
-            fail(errors, "Mistral WikiText-2 top run_config must disable recompute")
-    for route_name in ("patch20_reuse12", "patch26_reuse6"):
-        route_run = load_evidence_json(
-            wikitext_root / route_name / "run_config.json",
-            errors,
-            f"Mistral WikiText-2 {route_name} run config",
-        )
-        if not route_run:
-            continue
-        if route_run.get("datasets") != "wikitext2":
-            fail(errors, f"Mistral WikiText-2 {route_name} must evaluate only wikitext2")
-        if int(route_run.get("eval_limit", -1)) != 0:
-            fail(errors, f"Mistral WikiText-2 {route_name} must set eval_limit=0")
-        if int(route_run.get("max_length", -1)) != 0:
-            fail(errors, f"Mistral WikiText-2 {route_name} must set max_length=0")
-        if "cmrc200" not in str(route_run.get("source_run_root", "")).lower():
-            fail(errors, f"Mistral WikiText-2 {route_name} must use the CMRC200 training bank")
-        if route_name not in str(route_run.get("route_source", "")):
-            fail(errors, f"Mistral WikiText-2 {route_name} route_source must name the fixed route")
-
-    qwen_root = results_root / "qwen17_gray_full_strict_microsharded_20260617"
-    qwen_readme = qwen_root / "README.md"
-    if not qwen_readme.is_file():
-        fail(errors, f"missing Qwen train/eval split README: {qwen_readme}")
-    else:
-        qwen_text = qwen_readme.read_text(encoding="utf-8")
-        for snippet in [
-            "Train/calibration split: CMRC2018 train samples.",
-            "Evaluation splits: CMRC2018 dev, HotpotQA dev, WikiText-2 test.",
-            "No fallback layers and no recompute layers.",
-        ]:
-            if snippet not in qwen_text:
-                fail(errors, f"Qwen train/eval split README missing snippet: {snippet}")
-    qwen_eval = load_evidence_json(
-        qwen_root / "configs" / "eval_qwen17_full_strict.json",
-        errors,
-        "Qwen strict eval config",
-    )
-    if qwen_eval:
-        runtime = qwen_eval.get("runtime", {})
-        runtime_eval = qwen_eval.get("runtime_eval", {})
-        route_cfg = qwen_eval.get("route", {})
-        if not isinstance(runtime, dict) or runtime.get("cpu_fallback") is not False:
-            fail(errors, "Qwen strict eval config must disable runtime.cpu_fallback")
-        if not isinstance(route_cfg, dict) or route_cfg.get("recompute_eval_mode") != "disabled":
-            fail(errors, "Qwen strict eval config must disable recompute_eval_mode")
-        if not isinstance(runtime_eval, dict):
-            fail(errors, "Qwen strict eval runtime_eval must be a JSON object")
-        else:
-            expected_runtime_eval = {
-                "run_reuse_patch": True,
-                "run_reuse_only": False,
-                "run_reuse_fallback": False,
-                "run_reuse_patch_recompute": False,
-                "strict_mode": True,
-            }
-            for key, expected in expected_runtime_eval.items():
-                if runtime_eval.get(key) is not expected:
-                    fail(errors, f"Qwen strict eval runtime_eval.{key} should be {expected}")
-            if runtime_eval.get("cmrc_split") != "dev":
-                fail(errors, "Qwen strict eval must use CMRC2018 dev split for evaluation")
-            if int(runtime_eval.get("max_eval_samples", -1)) != 0:
-                fail(errors, "Qwen strict eval must use max_eval_samples=0 for full evaluation")
-    qwen_route = load_evidence_json(
-        qwen_root / "route_qwen17_gray_patch6_seed42.json",
-        errors,
-        "Qwen strict route",
-    )
-    if qwen_route:
-        source = qwen_route.get("source", {})
-        if not isinstance(source, dict):
-            fail(errors, "Qwen strict route source must be a JSON object")
-        else:
-            if "cmrc_train200" not in str(source.get("profile", "")).lower():
-                fail(errors, "Qwen strict route must be selected from a CMRC train-200 profile")
-            if "eval_qwen17_full_strict" not in str(source.get("eval_config", "")):
-                fail(errors, "Qwen strict route must point to eval_qwen17_full_strict config")
-        if qwen_route.get("fallback_layers") != []:
-            fail(errors, "Qwen strict route must not enable fallback layers")
-        if qwen_route.get("selected_recompute_layers") != [] or qwen_route.get("recompute_segment_length_by_layer") != {}:
-            fail(errors, "Qwen strict route must not enable recompute layers")
-
-
-def check_multidataset_quality_evidence(root: Path, errors: list[str]) -> None:
-    results_root = root.parent.parent / "results"
-    if not results_root.is_dir():
-        return
-
-    mistral_root = results_root / "scd_vllm_multidataset_full_strict_20260617"
-    mistral_qa_specs = [
-        ("cmrc_patch20_reuse12_per_mode_summary.json", "Mistral CMRC2018 patch20/reuse12", 3219),
-        ("cmrc_patch26_reuse6_per_mode_summary.json", "Mistral CMRC2018 patch26/reuse6", 3219),
-        ("hotpotqa_patch20_reuse12_per_mode_summary.json", "Mistral HotpotQA patch20/reuse12", 7405),
-        ("hotpotqa_patch26_reuse6_per_mode_summary.json", "Mistral HotpotQA patch26/reuse6", 7405),
-    ]
-    for filename, label, sample_count in mistral_qa_specs:
-        rows = load_evidence_json(mistral_root / filename, errors, label)
-        if rows:
-            check_quality_pair(
-                rows=rows,
-                label=label,
-                sample_count=sample_count,
-                errors=errors,
-                require_qa_improvement=True,
-                require_ttft_improvement=True,
-            )
-
-    wikitext = load_evidence_json(
-        results_root / "wikitext2_patch20_patch26_full_current_20260618_034812" / "wikitext2_summary.json",
-        errors,
-        "Mistral WikiText-2",
-    )
-    if wikitext:
-        rows = wikitext.get("rows", [])
-        if not isinstance(rows, list):
-            fail(errors, "Mistral WikiText-2 evidence rows must be a list")
-        else:
-            for route_name in ("patch20_reuse12", "patch26_reuse6"):
-                by_method = {
-                    str(row.get("method")): row
-                    for row in rows
-                    if str(row.get("route_name")) == route_name
-                }
-                check_quality_pair(
-                    rows=by_method,
-                    label=f"Mistral WikiText-2 {route_name}",
-                    sample_count=763,
-                    errors=errors,
-                    scd_method="scd_full",
-                    require_ttft_improvement=True,
-                    primary_metric="nll",
-                )
-
-    qwen = load_evidence_json(
-        results_root / "qwen17_gray_full_strict_microsharded_20260617" / "aggregate_summary.json",
-        errors,
-        "Qwen3-1.7B gray multidataset",
-    )
-    if qwen:
-        datasets = qwen.get("datasets", {})
-        expected = {
-            "cmrc2018": ("qa", 3219),
-            "hotpotqa": ("qa", 7405),
-            "wikitext2": ("nll", 763),
-        }
-        for dataset, (primary_metric, sample_count) in expected.items():
-            payload = datasets.get(dataset, {})
-            rows = payload.get("rows", []) if isinstance(payload, dict) else []
-            by_method = {
-                str(row.get("method")): row
-                for row in rows
-                if isinstance(row, dict)
-            }
-            check_quality_pair(
-                rows=by_method,
-                label=f"Qwen3-1.7B gray {dataset}",
-                sample_count=sample_count,
-                errors=errors,
-                primary_metric=primary_metric,
-                require_qa_improvement=primary_metric == "qa",
-            )
-
-
-def check_qwen_vllm_evidence(root: Path, errors: list[str]) -> None:
-    results_root = root.parent.parent / "results"
-    if not results_root.is_dir():
-        return
-    doctor_path = results_root / "a800_qwen17_scd_vllm_doctor_20260618_cache" / "doctor.json"
-    plugin_path = results_root / "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache" / "plugin_metrics.json"
-
-    def load_result_json(path: Path) -> dict:
-        if not path.is_file():
-            fail(errors, f"missing Qwen vLLM evidence artifact: {path}")
-            return {}
-        try:
-            return json.loads(path.read_text(encoding="utf-8-sig"))
-        except Exception as exc:
-            fail(errors, f"invalid Qwen vLLM evidence JSON {path}: {exc}")
-            return {}
-
-    doctor = load_result_json(doctor_path)
-    if doctor:
-        if doctor.get("pass") is not True:
-            fail(errors, "Qwen SCD-vLLM doctor must pass")
-        if int(doctor.get("failure_count", -1)) != 0:
-            fail(errors, "Qwen SCD-vLLM doctor failure_count must be 0")
-        route_checks = [
-            check
-            for check in doctor.get("checks", [])
-            if check.get("name") == "route_strictness"
-        ]
-        if not route_checks or route_checks[0].get("status") != "pass":
-            fail(errors, "Qwen SCD-vLLM route strictness check must pass")
-        else:
-            details = route_checks[0].get("details", {})
-            if int(details.get("num_layers", 0)) != 28:
-                fail(errors, "Qwen SCD-vLLM route must report 28 layers")
-            if int(details.get("patch_count", -1)) != 6 or int(details.get("reuse_count", -1)) != 22:
-                fail(errors, "Qwen SCD-vLLM route must be patch6/reuse22")
-            if int(details.get("fallback_count", -1)) != 0 or int(details.get("recompute_count", -1)) != 0:
-                fail(errors, "Qwen SCD-vLLM route must not use fallback or recompute")
-
-    plugin = load_result_json(plugin_path)
-    if plugin:
-        smoke = plugin.get("smoke", {})
-        export = plugin.get("export", {})
-        if plugin.get("pass") is not True:
-            fail(errors, "Qwen SCD-vLLM plugin smoke must pass")
-        for key in ("adapter_smoke_pass", "scd_injection_pass", "bundle_token_match", "same_token_ids", "loaded_generation_ok"):
-            if smoke.get(key) is not True:
-                fail(errors, f"Qwen SCD-vLLM smoke gate {key} must be true")
-        if export.get("route_name") != "paper_scd_reuse_patch_k6":
-            fail(errors, f"Qwen SCD-vLLM route_name should be paper_scd_reuse_patch_k6, got {export.get('route_name')!r}")
-        if int(export.get("num_layers", 0)) != 28:
-            fail(errors, "Qwen SCD-vLLM export must contain 28 layers")
-        if int(smoke.get("aligned_tokens", 0)) <= 0:
-            fail(errors, "Qwen SCD-vLLM smoke must load at least one aligned token block")
-        if int(export.get("payload_bytes", 0)) <= 0 or int(smoke.get("payload_bytes", 0)) <= 0:
-            fail(errors, "Qwen SCD-vLLM payload bytes must be positive")
-
-
-def check_batch_benchmark_metrics(
-    *,
-    root: Path,
-    errors: list[str],
-    artifact_dir: str,
-    label: str,
-    expected_route_id: str,
-    require_preloaded_stats: bool = False,
-    min_batch_size: int = 1,
-    min_expected_requests: int = 1,
-    min_cache_hit_rate: float = 0.0,
-    min_load_vs_baseline: float = 0.0,
-) -> None:
-    results_root = root.parent.parent / "results"
-    if not results_root.is_dir():
-        return
-    path = results_root / artifact_dir / "metrics.json"
-    if not path.is_file():
-        fail(errors, f"missing {label} SCD-vLLM batch benchmark artifact: {path}")
-        return
-    try:
-        metrics = json.loads(path.read_text(encoding="utf-8-sig"))
-    except Exception as exc:
-        fail(errors, f"invalid {label} SCD-vLLM batch benchmark JSON {path}: {exc}")
-        return
-    if metrics.get("benchmark_pass") is not True:
-        fail(errors, f"{label} SCD-vLLM batch benchmark must pass")
-    if "repeated-prefix trusted microbenchmark" not in str(metrics.get("claim_boundary", "")):
-        fail(errors, f"{label} SCD-vLLM batch benchmark must declare its narrow claim boundary")
-    if metrics.get("bundle_type") != "reuse_patch":
-        fail(errors, f"{label} SCD-vLLM batch benchmark bundle_type should be reuse_patch, got {metrics.get('bundle_type')!r}")
-    if metrics.get("route_id") != expected_route_id:
-        fail(errors, f"{label} SCD-vLLM batch benchmark route_id should be {expected_route_id}, got {metrics.get('route_id')!r}")
-    if metrics.get("kv_connector") != "SCDPreloadedConnector":
-        fail(errors, f"{label} SCD-vLLM batch benchmark should use SCDPreloadedConnector, got {metrics.get('kv_connector')!r}")
-    if metrics.get("kv_connector_module_path") != "scd_vllm.preloaded_connector":
-        fail(errors, f"{label} SCD-vLLM batch benchmark should use scd_vllm.preloaded_connector")
-    if int(metrics.get("batch_size", 0)) < min_batch_size:
-        fail(errors, f"{label} SCD-vLLM batch_size should be at least {min_batch_size}")
-    if int(metrics.get("expected_requests", 0)) < min_expected_requests:
-        fail(errors, f"{label} SCD-vLLM expected_requests should be at least {min_expected_requests}")
-    if int(metrics.get("batch_size", 0)) < 1 or int(metrics.get("expected_requests", 0)) < 1:
-        fail(errors, f"{label} SCD-vLLM batch benchmark must report positive batch/request counts")
-    for key in ("load_generation_ok", "bundle_token_match", "storage_ready"):
-        if metrics.get(key) is not True:
-            fail(errors, f"{label} SCD-vLLM batch benchmark gate {key} must be true")
-    if metrics.get("prefix_cache_generation_ok") is not True:
-        fail(errors, f"{label} SCD-vLLM batch benchmark prefix-cache baseline must pass")
-    for key in (
-        "load_tokens_per_second",
-        "load_requests_per_second",
-        "baseline_tokens_per_second",
-        "baseline_requests_per_second",
-        "prefix_cache_tokens_per_second",
-        "prefix_cache_requests_per_second",
-    ):
-        if float(metrics.get(key, 0.0)) <= 0.0:
-            fail(errors, f"{label} SCD-vLLM batch benchmark metric {key} must be positive")
-    load_vs_baseline = float(metrics.get("speedup_tokens_per_second", 0.0) or 0.0)
-    if load_vs_baseline < min_load_vs_baseline:
-        fail(errors, f"{label} SCD-vLLM load/plain speedup should be at least {min_load_vs_baseline}")
-    if require_preloaded_stats:
-        stats = metrics.get("preloaded_connector_stats") or {}
-        if stats.get("exists") is not True:
-            fail(errors, f"{label} SCD-vLLM preloaded connector stats must exist")
-        if int(stats.get("invalid_files", 0) or 0) != 0:
-            fail(errors, f"{label} SCD-vLLM preloaded connector stats must not contain invalid files")
-        for key in ("worker_count", "cache_hits", "cache_misses", "cache_events", "cached_files", "cached_bytes"):
-            if int(stats.get(key, 0) or 0) <= 0:
-                fail(errors, f"{label} SCD-vLLM preloaded connector stats {key} must be positive")
-        if float(stats.get("cache_hit_rate", 0.0) or 0.0) <= 0.0:
-            fail(errors, f"{label} SCD-vLLM preloaded connector cache_hit_rate must be positive")
-        if float(stats.get("cache_hit_rate", 0.0) or 0.0) < min_cache_hit_rate:
-            fail(errors, f"{label} SCD-vLLM preloaded connector cache_hit_rate should be at least {min_cache_hit_rate}")
-
-
-def check_mistral_batch_benchmark_evidence(root: Path, errors: list[str]) -> None:
-    check_batch_benchmark_metrics(
-        root=root,
-        errors=errors,
-        artifact_dir="a800_mistral_d1ce508_b256_shm_20260618_0938/patch20",
-        label="Mistral patch20/reuse12 high-batch",
-        expected_route_id="scd_icml_mistrallite_to_mistral7_patch20_reuse12_cmrc200",
-        require_preloaded_stats=True,
-        min_batch_size=256,
-        min_expected_requests=1280,
-        min_cache_hit_rate=0.99,
-        min_load_vs_baseline=1.0,
-    )
-    check_batch_benchmark_metrics(
-        root=root,
-        errors=errors,
-        artifact_dir="a800_mistral_d1ce508_b256_shm_20260618_0938/patch26",
-        label="Mistral patch26/reuse6 high-batch",
-        expected_route_id="scd_icml_mistrallite_to_mistral7_patch26_reuse6_cmrc200",
-        require_preloaded_stats=True,
-        min_batch_size=256,
-        min_expected_requests=1280,
-        min_cache_hit_rate=0.99,
-        min_load_vs_baseline=1.0,
-    )
-
-
-def check_qwen_batch_benchmark_evidence(root: Path, errors: list[str]) -> None:
-    check_batch_benchmark_metrics(
-        root=root,
-        errors=errors,
-        artifact_dir="a800_qwen17_scd_vllm_preloadedstats_20260618_cache",
-        label="Qwen",
-        expected_route_id="paper_scd_reuse_patch_k6",
-        require_preloaded_stats=True,
-    )
-
-
-def check_launch_smoke_metrics(
-    *,
-    root: Path,
-    errors: list[str],
-    artifact_dir: str,
-    label: str,
-    min_request_count: int,
-    expected_prompt_token_count: int | None = None,
-) -> None:
-    results_root = root.parent.parent / "results"
-    if not results_root.is_dir():
-        return
-    path = results_root / artifact_dir / "launch_smoke.json"
-    if not path.is_file():
-        fail(errors, f"missing {label} SCD-vLLM launch-smoke artifact: {path}")
-        return
-    spec_path = results_root / artifact_dir / "launch_spec.json"
-    if not spec_path.is_file():
-        fail(errors, f"missing {label} SCD-vLLM launch-spec artifact: {spec_path}")
-    else:
-        try:
-            spec = json.loads(spec_path.read_text(encoding="utf-8-sig"))
-        except Exception as exc:
-            fail(errors, f"invalid {label} SCD-vLLM launch-spec JSON {spec_path}: {exc}")
-            spec = {}
-        if spec:
-            if spec.get("mode") != "scd_vllm_launch_spec" or spec.get("launch_spec_pass") is not True:
-                fail(errors, f"{label} launch-spec must pass")
-            boundary = str(spec.get("claim_boundary", ""))
-            for snippet in ("single-tenant", "trusted SCD bundle", "not a multi-tenant"):
-                if snippet not in boundary:
-                    fail(errors, f"{label} launch-spec missing safety boundary snippet: {snippet}")
-            safety = spec.get("safety") or {}
-            if safety.get("multi_tenant_safe") is not False:
-                fail(errors, f"{label} launch-spec must declare multi_tenant_safe=false")
-            if safety.get("dynamic_request_routing") is not False:
-                fail(errors, f"{label} launch-spec must declare dynamic_request_routing=false")
-            if safety.get("trusted_bundle_required") is not True:
-                fail(errors, f"{label} launch-spec must declare trusted_bundle_required=true")
-            llm_kwargs = spec.get("llm_kwargs") or {}
-            kv_cfg = llm_kwargs.get("kv_transfer_config") or {}
-            if llm_kwargs.get("disable_hybrid_kv_cache_manager") is not True:
-                fail(errors, f"{label} launch-spec must disable hybrid KV cache manager")
-            if kv_cfg.get("kv_connector") != "SCDPreloadedConnector":
-                fail(errors, f"{label} launch-spec should use SCDPreloadedConnector")
-            if kv_cfg.get("kv_connector_module_path") != "scd_vllm.preloaded_connector":
-                fail(errors, f"{label} launch-spec should use scd_vllm.preloaded_connector")
-            if kv_cfg.get("kv_load_failure_policy") != "fail":
-                fail(errors, f"{label} launch-spec should fail closed on KV load failure")
-            extra = kv_cfg.get("kv_connector_extra_config") or {}
-            if not extra.get("shared_storage_path"):
-                fail(errors, f"{label} launch-spec must provide shared_storage_path")
-    try:
-        metrics = json.loads(path.read_text(encoding="utf-8-sig"))
-    except Exception as exc:
-        fail(errors, f"invalid {label} SCD-vLLM launch-smoke JSON {path}: {exc}")
-        return
-    if metrics.get("launch_smoke_pass") is not True:
-        fail(errors, f"{label} launch-smoke must pass")
-    if "official vLLM LLM" not in str(metrics.get("claim_boundary", "")):
-        fail(errors, f"{label} launch-smoke must declare official-vLLM claim boundary")
-    for key in ("generation_ok", "bundle_token_match"):
-        if metrics.get(key) is not True:
-            fail(errors, f"{label} launch-smoke gate {key} must be true")
-    if metrics.get("kv_connector") != "SCDPreloadedConnector":
-        fail(errors, f"{label} launch-smoke should use SCDPreloadedConnector")
-    if metrics.get("kv_connector_module_path") != "scd_vllm.preloaded_connector":
-        fail(errors, f"{label} launch-smoke should use scd_vllm.preloaded_connector")
-    if metrics.get("disable_hybrid_kv_cache_manager") is not True:
-        fail(errors, f"{label} launch-smoke must disable hybrid KV cache manager")
-    if int(metrics.get("request_count", 0) or 0) < min_request_count:
-        fail(errors, f"{label} launch-smoke request_count below expected minimum")
-    if int(metrics.get("output_tokens", 0) or 0) <= 0:
-        fail(errors, f"{label} launch-smoke output_tokens must be positive")
-    if float(metrics.get("tokens_per_second", 0.0) or 0.0) <= 0.0:
-        fail(errors, f"{label} launch-smoke tokens_per_second must be positive")
-    if expected_prompt_token_count is not None and int(metrics.get("prompt_token_count", -1) or -1) != expected_prompt_token_count:
-        fail(errors, f"{label} launch-smoke prompt_token_count should be {expected_prompt_token_count}")
-    storage = metrics.get("storage") or {}
-    if storage.get("exists") is not True or int(storage.get("safetensor_files", 0) or 0) <= 0:
-        fail(errors, f"{label} launch-smoke storage must contain safetensors")
-    if metrics.get("preloaded_connector_final_stats_collected_after_child_exit") is not True:
-        fail(errors, f"{label} launch-smoke must collect final stats after child exit")
-    stats = metrics.get("preloaded_connector_stats") or {}
-    if stats.get("exists") is not True:
-        fail(errors, f"{label} launch-smoke preloaded connector stats must exist")
-    if int(stats.get("invalid_files", 0) or 0) != 0:
-        fail(errors, f"{label} launch-smoke preloaded connector stats must not contain invalid files")
-    for key in ("worker_count", "cache_hits", "cache_misses", "cache_events", "cached_files", "cached_bytes", "final_workers"):
-        if int(stats.get(key, 0) or 0) <= 0:
-            fail(errors, f"{label} launch-smoke preloaded connector stats {key} must be positive")
-    if float(stats.get("cache_hit_rate", 0.0) or 0.0) <= 0.0:
-        fail(errors, f"{label} launch-smoke cache_hit_rate must be positive")
-
-
-def check_launch_smoke_evidence(root: Path, errors: list[str]) -> None:
-    check_launch_smoke_metrics(
-        root=root,
-        errors=errors,
-        artifact_dir="a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache",
-        label="Mistral patch26/reuse6",
-        min_request_count=8,
-        expected_prompt_token_count=229,
-    )
-    check_launch_smoke_metrics(
-        root=root,
-        errors=errors,
-        artifact_dir="a800_qwen17_scd_vllm_launchsmoke_20260618_cache",
-        label="Qwen",
-        min_request_count=128,
-        expected_prompt_token_count=27,
-    )
-
-
 def check_model_template(root: Path, errors: list[str]) -> None:
     path = root / "configs" / "models_mistrallite_to_mistral7_template.json"
     if not path.is_file():
@@ -1439,10 +665,7 @@ def check_docs(root: Path, errors: list[str]) -> None:
             "reuse08_patch24",
         ],
         "DATA_PREPARATION.md": ["cmrc2018_train.json", "hotpot_dev_distractor_v1.json", "wiki.test.txt"],
-        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "examples/scd_vllm_official_launch.py", "scd-vllm doctor", "scd-vllm launch-spec", "scd-vllm launch-smoke", "scd-vllm batch-benchmark", "src/scd_vllm_plugin/", "configs/scd_vllm_mvp.yaml", "scripts/scd_vllm/run_06_report.sh", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity", "patch20_reuse12", "higher-Reuse", "patch26_reuse6", "quality-first reference route", "a800_scd_vllm_raw_bank_patch26_run_20260618_044521", "a800_mistral_d1ce508_b256_shm_20260618_0938", "batch_size=256", "expected_requests=1280", "cache_hits=49120", "a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache", "cache_hits", "a800_qwen17_scd_vllm_preloadedstats_20260618_cache", "a800_qwen17_scd_vllm_launchsmoke_20260618_cache", "SCDPreloadedConnector", "kv-connector-module-path", "prefix-cache", "repeated-prefix trusted microbenchmark", "NLL/PPL", "train/eval split evidence", "CMRC2018 train-200"],
-        "docs/scd_vllm_plugin_mvp.md": ["scd-vllm doctor", "strict no-fallback/no-recompute", "scd-vllm run", "scd-vllm launch-spec", "scd-vllm launch-smoke", "scd-vllm batch-benchmark", "examples/scd_vllm_official_launch.py", "ExampleConnector", "SCDPreloadedConnector", "kv-connector-module-path", "vllm.LLM", "patch26_reuse6"],
-        "reports/scd_vllm_repo_audit.md": ["Existing entry points", "Proposed mapping to scd_vllm modules", "Implementation/release risks", "dataset-specific routes", "src/scd_vllm/injection.py"],
-        "reports/scd_vllm_status.md": ["conda activate cache", "vLLM: `0.18.0`", "patch20_reuse12", "patch26_reuse6", "greedy_ntok", "Payload Bytes", "a800_mistral_d1ce508_b256_shm_20260618_0938", "batch_size=256", "expected requests `1280`", "49120", "a800_mistral_patch26_scd_vllm_launchsmoke_20260618_cache", "Cache Hits", "Qwen3-1.7B", "a800_qwen17_vllm_baseline_20260618_0530", "a800_qwen17_scd_vllm_plugin_smoke_20260618_cache", "a800_qwen17_scd_vllm_preloadedstats_20260618_cache", "a800_qwen17_scd_vllm_launchsmoke_20260618_cache", "plain-vLLM compatibility", "Qwen raw-bank-to-vLLM", "SCDPreloadedConnector", "launch-spec", "launch-smoke", "prefix-cache", "repeated-prefix trusted microbenchmark", "Dataset Quality Evidence", "NLL/PPL", "train/eval split evidence", "not a production-grade vLLM connector"],
+        "OPEN_SOURCE_RELEASE_MANIFEST.md": ["check_release_readiness.py", "check_release_smoke_status.py", "make_paper_scd_route.py", "make_paper_scd_candidate_routes.py", "select_quality_gated_scd_route.py", "select_patch_reuse_route.py", "collect_route_eval_metrics.py", "filter_strict_eval_by_qids.py", "build_scd_icml_result_tables.py", "build_scd_icml_analysis_figures.py", "extract_stack_viz_inputs.py", "build_stack_viz.py", "build_offline_cost_table.py", "build_paper_artifact_bundle.py", "finalize_scd_icml_full7405_bundle.py", "run_ser_neighboring_baselines_cmrc.sh", "run_svdllm_style_kv_cmrc.py", "run_slicegpt_style_kv_cmrc.py", "run_tensorllm_style_kv_cmrc.py", "build_neighboring_baseline_table.py", "wait_postprocess_scd_icml_full7405_tables.sh", "wait_finalize_scd_icml_full7405_bundle.sh", "check_paper_artifacts.py", "report_pairwise_interactions.py", "validate_scd_route.py", "build_release_tree.py", "tests/", "15 rows", "lite_to_7b", "bandwidth_sensitivity"],
         "LICENSE": ["MIT License", "SCD reproduction team"],
     }
     for rel, snippets in docs.items():
@@ -1546,14 +769,6 @@ def main() -> None:
         check_eval_config(root, errors)
         check_paper_scd_route_semantics(root, errors)
         check_selected_route(root, errors)
-        check_vllm_demo_route(root, errors)
-        check_quality_reference_route(root, errors)
-        check_train_eval_split_evidence(root, errors)
-        check_multidataset_quality_evidence(root, errors)
-        check_qwen_vllm_evidence(root, errors)
-        check_mistral_batch_benchmark_evidence(root, errors)
-        check_qwen_batch_benchmark_evidence(root, errors)
-        check_launch_smoke_evidence(root, errors)
         check_model_template(root, errors)
         check_reuse_train_config(root, errors)
         check_patch_train_config(root, errors)

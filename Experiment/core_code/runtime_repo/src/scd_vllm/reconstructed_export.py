@@ -1,3 +1,10 @@
+"""从 Reuse/Patch checkpoint 重建 SCD KV bundle。
+
+该模块把离线训练得到的 Reuse checkpoint、Patch checkpoint 和路线文件
+应用到一个固定 prefix 上，导出可校验的 KV bundle。它是 vLLM smoke
+路径的上游，不直接启动 vLLM。
+"""
+
 from __future__ import annotations
 
 import argparse

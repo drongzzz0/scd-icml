@@ -1,3 +1,9 @@
+"""plain vLLM baseline 工具。
+
+这里把 vLLM 生成结果和延迟整理成稳定 JSON 指标，供 SCD connector
+smoke 和 batch benchmark 做同协议对照。
+"""
+
 from __future__ import annotations
 
 import argparse

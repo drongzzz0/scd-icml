@@ -1,3 +1,10 @@
+"""TrueKV oracle 检查路径。
+
+TrueKV oracle 用消费者模型真实 KV 构造上界/连通性检查，确认 vLLM
+connector、token 对齐和 KV shape 在目标版本上可行。它不是 SCD 方法
+本身，只是服务端接入前的安全校验。
+"""
+
 from __future__ import annotations
 
 import argparse

@@ -7982,3 +7982,2406 @@ Judge conclusion: artifact contract is correct and the implementation signal is 
   SCD-vLLM bundle/export/injection utilities, loader behavior, and release-tree
   hygiene. They do not replace the running remote quality metrics for
   `patch26_reuse6`, `patch20_reuse12`, or Qwen32.
+
+### 2026-06-18 20:10 +08:00 Qwen32 priority correction and duplicate lite-to-7B shutdown
+
+- Purpose:
+  Correct the active experiment priority after switching the main target to
+  Qwen2.5-32B. The `ser` lite-to-7B route-comparison jobs were useful as
+  optional non-Qwen release-risk checks, but they duplicated an already-tested
+  model pair and were lower priority than the requested Qwen32 validation.
+- Action:
+  Stopped the remaining `ser` lite-to-7B full-dataset route checks. The
+  `patch26_reuse6` job was also found to be using the broader all-method config
+  (`full_consumer`, `raw_kv`, `quantized_4bit`, `reuse_only`, `scd_full`), so it
+  was terminated instead of restarted. The `patch20_reuse12` SCD-only job was
+  also terminated after the user questioned the duplicate lite-to-7B rerun.
+- A800 Qwen32 status:
+  The active retained run is
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_fix1_20260618_192206`.
+  It uses NAS-backed model/data/cache/output paths and `max_length=512`. At
+  roughly 20:10, the capture stage was still progressing through staged A
+  artifacts with `_a_stage` at about `173/200`; `_b_stage` and final chunks had
+  not started yet.
+- Cleanup:
+  A duplicate Qwen32 capture process using the older
+  `/home/student_t/maqianli/SCD-ICML/runtime_repo_codex_storage_20260618`
+  config path and `max_length=0` was terminated. The retained run is the
+  storage-backed Qwen32 run above.
+- Boundary:
+  No final Qwen32 F1/EM should be reported from this entry. It only records
+  process hygiene and capture-stage progress.
+
+### 2026-06-18 20:24 +08:00 Qwen32 A-stage capture completed, B model loading
+
+- Purpose:
+  Record the first completed stage of the storage-backed Qwen32 validation run.
+- Evidence:
+  The retained run
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_fix1_20260618_192206`
+  reached `_a_stage=200/200`. `_b_stage=0` and final `chunks=0` at the time of
+  this entry.
+- Runtime state:
+  The active process remained
+  `python -m scd_repro.cli.capture_pair ... --max-length 512 --dtype bfloat16`
+  under the NAS-backed runtime. After A-stage completion, stderr showed
+  Qwen2.5-32B-Instruct weight loading progress, indicating the run had moved
+  into the B-stage setup rather than failing after producer capture.
+- Boundary:
+  This is still a capture-stage checkpoint. Reuse/patch training, route
+  selection, strict CMRC dev evaluation, and F1/EM reporting remain pending.
+
+### 2026-06-18 20:33 +08:00 Qwen32 final pair chunks started
+
+- Purpose:
+  Confirm that the retained Qwen32 run has passed A-stage capture and B-model
+  loading and is now writing final pair artifacts.
+- Evidence:
+  In
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_fix1_20260618_192206`,
+  the pair artifact directory reached `chunks=9/200`. Recent log lines included
+  `chunk=00008 samples=1 tokens=509 ... write_ms=16083.6 eta_s=3056.9`.
+- Runtime state:
+  The process remained the intended storage-backed
+  `python -m scd_repro.cli.capture_pair` run with `CUDA_VISIBLE_DEVICES=2`,
+  NAS-backed HF/transformers/torch/vLLM cache paths, `max_length=512`, and
+  `SCD_CAPTURE_STORE_DEVICE=cpu`.
+- Boundary:
+  This entry does not contain F1/EM. The script should automatically continue
+  to `train_reuse`, `profile_layers`, `train_patch`, route construction,
+  validation, and strict eval after all `200` chunks are written.
+
+### 2026-06-18 21:46 +08:00 Qwen32 pair capture completed and reuse training started
+
+- Purpose:
+  Record the transition from pair artifact generation into actual reuse-model
+  training for the retained Qwen32 run.
+- Evidence:
+  The retained run reached `chunks=200/200` in
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_fix1_20260618_192206/pairs/cmrc2018_train_seed42_n200`.
+  The capture log ended with:
+  `成对数据已保存到 ... (skip_validate=True)`.
+- Training state:
+  The wrapper automatically launched
+  `python -m scd_repro.cli.train_reuse --pairs ... --train-device cuda:0`.
+  The first training log line reported
+  `xkv_group training start: device=cuda:0 accel=balanced group_block_size=1`.
+  At the first progress point it had reached `chunk 1/200` with an initial ETA
+  around `3061s`.
+- Boundary:
+  Final Qwen32 route and F1/EM are still pending. The next expected stages are
+  `train_reuse`, `profile_layers`, `train_patch`, `make_route`,
+  `validate_route`, and strict CMRC dev eval.
+
+### 2026-06-19 03:39 +08:00 Qwen32 CMRC200 strict evaluation completed
+
+- Purpose:
+  Record the first complete Qwen2.5-32B -> Qwen2.5-32B-Instruct SCD open-code
+  run on CMRC2018 with train/eval separation.
+- Data and split:
+  Reuse and patch were trained on CMRC2018 `train` with `train_limit=200`.
+  Strict evaluation used CMRC2018 `dev` with `eval_limit=200`. The run used
+  `max_length=512` and `max_new_tokens=32`.
+- Route:
+  `qwen32_route_k6_seed42.json` selected patch layers `[0, 1, 2, 3, 4, 5]`
+  and reuse layers `[6..63]`, for `patch_layers=6` and `reuse_layers=58`.
+  `fallback_layers=[]` and `selected_recompute_layers=[]`.
+- Quality:
+  Full Consumer: F1 `0.3981735243`, EM `0.005`.
+  Reuse-only: F1 `0.4197410815`, EM `0.020`.
+  SCD: F1 `0.4196631300`, EM `0.020`.
+  Raw KV: F1 `0.4169137227`, EM `0.030`.
+  Quantized 4-bit: F1 `0.3977117783`, EM `0.025`.
+- Latency and payload:
+  Full Consumer TTFT `221.79 ms`, total `1833.51 ms`.
+  SCD TTFT `134.43 ms`, total `1744.96 ms`.
+  Reuse-only TTFT `148.59 ms`, total `1757.67 ms`.
+  Raw KV TTFT `75.66 ms`, total `1686.27 ms`.
+  SCD payload was `103.83 MB`, raw KV payload was `91.03 MB`, and quantized
+  4-bit payload was `23.47 MB`.
+- Interpretation:
+  This run supports correctness and quality retention for Qwen32 on CMRC dev
+  under no-fallback/no-recompute routing, but it does not yet support bandwidth
+  compression. The reuse config used `rank_k=128` and `rank_v=128`, which is
+  effectively full-rank for Qwen32 KV heads and produced `compression_ratio=1`
+  for reuse-only; adding six patch layers made SCD payload larger than raw KV.
+- Local result artifact:
+  A concise local summary was written to
+  `Experiment/results/qwen32_cmrc200_nasdata_maxlen512_free65000_fix1_20260618_192206_summary.json`.
+- Next action:
+  Reuse the completed pair artifact and rerun lower-rank reuse configurations
+  without recapturing model pairs. Start with `rank_k=64, rank_v=64`; if
+  quality remains acceptable, test `rank_k=32, rank_v=32`. The selection
+  criterion should prioritize F1/EM retention and payload reduction, with NLL
+  only as auxiliary risk evidence.
+
+### 2026-06-21 00:08 +08:00 Qwen32 rank64 from-pairs run launched
+
+- Purpose:
+  Reduce Qwen2.5-32B reuse payload while preserving CMRC2018 F1/EM, using the
+  already completed pair artifact instead of recapturing producer/consumer KV.
+- Method:
+  Added and synced `scripts/run_a800_scd_icml_qwen32_from_pairs.sh` on A800mql.
+  The script reuses
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_fix1_20260618_192206/pairs/cmrc2018_train_seed42_n200`
+  and reruns `train_reuse`, `profile_layers`, `train_patch`, route creation,
+  route validation, and strict CMRC2018 dev evaluation.
+- Active run:
+  `RUN_ROOT=/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank64_frompairs_20260620_235000`.
+  Launcher PID is `2575014`. It uses `CUDA_VISIBLE_DEVICES=4`, logical
+  `cuda:0`, `REUSE_RANK=64`, `TRAIN_LIMIT=200`, `EVAL_LIMIT=200`,
+  CMRC2018 `train` for training and `dev` for evaluation.
+- Early evidence:
+  The run reached `train_reuse` with `rank_k=64, rank_v=64`. At 00:03 it had
+  reached `chunk 20/200` with an ETA of about `5617s` for the stats pass.
+- Parallelism decision:
+  A rank32 run was briefly started on GPU0
+  (`RUN_ROOT=/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank32_frompairs_20260620_235500`,
+  launcher PID `2584831`) but stopped because it remained at `chunk 1/200`,
+  used only about `574MiB` on GPU0 with `0%` utilization, and risked slowing the
+  shared pair-artifact reads. The rank32 run did not produce eval results.
+- Next action:
+  Monitor rank64 through completion and compare F1/EM plus payload against the
+  previous rank128 Qwen32 run. Only launch rank32 after rank64 completes or if
+  the pair-read bottleneck is removed.
+
+### 2026-06-21 06:45 +08:00 Qwen32 rank64 from-pairs CMRC200 completed
+
+- Purpose:
+  Evaluate whether reducing Qwen32 reuse rank from 128 to 64 can lower payload
+  while preserving CMRC2018 F1/EM.
+- Run:
+  `RUN_ROOT=/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank64_frompairs_20260620_235000`.
+  The run reused the existing pair artifact from the rank128 run and completed
+  `train_reuse`, `profile_layers`, `train_patch`, route creation, route
+  validation, and strict CMRC2018 dev evaluation.
+- Training/eval split:
+  Reuse and patch were trained on CMRC2018 `train` with `train_limit=200`.
+  Evaluation used CMRC2018 `dev` with `eval_limit=200`. No train/eval sample
+  overlap was introduced by this run.
+- Route:
+  The generated profile route selected patch layers `[58, 59, 60, 61, 62, 63]`
+  and reuse layers `[0..57]`. There were no fallback or recompute layers.
+  Reuse used `rank_k=64, rank_v=64`, giving per-layer reuse compression ratio
+  `2.0`.
+- Quality and payload:
+  Full Consumer: F1 `0.3981735243`, EM `0.005`, TTFT `215.29 ms`, total
+  `1830.42 ms`.
+  Raw KV: F1 `0.4169137227`, EM `0.030`, payload `91.03 MB`, TTFT
+  `75.65 ms`.
+  Quantized 4-bit: F1 `0.3977117783`, EM `0.025`, payload `23.47 MB`, TTFT
+  `195.71 ms`.
+  Reuse-only rank64: F1 `0.2658242662`, EM `0.005`, payload `45.51 MB`,
+  TTFT `101.09 ms`.
+  SCD rank64 patch58-63: F1 `0.2784762656`, EM `0.005`, payload `62.58 MB`,
+  TTFT `97.96 ms`, total `1708.84 ms`.
+- Interpretation:
+  Rank64 solved the bandwidth direction but failed the quality gate. SCD F1
+  dropped by about `0.1197` absolute versus the full-consumer baseline, despite
+  payload improving from the rank128 SCD payload `103.83 MB` to `62.58 MB`.
+  This is not acceptable as a publishable main route.
+- Local result artifact:
+  `Experiment/results/qwen32_cmrc200_rank64_frompairs_20260620_235000_summary.json`.
+- Next action:
+  Do not continue to rank32 as a main candidate yet. First evaluate alternative
+  rank64 routes using the already trained patch/reuse banks, especially the
+  explicit patch layers `[0, 1, 2, 3, 4, 5]` that matched the previous rank128
+  successful route.
+
+### 2026-06-23 15:25 +08:00 Qwen32 rank64 route05 SCD-only CMRC200 completed
+
+- Purpose:
+  Check whether the rank64 quality drop was caused by the profile-selected
+  patch route `[58, 59, 60, 61, 62, 63]` rather than by low-rank reuse itself.
+- Method:
+  Reused the rank64 reuse/patch banks from
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank64_frompairs_20260620_235000`.
+  Generated an explicit paper route with patch layers `[0, 1, 2, 3, 4, 5]`,
+  reuse layers `[6..63]`, no fallback, and no recompute. Ran SCD-only strict
+  CMRC2018 dev200 evaluation on A800mql GPU3.
+- Result:
+  SCD rank64 patch0-5: F1 `0.2692563290`, EM `0.000`, avg NLL
+  `1.1248208400`, PPL `3.0796650467`, payload `62.58 MB`, TTFT
+  `122.96 ms`, total `1738.59 ms`, compression ratio `1.4545`.
+- Comparison:
+  The earlier rank64 profile route patch58-63 had F1 `0.2784762656`, EM
+  `0.005`, and the same payload `62.58 MB`. Full Consumer on the same dev200
+  baseline was F1 `0.3981735243`, EM `0.005`.
+- Interpretation:
+  The rank64 quality problem is not fixed by restoring the earlier patch0-5
+  pattern. It is more likely a rank-quality tradeoff issue. Rank32 should not be
+  pursued as a main candidate now; the next candidate should be an intermediate
+  rank such as rank96.
+- Local result artifact:
+  `Experiment/results/qwen32_cmrc200_rank64_route05_eval_20260623_145000_summary.json`.
+
+### 2026-06-23 15:38 +08:00 Qwen32 rank96 from-pairs run launched
+
+- Purpose:
+  Test the intermediate rank between the rank128 quality-preserving but
+  payload-heavy route and the rank64 payload-saving but quality-failing route.
+- Active run:
+  `RUN_ROOT=/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000`.
+  Launcher PID is `954410`. It uses `CUDA_VISIBLE_DEVICES=3`, logical
+  `cuda:0`, `REUSE_RANK=96`, `TRAIN_LIMIT=200`, `EVAL_LIMIT=200`, CMRC2018
+  `train` for training and `dev` for evaluation.
+- Method:
+  Reuses the completed Qwen32 pair artifact from the original rank128 run:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_nasdata_maxlen512_free65000_fix1_20260618_192206/pairs/cmrc2018_train_seed42_n200`.
+  The same from-pairs pipeline will run `train_reuse`, `profile_layers`,
+  `train_patch`, route creation, validation, and strict CMRC2018 dev eval.
+- Early evidence:
+  The run entered `train_reuse` with `rank_k=96, rank_v=96`, group size `1`,
+  no CPU fallback, and reached `chunk 1/200` with initial ETA about `3028s`.
+- Expected decision:
+  If rank96 keeps F1 close to the full-consumer/rank128 result while bringing
+  SCD payload below raw KV, use it as the next candidate for cross-dataset
+  testing. If quality still drops materially, the useful release route should
+  remain rank128 or a rank between 96 and 128, not rank64/rank32.
+
+### 2026-06-23 21:19 +08:00 Qwen32 rank96 eval active and rank112 candidate launched
+
+- Purpose:
+  Continue the rank sweep toward the objective of preserving F1/EM while
+  reducing payload. Rank64 failed quality; rank96 is the current intermediate
+  candidate, and rank112 was started in parallel after an idle GPU became
+  available.
+- Rank96 current state:
+  `RUN_ROOT=/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000`.
+  `train_reuse`, `profile_layers`, `train_patch`, route creation, and route
+  validation completed. Strict CMRC2018 dev200 eval is active under child PID
+  `1416656` on A800mql GPU3. At 21:15-21:18, GPU3 was around 96-98% utilized.
+  No `strict_eval/cmrc2018/summary.json` had been written yet.
+- Rank96 route/config:
+  The generated route is `qwen32_route_k6_rank96_seed42.json` with patch layers
+  `[58, 59, 60, 61, 62, 63]` and reuse layers `[0..57]`; no fallback or
+  recompute. A minimal SCD-only eval config was also prepared at
+  `tmp_cfg/eval_qwen32_rank96_scdonly.json` with only `reuse_only` and
+  `scd_full` enabled, in case the full-method eval remains too slow.
+- Rank112 launch:
+  `RUN_ROOT=/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank112_frompairs_20260623_211700`.
+  Launcher PID is `1454008`, child `train_reuse` PID is `1454021`. It uses
+  `CUDA_VISIBLE_DEVICES=6`, logical `cuda:0`, `REUSE_RANK=112`,
+  `TRAIN_LIMIT=200`, `EVAL_LIMIT=200`, CMRC2018 `train` for training and `dev`
+  for evaluation. It reuses the same train200 pair artifact as rank96.
+- GPU placement evidence:
+  GPU6 was checked four times over one minute and remained `6, 16, 81137, 0`
+  in `nvidia-smi --query-gpu=index,memory.used,memory.free,utilization.gpu`.
+  The rank112 run was then launched on GPU6. Its `train_reuse` log confirmed
+  `rank_k=112`, `rank_v=112`, and reached stats `chunk 1/200` at 21:17:41.
+- Next action:
+  Continue monitoring rank96 until F1/EM is available. If rank96 quality is
+  adequate, use it as the next cross-dataset candidate. If rank96 quality is
+  still below the acceptable F1/EM retention range, wait for rank112 before
+  deciding whether the publishable Qwen32 route should use rank112 or rank128.
+
+### 2026-06-23 21:33 +08:00 Qwen32 rank96 eval switched to minimal SCD-only methods
+
+- Purpose:
+  Reduce rank96 evaluation latency. The original full-method eval was spending
+  time on repeated `full_consumer`, `raw_kv`, and `quantized_4bit` baselines
+  even though those baselines already exist for the same CMRC2018 dev200 split.
+  For deciding whether rank96 is viable, only `reuse_only` and `scd_full` are
+  needed.
+- Action:
+  Stopped the rank96 full-method eval child PID `1416656` and launcher PID
+  `954410`. The completed rank96 `ckpt_reuse`, `ckpt_patch`, `profile`, and
+  route artifacts were left intact. Started a new detached minimal eval on
+  A800mql GPU3.
+- Minimal eval:
+  PID `1464917`.
+  Output directory:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000/strict_eval/cmrc2018_rank96_scdonly`.
+  Log directory:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000/logs/eval_cmrc2018_rank96_scdonly`.
+  Eval config:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000/tmp_cfg/eval_qwen32_rank96_scdonly.json`.
+- Verification:
+  The new eval log confirmed CMRC2018 `dev` split with `n=200`, route
+  `qwen32_route_k6_rank96_seed42.json`, no fallback/recompute, and
+  `methods=['reuse_only', 'scd_full']`. As of 21:32, the process was still
+  active and no `summary.json` had been written.
+
+### 2026-06-23 21:51 +08:00 Qwen32 rank96/rank112 live monitor
+
+- Purpose:
+  Check current progress after switching rank96 to SCD-only eval and launching
+  rank112 as the next quality/payload candidate.
+- Rank96 state:
+  Minimal SCD-only eval PID `1464917` is still alive on A800mql GPU3. The
+  target summary file
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000/strict_eval/cmrc2018_rank96_scdonly/summary.json`
+  has not been written yet. `stdout.log` is empty, and `stderr.log` last shows
+  the strict CMRC2018 dev200 runtime setup plus two Qwen32B weight-loading
+  passes. GPU3 held about 31.6 GiB at low utilization during this check, so the
+  run is still in eval/runtime staging or silent per-method execution rather
+  than finished reporting.
+- Rank112 state:
+  Train-reuse PID `1454021` remains active on A800mql GPU6 with
+  `REUSE_RANK=112`. The latest progress line is stats `chunk 100/200`,
+  `elapsed=2015.2s`, `eta=2015.2s`; GPU6 was active at about 86% utilization
+  and about 20.1 GiB memory. This suggests the stats pass should finish in
+  roughly 33-35 minutes from 21:51, before later profile/patch/eval stages.
+- Next action:
+  Continue monitoring for rank96 `summary.json` first. If rank96 quality is
+  acceptable, use it for cross-dataset tests; otherwise keep rank112 running as
+  the next candidate. No fallback/recompute is enabled in these runs.
+
+### 2026-06-23 22:17 +08:00 Qwen32 rank96 CMRC2018 dev200 completed
+
+- Purpose:
+  Evaluate whether rank96 is a viable lower-payload candidate after rank64
+  failed quality and rank128 preserved quality but exceeded raw KV payload.
+- Run:
+  `RUN_ROOT=/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000`.
+  Minimal SCD-only eval output:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000/strict_eval/cmrc2018_rank96_scdonly/summary.json`.
+  Training used CMRC2018 `train` split, evaluation used CMRC2018 `dev` split
+  with `n=200`. Route uses patch layers `[58, 59, 60, 61, 62, 63]`, reuse
+  layers `[0..57]`, no fallback and no recompute.
+- Result:
+  Reuse-only rank96: F1 `0.4395759277`, EM `0.08`, payload `68.2696875 MB`,
+  TTFT `134.8955 ms`.
+  SCD rank96: F1 `0.4231515802`, EM `0.065`, payload `83.203681640625 MB`,
+  TTFT `122.2026 ms`.
+- Comparison:
+  Existing full-consumer CMRC2018 dev200 baseline is F1 `0.3981735243`, EM
+  `0.005`, TTFT `221.79 ms`. Existing rank128 SCD has F1 `0.4196631300`, EM
+  `0.02`, payload `103.8268 MB`. Existing raw KV payload is `91.02625 MB`.
+  Therefore rank96 preserves or improves measured CMRC F1/EM while reducing
+  payload below both rank128 SCD and raw KV. Rank96 is the current best
+  publishable Qwen32 candidate among rank64/rank96/rank128, pending
+  cross-dataset checks.
+- Next action:
+  Use rank96 artifacts for cross-dataset testing. Rank112 remains running as
+  a safety candidate in case cross-dataset rank96 quality fails.
+
+### 2026-06-23 22:27 +08:00 HotpotQA full eval switched to chunked full coverage
+
+- Purpose:
+  Start full HotpotQA evaluation for the rank96 candidate without sample
+  truncation or data leakage. Training artifacts remain from CMRC2018 train200;
+  HotpotQA is used only as evaluation data.
+- Correction:
+  A first direct full HotpotQA run was launched and then stopped before
+  evaluation because the same-device eval path caches all producer captures on
+  CPU before loading the consumer model. That is safe for CMRC2018 dev200 but
+  not for HotpotQA full `7405`; it would risk excessive host memory use.
+- Chunked run:
+  New run root:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_rank96_cross_hotpotqa_full7405_chunked_20260623_222700`.
+  It generated qid chunks from the official full file
+  `/home/c101-800-mql/nas/SCD-ICML/data/HotpotQA/raw/hotpot_dev_distractor_v1.json`.
+  Manifest: `7405` qids, chunk size `300`, `25` chunks. Each chunk runs
+  `full_consumer` and `scd_full` only, with no fallback/recompute/raw/quant,
+  `max_length=512`, `max_new_tokens=32`, and `CUDA_VISIBLE_DEVICES=3`.
+  The runner writes partial merged output after each completed chunk to:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_rank96_cross_hotpotqa_full7405_chunked_20260623_222700/strict_eval/hotpotqa_full7405_merged/summary.json`.
+- Current state:
+  Runner PID `1552109` is active. Chunk `chunk_000` has started. This will be
+  long-running because Qwen32B must load producer/consumer per chunk on one
+  available 80GB GPU.
+
+### 2026-06-23 22:55 +08:00 HotpotQA chunked eval restarted with bounded capture chunks
+
+- Purpose:
+  Prevent the full HotpotQA chunked evaluation from exhausting host memory
+  while preserving full `7405`-qid coverage and no fallback/recompute.
+- Observation:
+  The first HotpotQA `chunk_000` eval process reached about `237.7 GB` RSS and
+  entered `folio_wait_bit_common` while staging producer captures. No
+  `summary.json` was produced. This happened because the run used external
+  qid chunks of `300` samples but had `same_device_capture_chunk_size=0`,
+  so each 300-sample chunk still cached all producer captures before the
+  consumer pass.
+- Change:
+  Updated `tmp/launch_rank96_hotpotqa_full_chunked.sh` and the remote launcher
+  `/home/c101-800-mql/nas/SCD-ICML/launch_rank96_hotpotqa_full_chunked.sh` to
+  set `runtime_eval.same_device_capture_chunk_size=100` and record
+  `same_device_capture_chunk_size=100` in `run_config.json`.
+- Action:
+  Stopped the old HotpotQA runner/child PIDs `1552109` and `1552448`.
+  Restarted the same run root with runner PID `1584770`.
+- Current state:
+  The new HotpotQA eval child PID `1586426` has started for `chunk_000`, but
+  at the last check it was still in NAS/IO wait before producing new runtime
+  progress. WikiText2 full eligible-set eval remains active on PID `1573586`,
+  and rank112 profile has advanced to `chunk 110/200` with no route file yet.
+
+### 2026-06-23 23:04 +08:00 WikiText2 full eval restarted with smaller capture chunks
+
+- Purpose:
+  Recover WikiText2 full eligible-set evaluation after the first run stayed
+  alive for about 18 minutes without producing a first
+  `same-device producer capture progress` line.
+- Observation:
+  The original WikiText2 PID `1573586` loaded the Qwen32B producer model and
+  logged `same-device capture chunk start: samples 1-300 / 763`, but never
+  produced the first sample-level capture progress. GPU memory later dropped
+  from about `51 GB` to low memory while the process remained in
+  `folio_wait_bit_common`, so the run was not making useful measured progress.
+- Change:
+  Updated local and remote WikiText2 launchers to set
+  `runtime_eval.same_device_capture_chunk_size=100` instead of `300`.
+  This keeps the same full eligible-set coverage (`n=763`) and methods
+  (`full_consumer`, `scd_full`) while reducing each same-device staging block.
+- Action:
+  Stopped old PID `1573586` and relaunched the same run root with PID
+  `1598904`. HotpotQA PID `1586426` and rank112 profile were left running.
+
+### 2026-06-23 23:12 +08:00 Qwen32 runtime load path optimized for future eval processes
+
+- Purpose:
+  Reduce repeated Qwen32B load/materialization overhead for same-device
+  strict evaluations, especially HotpotQA chunked runs that start a new
+  process per qid chunk.
+- Observation:
+  `TransformersRuntimeSession` in `strict_runtime.py` loaded the model with
+  `low_cpu_mem_usage=True` and then called `model.to(cuda)`. For Qwen32B this
+  creates a long uninstrumented CPU/NAS-to-GPU materialization step. The
+  separate adapter implementation already used `device_map={"": device}` for
+  GPU loading.
+- Change:
+  Updated all three local release copies and the remote open-release runtime
+  to add `load_kwargs["device_map"] = {"": self.device}` when the runtime
+  device is not CPU, and to skip `model.to(device)` when Hugging Face has
+  already assigned `hf_device_map`.
+- Verification:
+  Local `python -m py_compile` passed for:
+  `Experiment/core_code/runtime_repo/src/scd_repro/strict_runtime.py`,
+  `tmp_github_branch_update/scd-new-branch-staging/Experiment/core_code/runtime_repo/src/scd_repro/strict_runtime.py`,
+  and `Experiment/core_code/runtime_repo/release_preview/scd_icml_runtime_release/src/scd_repro/strict_runtime.py`.
+  Remote py_compile passed on
+  `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617/src/scd_repro/strict_runtime.py`,
+  and lines `173-176` show the `device_map` / `hf_device_map` guard.
+- Scope:
+  Already-running PIDs keep their imported code. New HotpotQA chunks and any
+  later restarted eval processes will use the optimized load path.
+
+### 2026-06-23 23:13 +08:00 HotpotQA and WikiText2 evals restarted on optimized runtime
+
+- Purpose:
+  Ensure the active cross-dataset evals use the new `device_map` load path
+  instead of continuing on the older `from_pretrained` then `model.to(cuda)`
+  path.
+- Action:
+  Stopped HotpotQA runner/child PIDs `1584770` and `1586426`, and stopped
+  WikiText2 PID `1598904`. Relaunched HotpotQA on the same chunked run root
+  with runner PID `1611019` and child PID `1611356`. Relaunched WikiText2 on
+  the same run root with PID `1611037`.
+- Current state:
+  Immediately after restart, WikiText2 GPU4 reached 100% utilization, rank112
+  continued on GPU6 at 100%, and HotpotQA GPU3 was still in early startup.
+
+### 2026-06-23 23:20 +08:00 WikiText2 deferred until a full 80GB GPU is available
+
+- Purpose:
+  Avoid repeated WikiText2 Qwen32B OOM failures while keeping the run queued.
+- Observation:
+  The WikiText2 restart failed during direct `device_map` loading on GPU4:
+  PyTorch tried to allocate about `61.03 GiB`, but GPU4 had only about
+  `53.70 GiB` free because PID `1600638` from an unrelated
+  `/home/c101-800-mql/maqianli/scd-tpami` DraftKV job was using about
+  `21.75 GiB`. That process is not part of this SCD-ICML eval and was not
+  killed.
+- Change:
+  Updated `tmp/launch_rank96_wikitext2_full.sh` and the remote launcher to
+  accept `GPU_ID` instead of hard-coding `CUDA_VISIBLE_DEVICES=4`.
+  Added and uploaded `tmp/wait_and_launch_rank96_wikitext2_full.sh`, which
+  waits for one of GPUs `3 4 6 7` to have `util=0` and at least `70000 MiB`
+  free for two checks separated by `60` seconds before launching WikiText2.
+- Verification:
+  Remote `bash -n` passed for both launcher scripts. Waiter PID `1618221`
+  started and logged:
+  `waiting for GPU candidates=[3 4 6 7] min_free_mib=70000 interval=60`.
+- Current state:
+  WikiText2 is queued, not consuming GPU. HotpotQA continues on GPU3 and
+  rank112 continues on GPU6.
+
+### 2026-06-23 23:22 +08:00 Same-device eval session-load logging added
+
+- Purpose:
+  Make future same-device text eval chunks distinguish model session loading
+  from sample prefill/generation progress.
+- Change:
+  Added `same-device producer session load start/done` and
+  `same-device consumer session load start/done` log lines around
+  `TransformersRuntimeSession` construction in `eval_text_strict.py`.
+- Verification:
+  Local py_compile passed for the primary runtime, staging branch copy, and
+  release preview copy. Remote py_compile passed for
+  `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617/src/scd_repro/cli/eval_text_strict.py`.
+- Scope:
+  Current running HotpotQA PID keeps the already imported code. Later
+  HotpotQA chunks and queued WikiText2 evals will include the new session-load
+  logs.
+
+### 2026-06-23 23:44 +08:00 Qwen32 cross-dataset/rank112 live status
+
+- HotpotQA:
+  The optimized HotpotQA `chunk_000` run reached producer capture progress
+  `1/300`, `25/300`, `50/300`, `75/300`, and `100/300` between `23:30:19`
+  and `23:31:35`. No `summary.json` has been produced yet; the process is
+  likely in the consumer load/eval stage for the first 100-sample internal
+  chunk.
+- Rank112:
+  The initial profile pass reached `chunk 200/200` at `23:41:44`, then entered
+  `profile patch KV` statistics. At `23:42:33` it logged
+  `chunk 1/200`, `eta=8610.1s`, so rank112 route generation is not expected
+  soon.
+- WikiText2:
+  Still queued behind the GPU waiter because no candidate GPU among `3 4 6 7`
+  has at least `70000 MiB` free for a continuous 60-second check.
+
+### 2026-06-23 23:50 +08:00 Qwen32 HotpotQA chunk still progressing
+
+- HotpotQA:
+  The full HotpotQA run remains on GPU3 under
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_rank96_cross_hotpotqa_full7405_chunked_20260623_222700`.
+  `chunk_000` reached strict generation progress `61/300` at `23:50:12`.
+  No `chunk_000/summary.json` or merged summary exists yet.
+- Rank112:
+  The rank112 route candidate continued on GPU6 and reached
+  `profile patch KV` chunk `30/200` at `23:50:05`. No route file has been
+  generated yet.
+- WikiText2:
+  The full WikiText2 run remains queued behind
+  `/home/c101-800-mql/nas/SCD-ICML/wait_and_launch_rank96_wikitext2_full.sh`.
+  The waiter is intentionally not launching because no candidate GPU has both
+  at least `70000 MiB` free and `util=0` for the required sustained check.
+- Resource note:
+  Stopping the current rank112 child would not free enough memory for Qwen32B
+  WikiText2 because most GPU6 memory is held by a separate non-SCD-ICML
+  process. The rank112 job was left running.
+
+### 2026-06-23 23:56 +08:00 Increase future same-device capture chunks to 300
+
+- Purpose:
+  Reduce repeated producer/consumer model-session swaps in Qwen32B same-device
+  text eval while preserving the current no-fallback/no-recompute path.
+- Evidence:
+  A800mql reported about `1.0 TiB` total memory and about `780 GiB`
+  available. The active HotpotQA process RSS was about `86.7 GiB`, leaving
+  enough CPU headroom for larger staged producer captures.
+- Change:
+  Updated local and remote HotpotQA/WikiText2 launchers so
+  `runtime_eval.same_device_capture_chunk_size=300`.
+  Also updated the already generated remote JSON configs for:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_rank96_cross_hotpotqa_full7405_chunked_20260623_222700/eval_rank96_hotpotqa_chunked_quality.json`
+  and
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_rank96_cross_wikitext2_full_20260623_224300/eval_rank96_wikitext2_full_quality.json`.
+- Verification:
+  Remote `bash -n` passed for both launchers, and remote `grep` showed
+  `same_device_capture_chunk_size: 300` in both launchers and both generated
+  eval JSON files.
+- Scope:
+  The already-running HotpotQA `chunk_000` child keeps the configuration it
+  read at startup and continues with internal chunk size `100`. Later
+  HotpotQA external chunks and the queued WikiText2 run will use `300`.
+
+### 2026-06-24 00:00 +08:00 Local scd_vllm plugin unit tests
+
+- Purpose:
+  Verify that the local vLLM plugin facade and supporting SCD-vLLM utility
+  modules still pass their fast unit tests while remote Qwen32B evals are
+  running.
+- Command:
+  From `Experiment/core_code/runtime_repo`, ran:
+  `PYTHONPATH=src TMP=<workspace>/tmp/pytest_tmp TEMP=<workspace>/tmp/pytest_tmp python -m pytest -p no:cacheprovider tests/test_scd_vllm_bundle.py tests/test_scd_vllm_kv_spec.py tests/test_scd_vllm_metrics.py tests/test_scd_vllm_report.py tests/test_scd_vllm_plugin.py -q`.
+- Result:
+  `18 passed in 5.78s`.
+- Note:
+  The first local pytest attempt failed because `src` was not on
+  `PYTHONPATH`, and a second attempt showed the Windows user temp directory
+  was not writable for pytest `tmp_path`. Redirecting `TMP/TEMP` into the
+  workspace produced the clean result above.
+
+### 2026-06-24 00:02 +08:00 Local scd_vllm full fast-test pass
+
+- Purpose:
+  Broaden local validation from the plugin facade subset to all fast
+  `test_scd_vllm_*.py` tests.
+- Commands:
+  From `Experiment/core_code/runtime_repo`, ran
+  `PYTHONPATH=src python -m compileall -q src/scd_vllm src/scd_vllm_plugin`
+  and then ran pytest with `TMP/TEMP` redirected to the workspace:
+  `python -m pytest -p no:cacheprovider <all tests/test_scd_vllm_*.py> -q`.
+- Result:
+  `compileall` passed with no output, and pytest reported
+  `37 passed in 5.27s`.
+
+### 2026-06-24 00:04 +08:00 Local scd_vllm CLI/package entry check
+
+- Purpose:
+  Confirm the plug-and-play CLI facade is exposed through the package metadata
+  and importable from the source tree.
+- Commands:
+  From `Experiment/core_code/runtime_repo`, ran:
+  `PYTHONPATH=src python -m scd_vllm_plugin.cli --help`,
+  `PYTHONPATH=src python -m scd_vllm.injection --help`, and
+  `PYTHONPATH=src python -m scd_vllm.report --help`.
+- Result:
+  All three commands exited successfully and printed help text. `pyproject.toml`
+  exposes `scd-vllm = scd_vllm_plugin.cli:main` under `[project.scripts]`.
+
+### 2026-06-24 00:10 +08:00 WikiText2 waiter expanded to all GPUs
+
+- Purpose:
+  Let the queued Qwen32B WikiText2 full eval start on any newly available A800
+  GPU, not only GPUs `3 4 6 7`, while preserving the sustained-idle and memory
+  safety gate.
+- Change:
+  Updated `tmp/wait_and_launch_rank96_wikitext2_full.sh` and the remote waiter
+  script so the default candidate list is `0 1 2 3 4 5 6 7`.
+- Safety gate:
+  Kept `MIN_FREE_MIB=70000` and `CHECK_INTERVAL_SEC=60`, so the waiter will
+  not launch Qwen32B on partially free 60-65GB cards.
+- Verification:
+  Remote `bash -n` passed. Stopped the old lightweight waiter PID `1618221`
+  and started PID `1680701`. The log now contains:
+  `waiting for GPU candidates=[0 1 2 3 4 5 6 7] min_free_mib=70000 interval=60`.
+
+### 2026-06-24 00:13 +08:00 ser full-dataset non-Qwen result refresh
+
+- Purpose:
+  Reuse existing full-dataset ser artifacts before launching duplicate 4090D
+  jobs, and keep the current release-risk evidence grounded in parseable
+  summaries.
+- ser resource check:
+  Via `aline exec`, ser host `leadtek-3` reported RTX 4090D GPUs `0`, `2`,
+  and `3` essentially idle with about `24075 MiB` free each. GPU `1` is in use
+  by another user's vLLM GLM-4-9B service and was left untouched.
+- MistralLite -> Mistral-7B full dataset run:
+  Source directory:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/extra_datasets_full_cmrcbank_20260618_121640`.
+  The summary metadata reports route counts `reuse_layers=19`,
+  `patch_layers=13`, `fallback_layers=0`, and
+  `selected_recompute_layers=0`.
+- CMRC2018 dev full:
+  `num_samples=3219`. Full Consumer F1/EM=`0.744253/0.477788`,
+  TTFT=`105.262 ms`, total=`762.813 ms`. SCD F1/EM=`0.671571/0.411929`,
+  TTFT=`40.322 ms`, total=`285.183 ms`, compression ratio=`0.711111`.
+- HotpotQA full:
+  `num_samples=7405`. Full Consumer F1/EM=`0.353979/0.219851`,
+  TTFT=`215.327 ms`, total=`870.941 ms`. SCD F1/EM=`0.103724/0.077920`,
+  TTFT=`60.865 ms`, total=`132.157 ms`, compression ratio=`0.711111`.
+- WikiText2 full:
+  `num_samples=763`. Full Consumer reports F1=`0.221258`, EM=`0.0`,
+  NLL=`1.983874`, PPL=`7.270854`, TTFT=`60.318 ms`, total=`709.852 ms`.
+  SCD reports F1=`0.138638`, EM=`0.0`, NLL=`3.168148`,
+  PPL=`23.763423`, TTFT=`30.460 ms`, total=`652.337 ms`,
+  compression ratio=`0.711111`.
+- Interpretation:
+  This is useful full-dataset non-Qwen evidence for the open-release line:
+  SCD is much faster on TTFT and total time in this simulated/runtime model,
+  but HotpotQA and WikiText2 quality drops are material. CMRC2018 remains the
+  strongest of the three full-dataset non-Qwen results.
+
+### 2026-06-24 00:24 +08:00 Restore full scd-vllm plugin facade in primary and release preview
+
+- Problem:
+  The current primary runtime exposed only the minimal `scd-vllm` commands
+  (`export-bundle`, `convert-bundle`, `smoke-test`, and `run`), while the
+  staging branch already contained the richer plug-in facade used by the
+  release evidence: `doctor`, `batch-benchmark`, `launch-spec`,
+  `launch-smoke`, and `SCDPreloadedConnector`.
+- Change:
+  Copied the staging `src/scd_vllm`, `src/scd_vllm_plugin`,
+  `tests/test_scd_vllm_*.py`, and `examples/*.py` into:
+  `Experiment/core_code/runtime_repo` and
+  `Experiment/core_code/runtime_repo/release_preview/scd_icml_runtime_release`.
+- Local verification:
+  In the primary runtime, `PYTHONPATH=src python -m scd_vllm_plugin.cli --help`
+  now lists `batch-benchmark`, `doctor`, `launch-spec`, and `launch-smoke`.
+  `compileall` passed, and the full fast vLLM test set reported
+  `62 passed in 6.07s`.
+- Release-preview verification:
+  In `release_preview/scd_icml_runtime_release`, the same CLI help exposes the
+  full command set, `compileall` passed, and the fast vLLM tests reported
+  `62 passed in 6.45s`.
+- A800mql sync and verification:
+  Synced `src/scd_vllm`, `src/scd_vllm_plugin`, `examples`, and
+  `tests/test_scd_vllm_*.py` to
+  `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617`.
+  Remote CLI help exposes the full command set and `compileall` passed. The
+  remote `cache` environment does not include `pytest`, so full pytest was not
+  available there. Standard-library `unittest` ran the importable subset but
+  skipped two pytest-dependent files due missing pytest.
+- Remote doctor check:
+  Ran `scd-vllm doctor` on the active Qwen32 rank96 route and checkpoints with
+  `--skip-vllm-import`. It passed with `failure_count=0`,
+  `warning_count=0`, `num_layers=64`, `patch_count=6`, `reuse_count=58`,
+  `fallback_count=0`, and `recompute_count=0`.
+
+### 2026-06-24 10:18 +08:00 Qwen32 WikiText2 full rank96 result
+
+- Purpose:
+  Complete one full-dataset Qwen32 cross-dataset quality check for the CMRC2018
+  trained rank96 route and banks.
+- Source:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_rank96_cross_wikitext2_full_20260623_224300/strict_eval/wikitext2_full/summary.json`.
+- Configuration:
+  Producer=`Qwen2.5-32B`, consumer=`Qwen2.5-32B-Instruct`,
+  route=`qwen32_route_k6_rank96_seed42.json`, route counts
+  `reuse_layers=58`, `patch_layers=6`, `fallback_layers=0`,
+  `selected_recompute_layers=0`, max length `512`, max new tokens `32`,
+  bandwidth model `200 Gbps`.
+- Result:
+  WikiText2 full `num_samples=763`.
+  Full Consumer: F1=`0.271992`, EM=`0.0`, NLL=`2.355804`,
+  PPL=`10.546605`, TTFT=`144.858 ms`, total=`1759.376 ms`.
+  SCD: F1=`0.256592`, EM=`0.0`, NLL=`2.389566`,
+  PPL=`10.908757`, TTFT=`78.961 ms`, total=`1691.808 ms`,
+  payload=`26.716 MB`, compression ratio=`1.094017`.
+- Interpretation:
+  For WikiText2, Qwen32 rank96 SCD has a modest F1 drop
+  (`-0.015401`, about `-5.66%` relative) and a small NLL/PPL increase, while
+  improving TTFT by about `65.9 ms` (`45.5%`). Total time changes little
+  because decode dominates.
+
+### 2026-06-24 10:20 +08:00 HotpotQA low-baseline root cause
+
+- Problem:
+  The Qwen32 HotpotQA rank96 full-context run produced an abnormal Full
+  Consumer baseline. Across the first 12 completed 300-sample chunks
+  (`3600` samples), Full Consumer F1/EM was only `0.028889/0.000833`, while
+  SCD F1/EM was `0.030146/0.001389`.
+- Root cause:
+  HotpotQA full prompts are much longer than the previous `max_length=512`
+  setting. Tokenizer right-truncation removed the final repeated `Question`,
+  short-answer instruction, and `Answer:` marker. Generation then continued
+  from the middle of evidence text, making both Full Consumer and SCD metrics
+  invalid for quality comparison.
+- Evidence:
+  Prompt token statistics over all `7405` HotpotQA samples:
+  mean=`1489.16`, p50=`1457`, p75=`1693`, p90=`1944`, p95=`2112`,
+  p99=`2530`, max=`3748`. Coverage by max length:
+  `512 -> 0.55%`, `1024 -> 7.28%`, `1536 -> 59.23%`,
+  `2048 -> 93.46%`, `3072 -> 99.81%`, `4096 -> 100%`.
+- Action:
+  Stopped the invalid full-context HotpotQA job
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_rank96_cross_hotpotqa_full7405_chunked_20260623_222700`
+  after the issue was confirmed, to avoid spending GPU time on unusable
+  results.
+
+### 2026-06-24 10:23 +08:00 HotpotQA truncation guard added
+
+- Change:
+  Added a HotpotQA prompt-truncation guard in
+  `Experiment/core_code/runtime_repo/src/scd_repro/cli/eval_text_strict.py`
+  and mirrored it to
+  `Experiment/core_code/runtime_repo/release_preview/scd_icml_runtime_release/src/scd_repro/cli/eval_text_strict.py`.
+  The guard tokenizes HotpotQA prompts with the requested `max_length` before
+  model loading and fails if the truncated prompt no longer contains the final
+  `Answer:` marker.
+- Verification:
+  Local `compileall` passed for both primary runtime and release preview.
+  Synced the file to the A800 open-release runtime and remote `compileall`
+  passed. A remote negative check with `--dataset hotpotqa --max-length 512`
+  failed before model loading with:
+  `HotpotQA prompt truncation removed the final Answer marker`.
+- Follow-up experiment:
+  Started
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_hotpot_fix_probe_20260624_101851`.
+  The `hotpot_full2048_100` probe was stopped because `2048` is still not
+  safe for full HotpotQA coverage. The `hotpot_compressed512_200` probe remains
+  running on GPU4 to test the existing `hotpotqa_compressed` path with
+  Full Consumer and SCD.
+
+### 2026-06-24 10:39 +08:00 ser HotpotQA compressed replication launched
+
+- Purpose:
+  While A800 SSH was temporarily unavailable, use the idle ser 4090D GPUs to
+  test whether the existing `hotpotqa_compressed` path fixes the HotpotQA
+  short-answer failure mode for the MistralLite -> Mistral-7B release line.
+- Full run:
+  Launched
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_full_mistral_20260624_103300`
+  on ser GPUs `0,1`, using the CMRC200-trained fixed route and banks from
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222`.
+  Dataset=`hotpotqa_compressed`, `max_eval_samples=0`, max length `512`,
+  methods=`full_consumer,reuse_only,scd_full`.
+- Fast probe:
+  Launched
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_20260624_103700`
+  on ser GPUs `2,3`, with the same route and banks but `max_eval_samples=500`
+  for a quicker quality signal.
+- Current status:
+  At the first check, the full run had reached `139/7405` and the 500-sample
+  probe had reached `14/500`. All four ser GPUs were occupied by these two
+  runs. The 500-sample probe should finish first and decide whether the
+  compressed Hotpot path is worth promoting for release evidence.
+
+### 2026-06-24 11:08 +08:00 HotpotQA compressed CMRC-bank probe result
+
+- Run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_20260624_103700`.
+  Dataset=`hotpotqa_compressed`, samples=`500`, max length `512`, route and
+  banks from
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/open_build_native_fixedroute_cmrc200_20260616_133222`.
+- Metrics:
+  Full Consumer F1/EM=`0.304472/0.212000`, NLL=`1.679403`,
+  TTFT=`79.335 ms`, total=`739.926 ms`.
+  Reuse-only F1/EM=`0.008105/0.000000`, NLL=`8.520268`,
+  TTFT=`30.945 ms`.
+  SCD F1/EM=`0.200281/0.140000`, NLL=`2.288449`,
+  TTFT=`36.217 ms`, total=`123.499 ms`, payload=`60.892 MB`,
+  compression ratio=`0.711111`.
+- Interpretation:
+  The compressed prompt fixes the abnormal HotpotQA baseline, but the
+  CMRC-trained bank still loses `0.104191` F1 and `0.072000` EM on the
+  500-sample HotpotQA probe. This is not release-safe evidence for HotpotQA
+  quality. Reuse-only is effectively unusable on HotpotQA.
+- Action:
+  Kept the full 7405-sample CMRC-bank run alive as a complete negative
+  reference, but launched a HotpotQA-bank probe to test whether dataset-specific
+  reuse/patch banks recover quality.
+
+### 2026-06-24 11:10 +08:00 Qwen32 HotpotQA compressed rank96 probe result
+
+- Run:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_hotpot_fix_probe_20260624_101851/hotpot_compressed512_200`.
+  Dataset=`hotpotqa_compressed`, samples=`200`, max length `512`, Qwen2.5-32B
+  base -> Qwen2.5-32B-Instruct, CMRC-trained rank96 route, no fallback and no
+  recompute.
+- Metrics:
+  Full Consumer F1/EM=`0.475440/0.370000`, NLL=`5.333244`,
+  TTFT=`197.552 ms`, total=`1800.545 ms`.
+  SCD F1/EM=`0.362915/0.240000`, NLL=`4.766286`,
+  TTFT=`84.672 ms`, total=`1682.309 ms`, payload=`70.261 MB`,
+  compression ratio=`1.094017`.
+- Interpretation:
+  This is an effective, non-truncated HotpotQA probe. It shows useful TTFT
+  reduction (`-112.879 ms`) but a large quality drop (`-0.112525` F1,
+  `-0.130000` EM). The CMRC-trained Qwen32 route should not be presented as
+  a HotpotQA-quality-preserving result.
+
+### 2026-06-24 11:12 +08:00 follow-up probes launched
+
+- ser HotpotQA-bank probe:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_hotpotbank_20260624_110127`,
+  PID `3825741`, physical GPUs `2,3`. It uses the same 19-reuse/13-patch
+  route but swaps the reuse and patch banks to HotpotQA-trained artifacts:
+  reuse bank
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_train_selected_cmrc_layers_20260610_122944/lite_to_7b/ckpt_reuse/hotpotqa_seed42`
+  and patch bank
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_full_banks_20260610_192156/lite_to_7b/ckpt_patch/patch_hotpotqa_seed42_full_bank`.
+  At the last check it had reached `160/500`.
+- A800 Qwen32 CMRC Full+SCD baseline:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000/strict_eval/cmrc2018_rank96_full_scd`,
+  PID `2464316`, physical GPU `4`. This fills the missing Full Consumer
+  baseline for the existing Qwen32 CMRC rank96 SCD result. Model loading had
+  reached about `100/771` shards after roughly two minutes, so the run remains
+  active rather than being stopped.
+
+### 2026-06-24 11:22 +08:00 HotpotQA-bank compressed probe result
+
+- Run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_hotpotbank_20260624_110127`.
+  Dataset=`hotpotqa_compressed`, samples=`500`, max length `512`, same
+  19-reuse/13-patch route as the CMRC-bank probe, but using HotpotQA-trained
+  reuse and full patch banks.
+- Metrics:
+  Full Consumer F1/EM=`0.304472/0.212000`, NLL=`1.679403`,
+  TTFT=`79.487 ms`, total=`736.994 ms`.
+  Reuse-only F1/EM=`0.012403/0.000000`, NLL=`8.296469`,
+  TTFT=`30.784 ms`.
+  SCD F1/EM=`0.137438/0.084000`, NLL=`2.454582`,
+  TTFT=`46.692 ms`, total=`184.708 ms`, payload=`60.892 MB`,
+  compression ratio=`0.711111`.
+- Interpretation:
+  The HotpotQA-trained bank is worse than the CMRC-trained bank for the
+  `hotpotqa_compressed` evaluator. This likely reflects a prompt/distribution
+  mismatch: the older HotpotQA banks were trained for full-context HotpotQA,
+  while the valid short-answer probe now uses compressed prompts. This route is
+  not release-safe.
+- Action:
+  Stopped the still-running full 7405-sample CMRC-bank HotpotQA run
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_full_mistral_20260624_103300`
+  at about `1251/7405`, because both 500-sample probes already showed that
+  the route family is not quality-preserving. Launched an all-patch probe to
+  isolate whether the patch bank itself can preserve HotpotQA quality without
+  reuse:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_allpatch_20260624_112037`,
+  PID `3889631`, physical GPUs `0,1`.
+
+### 2026-06-24 11:34 +08:00 HotpotQA compressed all-patch result
+
+- Run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_allpatch_20260624_112037`.
+  Dataset=`hotpotqa_compressed`, samples=`500`, max length `512`, generated
+  all-patch route with `32` patch layers and `0` reuse layers, using the
+  HotpotQA full patch bank.
+- Metrics:
+  Full Consumer F1/EM=`0.304472/0.212000`, NLL=`1.679403`,
+  TTFT=`78.040 ms`, total=`749.637 ms`.
+  All-patch SCD F1/EM=`0.348318/0.270000`, NLL=`1.798902`,
+  TTFT=`70.597 ms`, total=`160.307 ms`, payload=`86.602 MB`,
+  compression ratio=`0.500000`.
+- Interpretation:
+  Patch-only/all-patch is not the quality bottleneck on valid compressed
+  HotpotQA. It preserves and even improves F1/EM on this 500-sample slice,
+  while the 19-reuse/13-patch mixed route loses substantial quality. The
+  HotpotQA release path should therefore search from all-patch toward more
+  reuse layers, using F1/EM as the primary gate and NLL only as auxiliary risk.
+- Next action:
+  Start a reuse-layer sweep on ser using the same HotpotQA patch/reuse banks
+  and `hotpotqa_compressed` 500-sample evaluator. Candidate routes should add
+  reuse layers conservatively and stop/rollback when F1/EM retention breaks.
+
+### 2026-06-24 11:43 +08:00 HotpotQA reuse sweep first bracket
+
+- Run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_reuse_sweep_20260624_113428`.
+  Dataset=`hotpotqa_compressed`, samples=`500`, SCD-only evaluator, HotpotQA
+  full patch bank and HotpotQA reuse bank. Full baseline for comparison is the
+  all-patch run's Full Consumer F1/EM=`0.304472/0.212000`; all-patch SCD
+  F1/EM=`0.348318/0.270000`.
+- reuse06 route:
+  reuse layers `[3,5,6,8,9,11]`.
+  SCD F1/EM=`0.324584/0.256000`, NLL=`2.109547`,
+  TTFT=`64.292 ms`, total=`181.278 ms`, payload=`78.483 MB`,
+  compression ratio=`0.551724`.
+- reuse10 route:
+  reuse layers `[3,5,6,8,9,11,13,14,17,20]`.
+  SCD F1/EM=`0.212423/0.140000`, NLL=`2.235643`,
+  TTFT=`61.028 ms`, total=`355.585 ms`, payload=`73.070 MB`,
+  compression ratio=`0.592593`.
+- Interpretation:
+  reuse06 is still quality-preserving relative to Full Consumer and loses only
+  `0.023734` F1 / `0.014000` EM relative to all-patch. reuse10 breaks quality.
+  The maximum acceptable reuse count is likely between `6` and `9`.
+- Next action:
+  Launched a refinement sweep
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_reuse_sweep_20260624_114223`
+  for reuse07 and reuse08 on ser GPUs `0,1` and `2,3`.
+
+### 2026-06-24 11:51 +08:00 HotpotQA bank leakage audit and heldout rerun
+
+- Issue found:
+  The HotpotQA-trained patch/reuse banks used in the all-patch and reuse-sweep
+  probes were created by older scripts using the first `200` HotpotQA samples.
+  The probes above used the default first `500` `hotpotqa_compressed` samples,
+  so the first `200` samples overlapped the bank training qids. Those probes
+  are still useful for debugging the route trend, but they must not be treated
+  as release-quality evidence.
+- Valid rerun:
+  Launched
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_heldout500_mistral_20260624_115110`
+  with qid file
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_heldout500_mistral_20260624_115110/qids/hotpotqa_compressed_qids_offset200_n500.txt`.
+  The launcher generates qids from samples `[200:700]`, checks zero overlap
+  with samples `[0:200]`, sets `max_eval_samples=0`, and uses `--qid-file` so
+  filtering happens after full dataset loading.
+- Jobs:
+  Heldout all-patch PID `3992872` on ser GPUs `0,1`.
+  Heldout reuse06 PID `3992873` on ser GPUs `2,3`.
+  Both run Full Consumer + SCD on the same heldout qids.
+
+### 2026-06-24 11:53 +08:00 Qwen32 CMRC rank96 Full+SCD baseline result
+
+- Run:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000/strict_eval/cmrc2018_rank96_full_scd`.
+  Dataset=`cmrc2018`, split=`dev`, samples=`200`, Qwen2.5-32B base ->
+  Qwen2.5-32B-Instruct, rank96 route, no fallback and no recompute.
+- Metrics:
+  Full Consumer F1/EM=`0.398174/0.005000`, NLL=`0.761167`,
+  TTFT=`213.866 ms`, total=`1814.218 ms`.
+  SCD F1/EM=`0.423152/0.065000`, NLL=`0.649368`,
+  TTFT=`101.643 ms`, total=`1699.190 ms`, payload=`83.204 MB`,
+  compression ratio=`1.094017`.
+- Interpretation:
+  On the primary CMRC2018 200-sample dev evaluation, the Qwen32 rank96 SCD
+  route is not worse than Full Consumer by F1/EM and improves TTFT by about
+  `112.223 ms`. This fills the missing Full Consumer baseline for the earlier
+  Qwen32 CMRC SCD-only run.
+
+### 2026-06-24 11:54 +08:00 HotpotQA reuse07/reuse08 contaminated-bracket result
+
+- Run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_500_mistral_reuse_sweep_20260624_114223`.
+  This run still used the contaminated first-500 sample window, so it is
+  route-debug evidence only, not release evidence.
+- reuse07 route:
+  SCD F1/EM=`0.268093/0.202000`, NLL=`2.276984`,
+  TTFT=`62.126 ms`, total=`193.160 ms`, payload=`77.130 MB`,
+  compression ratio=`0.561404`.
+- reuse08 route:
+  SCD F1/EM=`0.234068/0.168000`, NLL=`2.166389`,
+  TTFT=`63.313 ms`, total=`316.497 ms`, payload=`75.777 MB`,
+  compression ratio=`0.571429`.
+- Interpretation:
+  Together with the contaminated reuse06/reuse10 bracket, this suggested a
+  tentative route boundary at reuse06. Because of the HotpotQA bank training
+  overlap, the heldout rerun remains the authoritative check.
+
+### 2026-06-24 12:02 +08:00 HotpotQA compressed heldout500 valid result
+
+- Run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_heldout500_mistral_20260624_115110`.
+  Dataset=`hotpotqa_compressed`, heldout qids from samples `[200:700]`,
+  verified zero overlap with the first `200` HotpotQA samples used by the
+  earlier HotpotQA patch/reuse bank builders. Both jobs ran Full Consumer +
+  SCD on the same heldout qids with `max_eval_samples=0` and explicit
+  `--qid-file`.
+- All-patch metrics:
+  Full Consumer F1/EM=`0.290624/0.196000`, NLL=`1.623824`,
+  TTFT=`77.355 ms`, total=`746.447 ms`.
+  All-patch SCD F1/EM=`0.341106/0.250000`, NLL=`1.733548`,
+  TTFT=`70.592 ms`, total=`162.592 ms`, payload=`86.752 MB`,
+  compression ratio=`0.500000`.
+- reuse06 metrics:
+  Full Consumer F1/EM=`0.290624/0.196000`, NLL=`1.623824`,
+  TTFT=`79.880 ms`, total=`747.836 ms`.
+  reuse06 SCD F1/EM=`0.299870/0.226000`, NLL=`2.050575`,
+  TTFT=`65.389 ms`, total=`180.623 ms`, payload=`78.619 MB`,
+  compression ratio=`0.551724`.
+- Interpretation:
+  On a non-overlapping heldout slice, reuse06 remains above Full Consumer by
+  F1/EM (`+0.009246` F1 and `+0.030000` EM) while using six reuse layers.
+  All-patch gives the best quality but less reuse. For HotpotQA release
+  evidence, reuse06 is the current safe mixed-route candidate; reuse07+
+  still needs a heldout check before being treated as evidence.
+
+### 2026-06-24 12:04 +08:00 HotpotQA compressed full-heldout reuse06 launch
+
+- Run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_fullheldout_mistral_reuse06_20260624_120400`.
+  The run excludes the first `200` HotpotQA training-bank qids and evaluates
+  the remaining `7205` heldout qids with the valid `hotpotqa_compressed`
+  prompt. Route=`reuse06` with reuse layers `[3,5,6,8,9,11]` and patch layers
+  on all other layers. Fallback and recompute remain disabled.
+- Jobs:
+  Shard00 PID `4036451` on ser GPUs `0,1`, expected samples `3603`.
+  Shard01 PID `4036452` on ser GPUs `2,3`, expected samples `3602`.
+  Each shard runs Full Consumer + SCD and writes a separate
+  `strict_eval/summary.csv`; final quality should be aggregated by
+  `num_samples`.
+- Purpose:
+  Replace the 500-sample heldout probe with release-facing full heldout
+  HotpotQA evidence for the current maximum-safe reuse route.
+
+### 2026-06-24 12:14 +08:00 Strict-eval shard aggregation utility
+
+- Change:
+  Added `scripts/aggregate_strict_eval_shards.py` to both the current runtime
+  tree and the release preview tree. The utility reads one or more shard
+  `summary.csv` files, groups rows by `method`, and computes
+  `num_samples`-weighted aggregate F1, EM, NLL, TTFT, total latency, payload,
+  and compression ratio. PPL is recomputed from the weighted average NLL.
+- Verification:
+  Local `py_compile` passed for both copies. A temporary two-shard CSV test
+  produced the expected weighted aggregate metrics. The script was also copied
+  to ser as
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/scripts/aggregate_strict_eval_shards_cli.py`
+  and compiled successfully with `/disk_n/c101-3-mql/venvs/A800/bin/python`.
+- Purpose:
+  The full heldout HotpotQA run is split into two qid shards. This utility
+  prevents manual arithmetic errors when combining shard-level `summary.csv`
+  outputs into release-facing quality and latency evidence.
+
+### 2026-06-24 12:18 +08:00 Qwen32 CMRC2018 full-dev launch
+
+- Run:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_devfull_rank96_full_scd_20260624_121813`.
+  This run reuses the Qwen2.5-32B base -> Qwen2.5-32B-Instruct rank96
+  route/reuse/patch artifacts from
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc200_rank96_frompairs_20260623_153000`
+  and evaluates the full CMRC2018 dev split with `max_eval_samples=0` and
+  `--limit 0`.
+- Purpose:
+  Replace the earlier 200-sample Qwen32 CMRC baseline with full-dev evidence
+  while ser is running HotpotQA. The job uses A800mql GPU4, which was checked
+  as continuously idle for at least 60 seconds before launch.
+- Status:
+  PID `2553260`. Initial log confirmed `loaded samples: dataset=cmrc2018
+  cmrc_split=dev n=3219`; GPU4 loaded the model and reached about `66 GB`
+  memory usage during startup.
+
+### 2026-06-24 12:37 +08:00 vLLM plugin release-contract local tests
+
+- Command:
+  From `Experiment/core_code/runtime_repo`, ran
+  `python -m pytest tests/test_scd_vllm_doctor.py tests/test_scd_vllm_plugin.py tests/test_scd_vllm_bundle.py tests/test_scd_vllm_metrics.py tests/test_scd_vllm_official_launch_example.py -q -p no:cacheprovider`
+  with `PYTHONPATH=src` and `TMP/TEMP` redirected to
+  `C:\Users\mql16\Desktop\SCD-ICML\tmp\pytest-temp`.
+- Result:
+  `22 passed in 6.25s`.
+- Broader check:
+  Re-ran the vLLM-related test selection with
+  `python -m pytest tests -k scd_vllm -q -p no:cacheprovider` under the same
+  `PYTHONPATH` and workspace temp settings. Result:
+  `62 passed, 54 deselected in 7.75s`.
+- Notes:
+  The first local attempt failed at collection because `src` was not on
+  `PYTHONPATH`. The second attempt reached tests but failed because pytest's
+  default temp root was `C:\Users\mql16\AppData\Local\Temp`, which is not
+  writable in the current sandbox. Redirecting temp files into the workspace
+  produced a clean pass.
+- Coverage:
+  This validates the local release-contract layer for the vLLM-facing package:
+  bundle manifest handling, doctor validation, plugin facade, metrics helpers,
+  dataset-eval helpers, reconstructed export/oracle scaffolding, injection
+  scaffolding, and the official launch example contract. It does not replace
+  the remote GPU/vLLM runtime check or dataset quality runs.
+
+### 2026-06-24 12:42 +08:00 ser vLLM launch-spec and doctor preflight
+
+- Context:
+  The current ser runtime at
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618`
+  initially had an older `scd_vllm_plugin` CLI that did not expose
+  `launch-spec` / `launch-smoke`. Synced the local tested `src/scd_vllm_plugin`
+  and `src/scd_vllm` directories to that runtime with `aline push --safe`.
+- Artifact:
+  Reused the existing paper-checkpoint reconstructed SCD bundle and
+  ExampleConnector storage:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/repro_current_from_codex_20260607-154030/runtime_repo/runs/scd_vllm/ser_reconstructed_reuse_patch_cmrc_route_paperckpt_20260615/reuse_patch_bundle`
+  and
+  `/disk_n/c101-3-mql/projects/SCD-ICML/repro_current_from_codex_20260607-154030/runtime_repo/runs/scd_vllm/ser_scd_injection_reuse_patch_cmrc_route_paperckpt_20260615/example_connector_storage`.
+- Launch-spec:
+  Generated
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/runs/scd_vllm/ser_launch_spec_reuse_patch_paperckpt_20260624/launch_spec.json`.
+  The command returned `launch_spec_pass=true`, `storage_ready=true`, and
+  emitted official vLLM `llm_kwargs` with `kv_transfer_config` pointing to
+  `SCDPreloadedConnector` / `scd_vllm.preloaded_connector`.
+- Doctor:
+  The default ser env `/disk_n/c101-3-mql/venvs/A800` does not have `vllm`
+  installed, so doctor fails there only on `vllm_import`. The existing vLLM env
+  `/disk_n/c101-3-mql/miniconda3/envs/vllm_lmcache_smoke/bin/python` has
+  `vllm==0.18.0`; with that env, doctor wrote
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/runs/scd_vllm/ser_launch_spec_reuse_patch_paperckpt_20260624/doctor_vllm_env.json`
+  and returned `pass=true`.
+- Route safety:
+  Doctor validated a strict mixed route with `patch_count=13`,
+  `reuse_count=19`, `fallback_count=0`, and `recompute_count=0`.
+- Remaining:
+  This is still a preflight. The next vLLM step is a real `launch-smoke` or
+  `batch-benchmark` under the vLLM env once a ser GPU is available.
+
+### 2026-06-24 13:25 +08:00 HotpotQA compressed full-heldout reuse06 result
+
+- Run:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_fullheldout_mistral_reuse06_20260624_120400`.
+  This is the release-facing HotpotQA-compressed heldout run that excludes the
+  first `200` HotpotQA samples used by the earlier HotpotQA bank builders.
+  Shard00 evaluated `3603` samples and shard01 evaluated `3602` samples.
+- Aggregation:
+  Used
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/scripts/aggregate_strict_eval_shards_cli.py`
+  to aggregate the two shard `summary.csv` files by `num_samples`.
+  Aggregate output:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runs/hotpotqa_compressed_fullheldout_mistral_reuse06_20260624_120400/aggregate/summary.csv`.
+- Full Consumer:
+  `num_samples=7205`, F1=`0.290780`, EM=`0.204858`,
+  NLL=`1.597600`, PPL=`4.941159`, TTFT=`79.720 ms`,
+  total=`742.930 ms`.
+- SCD reuse06:
+  `num_samples=7205`, F1=`0.294311`, EM=`0.214434`,
+  NLL=`2.094477`, PPL=`8.121196`, TTFT=`64.373 ms`,
+  total=`179.012 ms`, payload=`78.867 MB`,
+  compression ratio=`0.551724`.
+- Delta:
+  SCD is `+0.003530` F1 and `+0.009577` EM vs Full Consumer on this heldout
+  split. It also improves TTFT by about `15.348 ms` and total latency by about
+  `563.918 ms` (`~4.15x` lower total latency). NLL is worse by `+0.496877`, so
+  it remains an auxiliary risk signal, but the primary quality metrics
+  F1/EM do not show degradation on the full heldout split.
+- Conclusion:
+  For MistralLite -> Mistral-7B on HotpotQA-compressed, the current safe
+  mixed route is reuse06 (`reuse_layers=[3,5,6,8,9,11]`) with no train/test
+  overlap, no fallback, and no recompute.
+
+### 2026-06-24 14:07 +08:00 ser vLLM launch-smoke and batch benchmark
+
+- Launch-smoke:
+  Ran current-code `scd-vllm launch-smoke` through the vLLM env
+  `/disk_n/c101-3-mql/miniconda3/envs/vllm_lmcache_smoke/bin/python` on ser
+  GPU0 with the generated launch spec
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/runs/scd_vllm/ser_launch_spec_reuse_patch_paperckpt_20260624/launch_spec.json`.
+  Output:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/runs/scd_vllm/ser_launch_spec_reuse_patch_paperckpt_20260624/launch_smoke.json`.
+- Launch-smoke result:
+  `launch_smoke_pass=true`, `vllm_version=0.18.0`,
+  `kv_connector=SCDPreloadedConnector`,
+  `kv_connector_module_path=scd_vllm.preloaded_connector`,
+  `bundle_token_match=true`, `generation_ok=true`,
+  `prompt_token_count=229`, `output_tokens=16`,
+  `generation_seconds=1.032329`, `tokens_per_second=15.498939`.
+  This proves the current open-release code can instantiate official
+  `vllm.LLM(**llm_kwargs)` with the SCD preloaded connector for a trusted
+  static prefix.
+- Batch benchmark:
+  Ran `python -m scd_vllm.batch_benchmark` on ser GPU0 with batch size `16`,
+  `3` measured batches, `1` warmup batch, `16` output tokens per request, and
+  the same paper-checkpoint MistralLite -> Mistral-7B reuse+patch bundle.
+  Output:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/runs/scd_vllm/ser_batch_benchmark_reuse_patch_paperckpt_20260624/metrics.json`.
+- Batch benchmark result:
+  `benchmark_pass=true`, `load_generation_ok=true`, `bundle_token_match=true`,
+  `storage_ready=true`. Plain vLLM baseline reached
+  `385.642508 tokens/s` and `24.102657 requests/s`. SCD load reached
+  `649.831790 tokens/s` and `40.614487 requests/s`, giving
+  `1.685063x` speedup on this repeated-prefix microbenchmark. Connector stats:
+  `cache_hits=2016`, `cache_misses=32`, `cache_events=2048`,
+  `cache_hit_rate=0.984375`, `cached_files=32`,
+  `cached_bytes=29360128`.
+- Prefix-cache check:
+  Attempted a combined baseline + vLLM prefix-cache + SCD load run at
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/runs/scd_vllm/pcbench_20260624`.
+  It failed during the final SCD load stage because the previous vLLM stage had
+  not released GPU memory quickly enough: vLLM reported only `5.41/23.53 GiB`
+  free on `cuda:0`, below the requested `gpu_memory_utilization=0.85`
+  allocation. This is a benchmark orchestration/resource cleanup issue, not a
+  connector correctness failure. No final `metrics.json` was produced for this
+  combined run.
+- Resource note:
+  After the failed combined prefix-cache attempt, all four ser GPUs were
+  occupied by separate `/disk_n/c101-3-1/venvs/A800/bin/python` processes, so
+  the standalone prefix-cache stage was deferred to avoid interfering with
+  other work.
+
+### 2026-06-24 14:13 +08:00 ser vLLM standalone prefix-cache stage
+
+- Purpose:
+  Repair the failed combined prefix-cache benchmark by running the official
+  vLLM prefix-cache stage in a separate process. This avoids the GPU-memory
+  release race observed when baseline, prefix-cache, and SCD load were run
+  sequentially in one benchmark controller.
+- Command shape:
+  Ran `python -m scd_vllm.batch_benchmark --stage prefix-cache` on ser GPU0
+  with the same Mistral-7B model, same prompt bundle, batch size `16`,
+  `3` measured batches, `1` warmup batch, and `16` output tokens per request.
+  Output:
+  `/disk_n/c101-3-mql/projects/SCD-ICML/runtime_repo_codex_current_20260618/runs/scd_vllm/prefixcache_stage_20260624/prefix-cache.json`.
+- Result:
+  `stage=prefix-cache`, `vllm_version=0.18.0`,
+  `enable_prefix_caching=True`, `request_count=48`,
+  `output_tokens=768`, `generation_seconds=1.005290`,
+  `requests_per_second=47.747423`, `tokens_per_second=763.958763`.
+- Interpretation:
+  On this repeated-identical-prefix microbenchmark, official vLLM prefix cache
+  is faster than SCD load (`763.959` vs `649.832 tokens/s`). The SCD vLLM path
+  is still valid and faster than plain vLLM (`1.685x`), but the release claim
+  should be bounded as a trusted cross-model/external-bundle KV preloading
+  path, not as a replacement for same-model vLLM prefix caching when all
+  requests share the exact same prefix.
+
+### 2026-06-24 14:18 +08:00 vLLM release-preview documentation and readiness fix
+
+- Change:
+  Updated `Experiment/core_code/runtime_repo/docs/scd_vllm_plugin_mvp.md` with
+  the verified `doctor` -> `launch-spec` -> `launch-smoke` path, the
+  `SCDPreloadedConnector` claim boundary, and the measured vLLM benchmark
+  numbers. Added the same document to
+  `Experiment/core_code/runtime_repo/release_preview/scd_icml_runtime_release/docs/scd_vllm_plugin_mvp.md`.
+- Manifest:
+  Updated
+  `Experiment/core_code/runtime_repo/release_preview/scd_icml_runtime_release/OPEN_SOURCE_RELEASE_MANIFEST.md`
+  to include the optional vLLM plugin path, the latest vLLM evidence, and the
+  no-overlap HotpotQA-compressed full-heldout reuse06 evidence.
+- Packaging fix:
+  Release readiness initially failed because the release-preview
+  `pyproject.toml` did not declare `safetensors`, did not expose `scd-vllm`,
+  and the release checker treated local packages `scd_vllm` and
+  `scd_vllm_plugin` as missing external dependencies. Fixed the
+  release-preview `pyproject.toml` and `scripts/check_release_readiness.py`.
+  The current runtime already had the corresponding pyproject entries.
+- Verification:
+  Ran `python scripts/check_release_readiness.py` inside
+  `Experiment/core_code/runtime_repo/release_preview/scd_icml_runtime_release`.
+  Result: `release readiness check passed`.
+
+### 2026-06-24 16:31 +08:00 A800 Qwen32 CMRC full-dev rerun recovery
+
+- Purpose:
+  Recover the Qwen2.5-32B base -> Qwen2.5-32B-Instruct CMRC2018 strict
+  evaluation after the migrated `A800mql` account no longer exposed the
+  earlier `/home/c101-800-mql/nas/SCD-ICML` run, model, or data paths.
+- Environment:
+  Host `A800mql` resolved to `gpu010` as user `c101-800-mql`. The active
+  Conda Python was `/home/c101-800-mql/.conda/envs/cache/bin/python`.
+  `/home` and `/data` had less than 45GB free, so the 32B base checkpoint was
+  restored to temporary memory storage at `/dev/shm/scd_models/Qwen2.5-32B`.
+- Data and model setup:
+  CMRC2018 train/dev files were synced from ser snapshot
+  `/disk_n/c101-3-mql/projects/SCD-ICML/kv/snapshots/scd-github-f7d7854/data/cmrc2018`
+  to `/home/c101-800-mql/maqianli/SCD-ICML/data/cmrc2018`.
+  Qwen2.5-32B base was downloaded with ModelScope to `/dev/shm`, producing
+  `17` safetensors files, `config.json`, and `model.safetensors.index.json`
+  with total size about `65.54GB`. The consumer model was read from the shared
+  path `/home/cuihanshuai/models/Qwen2.5-32B-Instruct`.
+- Run:
+  Main run root:
+  `/dev/shm/scd_qwen32_cmrc/qwen32_cmrc_train200_devfull_rank96_20260624_155651`.
+  Training uses CMRC2018 train split `n=200`; evaluation is configured for the
+  full CMRC2018 dev split with `--limit 0`, `max_length=512`,
+  `max_new_tokens=32`, `rank_k=rank_v=96`, no fallback, and no recompute.
+- Completed stages:
+  `capture_pair` selected initially idle GPUs `2,5` and completed 200 train
+  samples in `427s`. `train_reuse` completed in `145s`. `profile_layers`
+  completed in `416s`.
+- Patch training adjustment:
+  The default Qwen32 patch config trained all 64 patch layers and was projected
+  to be too slow. That run was stopped after preserving pairs/reuse/profile.
+  The rerun used the profile top-6 layers `[62, 61, 60, 63, 59, 58]`; the
+  generated route normalizes this to patch layers `[58, 59, 60, 61, 62, 63]`
+  and reuse layers `0-57`. `train_patch_top6` completed in `406s`, then
+  `make_route_top6` and `validate_route_top6` passed.
+- Current state:
+  Continuation process `30903` is waiting for two GPUs with at least
+  `70000MB` free and sustained zero utilization before launching full-dev
+  eval. At the time of this record, only GPU2 was fully idle; the other A800
+  GPUs were occupied by DraftKV processes. No `summary.csv` has been produced
+  yet.
+
+### 2026-06-24 17:24 +08:00 A800 Qwen32 CMRC full-dev wait monitor
+
+- Current state:
+  The continuation process `30903` remains alive and has not entered strict
+  eval yet. The route, top-6 patch model, and route validation are complete;
+  no `strict_eval/cmrc2018_top6/summary.csv` or eval status JSON has been
+  produced.
+- Blocking condition:
+  The eval launcher requires two GPUs with at least `70000MB` free and zero
+  utilization for a sustained check window. During manual polling from
+  `16:56` to `17:23`, GPU3 became fully idle, but no second A800 GPU satisfied
+  both memory and utilization conditions. GPU2 was occupied by another user's
+  `SpecEdge` process, and most other GPUs were occupied by DraftKV processes.
+- Monitor:
+  Started lightweight monitor PID `3258453` on `A800mql`. It records process,
+  GPU, eval status, and summary checks every 60 seconds to
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank96_20260624_155651_top6/monitor_status.log`.
+  It stops automatically when `summary.csv` appears or when continuation
+  process `30903` exits.
+- ETA:
+  Wall-clock completion cannot be predicted until the second full GPU is
+  released. Once eval starts, the full CMRC2018 dev split is estimated to take
+  about `3-3.5h` based on the prior Qwen32 strict-eval per-sample latency.
+
+### 2026-06-24 17:41 +08:00 A800 Qwen32 CMRC eval-only wait fix
+
+- Issue found:
+  The original continuation script used command substitution
+  `EVAL_GPUS="$(wait_for_two_idle_gpus)"`, while the wait function printed
+  diagnostic messages to stdout. If two GPUs became available, the captured
+  `CUDA_VISIBLE_DEVICES` value could include diagnostic text and fail to launch
+  eval.
+- Fix:
+  Stopped only the old SCD waiting bash processes `30903` and `33381`; no GPU
+  jobs or DraftKV jobs were killed. Started an eval-only script that reuses the
+  completed reuse checkpoint, top-6 patch checkpoint, and route artifact, and
+  sends wait diagnostics to stderr while returning only the selected GPU pair
+  on stdout.
+- New processes:
+  Eval-only wait process PID `2756977`; monitor process PID `2924241`.
+- Current state:
+  At `17:40`, eval had not started. GPU3 was fully idle, but there was no
+  second GPU satisfying `free>=70000MB` and `util=0`. The job remains queued
+  for two full GPUs.
+
+### 2026-06-24 17:58 +08:00 A800 Qwen32 CMRC full/scd-only full-dev eval
+
+- Reason for change:
+  The first eval launch selected GPUs `2,3` and started successfully, but it
+  used the default runtime-eval method set:
+  `full_consumer`, `raw_kv`, `quantized_4bit`, `reuse_only`, and `scd_full`.
+  Early progress was about `10s/sample`, implying roughly `9h` for the full
+  CMRC2018 dev split. The current target only needs Full and SCD F1/EM.
+- Action:
+  Stopped only the SCD five-method eval process and wrapper. Reused the
+  existing reuse checkpoint, top-6 patch checkpoint, and route. Started a new
+  full-dev eval with runtime methods restricted to `full_consumer` and
+  `scd_full`.
+- Process and output:
+  Wrapper PID `1652543`; `eval_text_strict` PID `1652633`; monitor PID
+  `2131608`. Output directory:
+  `/dev/shm/scd_qwen32_cmrc/qwen32_cmrc_train200_devfull_rank96_20260624_155651/strict_eval/cmrc2018_top6_full_scd_only`.
+  Monitor log:
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank96_20260624_155651_top6/monitor_full_scd_only_status.log`.
+- Current progress:
+  At `17:57:24`, progress reached `61/3219`. Observed speed was about
+  `4.7s/sample`, with estimated completion around `22:00-22:15 CST` if speed
+  remains stable. No status JSON or summary CSV has been produced yet because
+  the run is still in progress.
+
+### 2026-06-24 18:05 +08:00 A800 Qwen32 CMRC full/scd-only progress monitor
+
+- Progress:
+  The full/scd-only eval remains healthy. At `18:04:17`, stderr progress
+  reached `144/3219`.
+- Runtime:
+  `eval_text_strict` PID `1652633` remained alive with GPU2/GPU3 memory stable
+  around `63-66GB` used. GPU3 utilization was near full during the check;
+  GPU2 utilization fluctuated but stayed allocated as the producer device.
+- ETA:
+  From `17:59` to `18:04`, progress advanced from `83/3219` to `144/3219`,
+  about `4.9s/sample`. Estimated completion is around `22:10-22:25 CST` if
+  current speed remains stable. No summary CSV or status JSON has been written
+  yet because the run is still in progress.
+
+### 2026-06-25 10:25 +08:00 A800 Qwen32 CMRC full/scd-only completed
+
+- Completion:
+  The full/scd-only CMRC2018 full-dev eval completed successfully. Status
+  file reports `success=true`, `exit_code=0`, start epoch `1782294727`, end
+  epoch `1782309513`, wall clock `14786s` (`4.11h`), written at
+  `2026-06-24T21:58:33+0800`.
+- Output:
+  The `/dev/shm` runtime directory was no longer populated when checked on
+  `2026-06-25`, but the script had copied artifacts to the durable home run
+  directory:
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank96_20260624_155651_top6`.
+  Summary path:
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank96_20260624_155651_top6/strict_eval/cmrc2018_top6_full_scd_only/summary.csv`.
+- Route:
+  `paper_scd_reuse_patch_k6` with reuse layers `0-57` and patch layers
+  `[58, 59, 60, 61, 62, 63]`; no fallback or recompute.
+- Results:
+  `full_consumer` on `3219` samples: F1 `0.3356469555`, EM
+  `0.0043491768`, avg NLL `1.0792686539`, TTFT `203.8976ms`, total
+  `1795.7773ms`.
+  `scd_full` on `3219` samples: F1 `0.3804223903`, EM `0.0481515999`,
+  avg NLL `0.9303721329`, payload `86.0511MB`, compression ratio
+  `1.0940`, TTFT `66.4753ms`, total `1656.7166ms`.
+- Comparison:
+  SCD vs Full: F1 delta `+0.0447754348`, EM delta `+0.0438024231`, TTFT
+  speedup `3.07x`, total-latency speedup `1.084x`. The quality result is
+  positive for this run, but the measured payload compression is modest
+  (`~1.09x`) and should be treated separately from the paper's headline
+  speedup claims.
+- ResearchKB:
+  Recorded as experiment run `run_047707184e934d45`.
+## 2026-06-25 - Qwen32B CMRC baseline prompt/template diagnosis
+
+- Experiment id: `qwen32_cmrc_full_consumer_chat_prompt_strict_100`
+- Purpose: Diagnose the abnormally low Qwen2.5-32B-Instruct CMRC2018 full-consumer baseline observed in the previous full-dev run.
+- Code changes:
+  - Added prompt-style support for CMRC short-answer evaluation via `cmrc_qwen_chat_short`.
+  - Changed `eval_text_strict.py` to lazily load reuse weights only for methods that actually require reuse. This allows `full_consumer` baseline validation without a reuse checkpoint.
+- Remote runtime:
+  - Host: `A800mql`
+  - Env: `/home/c101-800-mql/.conda/envs/cache/bin/python`
+  - Runtime repo: `/home/c101-800-mql/maqianli/SCD-ICML/qwen32_runtime_20260614/runtime_repo`
+  - Output: `/home/c101-800-mql/maqianli/SCD-ICML/runs/qwen32_cmrc_chat_strict_eval_100_20260625/full_only_instruct_cfg`
+- Method:
+  - Dataset: CMRC2018 dev, first 100 examples
+  - Model: `Qwen2.5-32B-Instruct`
+  - Method: `full_consumer`
+  - Prompt style: `cmrc_qwen_chat_short`
+  - Max length: 512
+  - Max new tokens: 32
+- Results:
+  - F1: `0.7339758338612086`
+  - EM: `0.55`
+  - Avg NLL: `0.7868334690907172`
+  - PPL: `2.1964303383538217`
+  - TTFT: `201.95977110081003 ms`
+  - Total: `764.6225432711071 ms`
+- Analysis:
+  - The earlier Qwen32B full-dev result with F1 around `0.3356` and EM around `0.0043` is invalid as a baseline quality estimate because the raw prompt made the instruct model produce verbose sentence answers.
+  - The formal strict eval after applying the Qwen chat short-answer prompt restores baseline quality on the same first-100 CMRC slice, matching the earlier probe result.
+  - Any SCD/reuse/patch comparison using the old raw-prompt Qwen32B artifacts should be treated as diagnostic only. A clean result needs pairs, reuse, profile, patch, route, and eval regenerated under the same prompt style.
+- Next actions:
+  - Rebuild the Qwen32B CMRC artifacts with `PROMPT_STYLE=cmrc_qwen_chat_short`.
+  - Use a real base-model path for producer-side artifact generation, or update the full-only eval path so it does not instantiate producer when no selected method needs it.
+
+## 2026-06-25 11:19 +08:00 A800mql NAS remount recovery
+
+- Purpose:
+  Restore A800mql durable storage access after `/home/c101-800-mql/nas`
+  stopped resolving to the NAS mount and experiments could no longer read
+  Qwen32 model/data artifacts.
+- Diagnosis:
+  The old `/etc/fstab` mount target `/nas` used
+  `//p8.bnuzh.top/edge/server` with root credentials and failed with CIFS
+  permission errors. The active SCD workflow uses
+  `/home/c101-800-mql/nas` mounted from `//p8.bnuzh.top/个人文件`.
+- Action:
+  Recovered the updated NAS credential from A800mql account history and mounted
+  `//p8.bnuzh.top/个人文件` to `/home/c101-800-mql/nas` through the existing
+  Docker root-capable path, using a temporary credential file that was removed
+  after the mount command.
+- Verification:
+  `mountpoint /home/c101-800-mql/nas` reports it is a mountpoint. `findmnt`
+  reports source `//p8.bnuzh.top/个人文件`, filesystem `cifs`, size `90.8T`,
+  used `28.1T`, available `62.7T`.
+- Artifact checks:
+  `/home/c101-800-mql/nas/models/Qwen2.5-32B` is readable with `30` top-level
+  files and about `62G`. `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`
+  is readable with `24` top-level files and about `62G`. The SCD run directory
+  `/home/c101-800-mql/nas/SCD-ICML/runs` is readable.
+- Note:
+  Do not rely on `/nas` for current A800mql SCD work. Use
+  `/home/c101-800-mql/nas` as the active storage path.
+
+## 2026-06-25 11:23 +08:00 A800mql Qwen32 CMRC clean-prompt SCD full-dev run launched
+
+- Experiment id: `qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331`
+- Purpose:
+  Rebuild the Qwen2.5-32B to Qwen2.5-32B-Instruct SCD artifacts after fixing
+  the CMRC prompt/template issue that invalidated the previous raw-prompt
+  Qwen32 baseline.
+- Host and environment:
+  A800mql (`gpu010`), user `c101-800-mql`, conda env `cache`, runtime repo
+  `/home/c101-800-mql/maqianli/SCD-ICML/qwen32_runtime_20260614/runtime_repo`.
+- Run root:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331`.
+- Launch:
+  Background wrapper PID `424855`.
+- Key parameters:
+  `PROMPT_STYLE=cmrc_qwen_chat_short`, `TRAIN_LIMIT=200`,
+  `EVAL_LIMIT=3219`, `TRAIN_CMRC_SPLIT=train`, `EVAL_CMRC_SPLIT=dev`,
+  `DATASETS=cmrc2018`, `PATCH_BUDGET=6`.
+- Model paths:
+  Runtime model config `configs/models_a800_qwen25_32b_base_to_instruct_nas_20260625.json`
+  points model A to `/home/c101-800-mql/nas/models/Qwen2.5-32B` and model B
+  to `/home/c101-800-mql/nas/models/Qwen2.5-32B-Instruct`.
+- Eval scope:
+  Uses `configs/eval_scd_icml_full_scd_no_fallback_no_recompute.json`, so
+  the strict eval runs `full_consumer` and `scd_full`; raw KV, 4-bit,
+  reuse-only, fallback, and recompute paths are disabled.
+- GPU selection:
+  Preflight monitored GPUs for 60 seconds and selected `CUDA_VISIBLE_DEVICES=0,1`.
+  Busy GPUs were avoided.
+- Current state at launch check:
+  Preflight passed; model/data paths were valid; 200 train prompts were written
+  with the chat short-answer CMRC style; the run entered `capture_pair`.
+
+## 2026-06-26 14:20 +08:00 A800mql Qwen32 CMRC clean-prompt SCD full-dev run completed
+
+- Experiment id: `qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331`
+- Run root:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331`.
+- Status:
+  Wrapper PID `424855` is no longer running. All recorded stages completed
+  successfully.
+- Stage durations:
+  - `capture_pair`: `4288 s` (`2026-06-25 11:24:43` to `12:36:11`).
+  - `train_reuse`: `2457 s` (`12:36:12` to `13:17:09`).
+  - `profile_layers`: `7802 s` (`13:17:09` to `15:27:11`).
+  - `train_patch`: `10334 s` (`15:27:11` to `18:19:25`).
+  - `make_route`: `1 s`.
+  - `validate_route`: `0 s`.
+  - `eval_cmrc2018`: `12496 s` (`18:19:26` to `21:47:42`).
+- Route:
+  `64` layers total; `58` reuse layers and `6` patch layers. Patch layers are
+  `[43, 44, 45, 46, 61, 62]`. `fallback_layers=[]` and
+  `selected_recompute_layers=[]`.
+- Eval dataset:
+  CMRC2018 `dev`, `3219` samples, `PROMPT_STYLE=cmrc_qwen_chat_short`,
+  strict eval methods `full_consumer` and `scd_full`.
+- Results:
+  - Full consumer: F1 `0.719578919112036`, EM `0.5821683752718235`,
+    avg NLL `0.9374224612290135`, PPL `2.5533914635509696`,
+    TTFT `259.90421646138014 ms`, total `889.4713049226518 ms`.
+  - SCD: F1 `0.7052122380729181`, EM `0.5464429947188568`,
+    avg NLL `0.7678509613189313`, PPL `2.1551298162896217`,
+    TTFT `87.13774665276691 ms`, total `1322.1946868884706 ms`,
+    payload `113.79692111292327 MB`.
+- Analysis:
+  The clean-prompt Qwen32B SCD route preserves CMRC F1 reasonably well
+  (`-0.0143666810391179` absolute F1 versus full, about `-1.44` points), but
+  EM drops more (`-0.0357253805529667`, about `-3.57` points). TTFT improves
+  substantially (`259.90 ms` to `87.14 ms`, about `2.98x` faster), but total
+  latency is worse because SCD decode/rest time is much larger and the payload
+  is larger than the raw-cache reference reported by the eval summary.
+- Next actions:
+  Investigate the SCD decode/rest overhead and payload accounting before using
+  this Qwen32B full-dev run as a system-speed claim. For quality-only gating,
+  this route is a plausible candidate; for end-to-end speed, it is not yet a
+  positive result.
+
+## 2026-06-26 14:56 +08:00 Qwen32 decode stop-token fix probe
+
+- Purpose:
+  Diagnose and fix the abnormal SCD `decode_rest_ms` inflation observed in the
+  Qwen32 CMRC clean-prompt full-dev run.
+- Code change:
+  Updated `Experiment/core_code/runtime_repo/src/scd_repro/strict_runtime.py`
+  and synchronized the same file to
+  `/home/c101-800-mql/maqianli/SCD-ICML/qwen32_runtime_20260614/runtime_repo/src/scd_repro/strict_runtime.py`.
+  The decode loop now stops on tokenizer `all_special_ids` plus explicit EOS
+  and PAD ids, rather than only `eos_token_id`. It also checks newline/CR
+  boundaries on raw decoded text before `extract_answer_text` strips them.
+- Verification:
+  Local `python -m py_compile` passed. Remote env Python
+  `/home/c101-800-mql/.conda/envs/cache/bin/python` compiled and imported
+  `scd_repro.strict_runtime` successfully.
+- Probe run:
+  Reused the existing Qwen32 run artifacts and evaluated five pathological
+  CMRC dev qids where SCD previously had very large `decode_rest_ms` despite
+  producing the same final answer text:
+  `DEV_610_QUERY_2`, `DEV_610_QUERY_1`, `DEV_609_QUERY_4`,
+  `DEV_255_QUERY_2`, `DEV_339_QUERY_0`.
+- Output:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_decode_stopfix_probe_20260626`.
+- Probe results:
+  - Full consumer: F1 `1.0`, EM `1.0`, TTFT `252.1204230026342 ms`,
+    `decode_rest_ms=72.89992599980906`, total `325.02034900244325 ms`.
+  - SCD: F1 `1.0`, EM `1.0`, TTFT `74.73493778379634 ms`,
+    `decode_rest_ms=74.96783479582518`, total `149.70277257962152 ms`.
+- Analysis:
+  The pathological `decode_rest_ms` issue was caused by short-answer generation
+  continuing after answer completion through non-EOS special/control tokens
+  that were later hidden by `skip_special_tokens=True`. The stop-token fix
+  removes this artifact on the tested cases. A full CMRC dev re-eval is still
+  required to replace the previous full-dev latency numbers.
+
+## 2026-06-26 15:07 +08:00 Qwen32 CMRC full-dev decode stop-token rerun launched
+
+- Experiment id:
+  `qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331_decode_stopfix_full_20260626_150554`.
+- Purpose:
+  Re-run the full CMRC2018 dev strict evaluation after the decode stop-token
+  fix, without retraining reuse or patch artifacts.
+- Host and environment:
+  A800mql, runtime repo
+  `/home/c101-800-mql/maqianli/SCD-ICML/qwen32_runtime_20260614/runtime_repo`,
+  Python `/home/c101-800-mql/.conda/envs/cache/bin/python`.
+- Output:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_decode_stopfix_full_20260626_150554`.
+- Process:
+  Wrapper PID `2655585`, Python PID `2655587`, monitor PID `2934369`.
+- GPU assignment:
+  `CUDA_VISIBLE_DEVICES=0,1`; producer on `cuda:0`, consumer on `cuda:1`.
+- Inputs:
+  Reuses route
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/route/qwen32_route_k6_seed42.json`,
+  reuse checkpoint `ckpt_reuse/cmrc2018_seed42`, and patch checkpoint
+  `ckpt_patch/patch_cmrc2018_seed42`.
+- Eval scope:
+  CMRC2018 `dev`, `3219` samples, `PROMPT_STYLE=cmrc_qwen_chat_short`,
+  strict methods `full_consumer` and `scd_full`, `max_new_tokens=32`,
+  no fallback and no recompute.
+- Launch verification:
+  At `2026-06-26T15:08:02+08:00`, wrapper and Python processes were alive.
+  Log showed sample loading and prompt-style application completed, then model
+  weight loading began. GPU0 had about `62.9GB` allocated and GPU1 was still
+  in early load state.
+- Next action:
+  Monitor `monitor_status.log` or `summary.json` in the output directory for
+  completion. This run should replace the previous full-dev latency table once
+  complete.
+
+## 2026-06-28 13:51 +08:00 Qwen32 CMRC full-dev decode stop-token rerun completed
+
+- Experiment id:
+  `qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331_decode_stopfix_full_20260626_150554`.
+- Output:
+  `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_decode_stopfix_full_20260626_150554`.
+- Status:
+  Wrapper PID `2655585` is no longer running. `summary.json`,
+  `final_comparison.json`, per-sample metrics, and per-method sample files were
+  written successfully. GPU0 and GPU1 were released.
+- Completion:
+  Strict text eval finished at `2026-06-26 18:01:07 +08:00` after processing
+  `3219/3219` CMRC2018 dev samples.
+- Route and constraints:
+  `58` reuse layers and `6` patch layers; fallback and recompute were disabled
+  (`fallback_layers=0`, `selected_recompute_layers=0`).
+- Full consumer:
+  F1 `0.7177149862136203`, EM `0.5803044423734078`, avg NLL
+  `0.9374224612290135`, PPL `2.5533914635509696`, TTFT
+  `232.64846564109803 ms`, total `850.8617095908997 ms`.
+- SCD:
+  F1 `0.7005364999986075`, EM `0.5439577508543025`, avg NLL
+  `0.7678509613189313`, PPL `2.1551298162896217`, TTFT
+  `73.95934490602527 ms`, total `740.8151136011608 ms`, payload
+  `113.79692111292327 MB`.
+- Deltas versus full:
+  F1 `-0.017178486215012834` absolute, EM `-0.0363466915191053` absolute,
+  TTFT `-158.68912073507278 ms`. TTFT speedup is about `3.15x`; total latency
+  speedup is about `1.15x` (`12.93%` faster).
+- Analysis:
+  The stop-token fix removed the earlier pathological SCD total-latency
+  regression. SCD is now faster than Full on both TTFT and total latency for
+  this Qwen32 CMRC full-dev eval, while quality loss is about `1.72` F1 points
+  and `3.63` EM points. Payload accounting remains unfavorable: reported SCD
+  payload is still larger than the raw-cache reference, so the bandwidth/bytes
+  claim should still be treated as unresolved until payload accounting or rank
+  settings are revisited.
+
+## 2026-06-26 17:01 +08:00 MistralLite -> Mistral7 CMRC full-dev decode stop-token rerun launched
+
+- Experiment id:
+  `cmrc_devfull_stopfix_mistral_reuse19_patch13_20260626_170101`.
+- Purpose:
+  Re-run the SCD-ICML selected Reuse19/Patch13 CMRC2018 dev strict evaluation
+  after the decode stop-token fix, without retraining reuse or patch artifacts.
+- Host and environment:
+  A800mql, runtime repo
+  `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617`,
+  conda env `cache`.
+- Code change active for this run:
+  Synchronized the fixed `src/scd_repro/strict_runtime.py` from the local
+  SCD-ICML runtime repo to the A800mql runtime. The remote file hash after sync
+  was `e89a43d3f557b5ae6c195f75d8cb772cda562832534ab9f0936179055c6eda8c`.
+- Output:
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/cmrc_devfull_stopfix_mistral_reuse19_patch13_20260626_170101`.
+- Process:
+  Screen `scd_icml_cmrc_stopfix_0626`, Python PID `3360861`.
+- GPU assignment:
+  `CUDA_VISIBLE_DEVICES=3,4`; producer on visible `cuda:0` / physical GPU3,
+  consumer on visible `cuda:1` / physical GPU4.
+- Inputs:
+  Route
+  `/home/c101-800-mql/nas/mql/SCD-ICML/runtime_repo_open_release_20260617/configs/routes/scd_icml_mistrallite_to_mistral7_reuse19_patch13_cmrc200.json`;
+  reuse checkpoint
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/layerwise_seed42`;
+  patch checkpoint
+  `/home/c101-800-mql/nas/mql/scd_icml_ser_assets/banks/open_build_native_fixedroute_cmrc200_20260616_133222/native_alllayers_seed42`.
+- Eval scope:
+  CMRC2018 `dev`, all `3219` samples (`EVAL_LIMIT=0`), strict methods
+  `full_consumer` and `scd_full`, `max_length=0`, `max_new_tokens=32`,
+  no fallback and no recompute.
+- Launch verification:
+  At approximately `2026-06-26 17:10 +08:00`, both models had loaded, GPU3 and
+  GPU4 were allocated, and the log showed progress past `56/3219` samples.
+- Expected next action:
+  Monitor
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/cmrc_devfull_stopfix_mistral_reuse19_patch13_20260626_170101/logs/eval_text_strict.log`
+  until completion, then read
+  `lite_to_7b/strict_eval/cmrc2018/per_mode_summary.json` and update this log
+  with final F1/EM/TTFT/total latency.
+
+### Completion update, 2026-06-26 18:30 +08:00
+
+- Status:
+  Completed successfully with `exit_code=0`.
+- Wall-clock:
+  `5227` seconds from launcher timing.
+- Completion evidence:
+  Log reached `strict text progress: 3219/3219` and wrote results to
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/cmrc_devfull_stopfix_mistral_reuse19_patch13_20260626_170101/lite_to_7b/strict_eval/cmrc2018`.
+- Result files:
+  `per_mode_summary.json`, `final_comparison.json`, `summary.json`,
+  `summary.csv`, `summary.md`, `per_sample_metrics.jsonl`, `run_manifest.json`,
+  and `samples/`.
+- Metrics:
+
+  | mode | n | F1 | EM | TTFT ms | decode_first ms | decode_rest ms | total ms |
+  |---|---:|---:|---:|---:|---:|---:|---:|
+  | Full Consumer | 3219 | 0.660843 | 0.480584 | 100.185 | 24.136 | 215.356 | 315.541 |
+  | SCD | 3219 | 0.672820 | 0.417210 | 45.963 | 23.474 | 266.846 | 312.809 |
+
+- Derived comparison:
+  SCD TTFT speedup is about `2.18x` (`100.185 / 45.963`), while end-to-end
+  total speedup is only about `1.009x` (`315.541 / 312.809`).
+  SCD F1 is `+0.01198` above Full Consumer on this run, but EM is `-0.06337`.
+- Decode-stop fix interpretation:
+  The severe hidden special/control-token slowdown is no longer reproduced at
+  the previous scale: SCD total is now slightly faster than Full instead of
+  clearly slower. However, SCD `decode_rest_ms` remains higher than Full by
+  about `51.49 ms` on average, so the decode tail still absorbs most of the
+  TTFT gain.
+- Conclusion:
+  The decode stop-token fix is effective enough to restore a small positive
+  end-to-end latency result on full CMRC2018 dev, but the practical gain is
+  still dominated by SCD output/decoding behavior. Further diagnosis should
+  focus on generated length, special-token termination frequency, and answer
+  formatting, not retraining the existing Reuse19/Patch13 artifacts.
+
+## 2026-06-26 20:38 +08:00 CMRC max_new_tokens stop-diagnostic A/B launched
+
+- Purpose:
+  Test whether constraining answer generation length can recover end-to-end
+  latency after the decode stop-token fix, and add direct generation diagnostics
+  (`generated_token_count`, `stop_reason`, `hit_max_new_tokens`,
+  `raw_decoded_text`) to per-sample outputs.
+- Code change:
+  Updated local and A800mql runtime files:
+  `src/scd_repro/strict_runtime.py` and `src/scd_repro/cli_eval_cmrc_strict.py`.
+  Remote syntax check passed. Remote hashes:
+  `strict_runtime.py = a8bd55239a73881c6463209b5577dbf916f5acd93556c95280f061b4680119b8`,
+  `cli_eval_cmrc_strict.py = b0cc7960ab8f461b7639ec53324a1b1864e88f1a08982055a3eecf16b95a6275`.
+- Host and run root:
+  A800mql,
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/cmrc_maxnew_stopdiag_mistral_reuse19_patch13_20260626_203845`.
+- Experiment setup:
+  CMRC2018 dev first `200` samples, MistralLite -> Mistral-7B,
+  existing Reuse19/Patch13 route and checkpoints, no retraining, no fallback,
+  no recompute, `max_length=0`.
+- Variants:
+  `max_new_tokens = 8, 12, 16, 32`.
+- GPU assignment:
+  First wave launched concurrently:
+  `maxnew8` on physical GPUs `0,1`,
+  `maxnew12` on physical GPUs `3,4`,
+  `maxnew16` on physical GPUs `5,6`.
+  `maxnew32` is scheduled after the first wave, on physical GPUs `0,1`.
+- Process:
+  Screen `scd_icml_cmrc_maxnew_ab_0626`.
+- Expected outputs:
+  Each variant writes `per_mode_summary.json`, `per_sample_metrics.jsonl`,
+  and `summary.csv`; parent run writes `ab_summary.json` and `ab_summary.csv`.
+
+### Completion update, 2026-06-26 21:06 +08:00
+
+- Status:
+  All four variants completed successfully.
+- Parent summary:
+  `/home/c101-800-mql/maqianli/SCD-ICML/runs/cmrc_maxnew_stopdiag_mistral_reuse19_patch13_20260626_203845/ab_summary.json`.
+- Local machine-readable result:
+  `C:\Users\mql16\Desktop\SCD-ICML\Experiment\analysis\cmrc_maxnew_stopdiag_mistral_reuse19_patch13_20260626_result.json`.
+- Result table:
+
+  | max_new | Full F1 | SCD F1 | SCD TTFT ms | SCD decode_rest ms | SCD total ms | total speedup | SCD gen tokens | SCD max_new hit |
+  |---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | 8 | 0.4551 | 0.5724 | 42.56 | 136.43 | 178.99 | 1.1095x | 6.285 | 0.545 |
+  | 12 | 0.5139 | 0.6263 | 43.94 | 177.58 | 221.52 | 1.0512x | 8.085 | 0.395 |
+  | 16 | 0.5451 | 0.6383 | 42.74 | 209.02 | 251.76 | 1.0157x | 9.380 | 0.285 |
+  | 32 | 0.5814 | 0.6435 | 50.00 | 290.12 | 340.12 | 0.9478x | 12.635 | 0.170 |
+
+- Stop diagnostics:
+  Full mostly stops by text boundary/newline, with text-boundary rates
+  `0.55/0.655/0.73/0.89` for max_new `8/12/16/32`.
+  SCD almost never stops by text boundary (`0.005` in all variants). It stops
+  mainly by special/EOS token or by hitting max_new. This explains why SCD
+  still has longer `decode_rest_ms`: the SCD cache changes the answer-ending
+  behavior, especially the newline boundary behavior.
+- Interpretation:
+  `max_new=8` gives the best latency but cuts quality too much.
+  `max_new=12` is the best speed-quality tradeoff on n=200:
+  SCD F1 `0.6263`, total speedup `1.0512x`, TTFT speedup `2.2772x`.
+  `max_new=16` better preserves quality (`0.6383` vs `0.6435` at max_new=32),
+  but end-to-end speedup shrinks to `1.0157x`.
+- Next action:
+  Full-dev confirmation should prioritize `max_new=12`; if conservative
+  quality is required, also confirm `max_new=16`.
+
+## 2026-06-26 - Multi-model / multi-dataset current-best SCD check
+
+- Purpose: run/check the current best no-fallback/no-recompute SCD scheme across multiple model pairs and datasets.
+- Fresh runs:
+  - MistralLite -> Mistral-7B-v0.1, HotpotQA compressed heldout n=200, ser GPU2/3, route Hotpot-specific Reuse06/Patch26.
+  - MistralLite -> Mistral-7B-v0.1, WikiText-2 n=200, ser GPU2/3, route Patch26/Reuse6. A800mql duplicate run was stopped after ser completed.
+  - CMRC2018 n=200 uses same-day max_new sweep result, selected max_new=12 as speed-quality point.
+- Existing comparison rows:
+  - Qwen2.5-32B -> Qwen2.5-32B-Instruct, existing 2026-06-23 rank96/k6 results. This is same-parameter base->instruct, not 7B->32B.
+- Key results:
+  - Mistral CMRC2018 n=200: SCD F1 0.6263 vs full 0.5139, TTFT 2.2772x, total 1.0512x.
+  - Mistral HotpotQA compressed n=200: SCD F1 0.2128 vs full 0.1833, TTFT 1.2690x, total 1.1585x.
+  - Mistral WikiText-2 n=200: SCD F1 0.2026 vs full 0.2258, retention 0.8973, TTFT 1.6212x, total 1.0733x.
+  - Qwen32 base->Instruct CMRC2018 existing n=200: SCD F1 0.4232 vs full 0.3982, TTFT 2.1041x, total 1.0677x.
+  - Qwen32 base->Instruct WikiText-2 existing n=763: SCD F1 0.2566 vs full 0.2720, retention 0.9434, TTFT 1.8345x, total 1.0399x.
+  - Qwen32 base->Instruct HotpotQA existing partial n=3600/7405: SCD F1 0.0301 vs full 0.0289, TTFT 1.6264x, total 1.0556x; partial only.
+- Outputs:
+  - C:\Users\mql16\Desktop\SCD-ICML\Experiment\analysis\multi_model_dataset_best_scheme_20260626\multi_model_dataset_best_scheme_20260626_summary.json
+  - C:\Users\mql16\Desktop\SCD-ICML\Experiment\analysis\multi_model_dataset_best_scheme_20260626\multi_model_dataset_best_scheme_20260626_report.md
+- Remote run roots:
+  - /disk_n/c101-3-mql/projects/SCD-ICML/runs/multi_model_dataset_mistral_hotpot_best_20260626_214707
+  - /disk_n/c101-3-mql/projects/SCD-ICML/runs/multi_model_dataset_mistral_wikitext2_best_ser_20260626_215414
+  - /home/c101-800-mql/maqianli/SCD-ICML/runs/multi_model_dataset_mistral_wikitext2_best_20260626_214704 (duplicate stopped after ser result)
+- Conclusion: current best SCD consistently improves TTFT, but total latency gains remain small because decode dominates. Mistral small-to-large is the usable fresh evidence; Qwen32 rows are not small-to-large and should be kept as separate same-size cross-model evidence.
+
+## 2026-06-28 - Qwen32 CMRC answer-boundary decode stop probe
+
+- Purpose: test a stronger task-aware stop condition for CMRC2018 short-answer decoding without using a hard generation-length cap. The immediate target is SCD decode long tails caused by prompt residue or explanation spillover.
+- Code changes:
+  - Added shared CMRC answer cutoff separators in `Experiment/core_code/runtime_repo/src/scd_repro/cmrc.py`.
+  - Updated `TransformersRuntimeSession._generated_has_text_boundary` in `Experiment/core_code/runtime_repo/src/scd_repro/strict_runtime.py` to stop on newline, chat special markers, `#`, and explicit answer/prompt/explanation boundary markers.
+  - Exported `generated_token_count`, `stop_reason`, and `raw_decoded_text` from `Experiment/core_code/runtime_repo/src/scd_repro/cli/eval_cmrc_strict.py`.
+- Verification:
+  - Local `py_compile` passed for all three changed files.
+  - Remote `py_compile` passed under `/home/c101-800-mql/maqianli/SCD-ICML/qwen32_runtime_20260614/runtime_repo`.
+- Remote run:
+  - Host: `A800mql`.
+  - GPUs: physical `0,1`.
+  - Existing busy GPU `2` was avoided; later activity on GPUs `3-6` came from other users' processes.
+  - Environment: `/home/c101-800-mql/.conda/envs/cache/bin/python`.
+  - Output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_boundary_stop_probe_20260628_140959`.
+  - Dataset/window: CMRC2018 dev, fixed 10-qid long-tail probe selected from the previous full-dev run.
+  - Route: Qwen32 CMRC route with `58` reuse layers and `6` patch layers, no fallback, no recompute.
+- Offline full-dev re-scoring of old predictions with the new answer extractor:
+  - Full Consumer: F1 `0.717715 -> 0.717020`, EM unchanged at `0.580304`; changed predictions `79/3219`.
+  - SCD: F1 `0.700536 -> 0.701214`, EM `0.543958 -> 0.545200`; changed predictions `40/3219`.
+- Real 10-qid probe result:
+  - Full Consumer: F1 `0.4000`, EM `0.4000`, TTFT `289.62 ms`, decode `115.96 ms`, total `349.13 ms`.
+  - SCD: F1 `0.1119`, EM `0.0000`, TTFT `76.38 ms`, decode `1472.26 ms`, total `1497.39 ms`.
+  - Compared with old stopfix results on the same 10 qids, SCD changed `2/10` predictions, F1 improved by `+0.01316`, decode improved by `-188.86 ms`, and total improved by `-182.77 ms`.
+  - New SCD stop reasons: `text_boundary=2`, `stop_token=1`, `max_new_tokens=7`; average generated tokens `27.4`.
+- Key examples:
+  - `DEV_11_QUERY_1` SCD old output included `#注意：根据要求...`; new output stopped at `心律失常的现象。`, decode `1678.19 -> 404.77 ms`, total `1691.45 -> 443.28 ms`, F1 `0.0909 -> 0.0`.
+  - `DEV_549_QUERY_3` SCD old output included `#不需要解释...`; new output stopped at `冷硬派（hard boiled）的侦探小说代表作品。`, decode `1673.56 -> 734.10 ms`, total `1683.75 -> 745.58 ms`, F1 `0.1304 -> 0.3529`.
+- Interpretation:
+  - The answer-boundary stop condition helps prompt-residue/explanation spillover and has low full-dev metric risk in offline re-scoring.
+  - It does not solve most SCD decode long tails because `7/10` probe SCD rows still hit `max_new_tokens`; those cases are long but syntactically normal answers, so they need confidence/agreement-based stopping or a learned end-of-answer criterion rather than only marker-based boundaries.
+
+## 2026-06-28 - Qwen32 CMRC context-span decode stop probe and full-dev launch
+
+- Purpose: test a narrower CMRC-specific context-span answer stop on top of marker-boundary stopping. The goal is to stop when a generated answer begins a description-style expansion of a context span, while avoiding hard `max_new_tokens` truncation.
+- Code changes:
+  - Added context-aware answer trimming in `Experiment/core_code/runtime_repo/src/scd_repro/cmrc.py`.
+  - Added `answer_context` support in `TransformersRuntimeSession.generate_from_prefill` and `generate_from_cache`.
+  - Added generation-time `context_span_boundary` stop reason and `context_span_boundary_rate` summary metric in `Experiment/core_code/runtime_repo/src/scd_repro/strict_runtime.py`.
+- Safety adjustment:
+  - An initial punctuation-based context-span rule was rejected before real GPU eval because offline full-dev re-scoring was too aggressive:
+    Full F1 `-0.0230`, SCD F1 `-0.0216`.
+  - The deployed rule was narrowed to description-style markers only, not ordinary comma/period/parenthesis boundaries.
+- Offline full-dev re-scoring of old predictions with the narrowed context rule:
+  - Full Consumer: F1 `0.717715 -> 0.716842`, EM `0.580304 -> 0.579062`, changed `84/3219`.
+  - SCD: F1 `0.700536 -> 0.701542`, EM `0.543958 -> 0.544268`, changed `46/3219`.
+- Real 10-qid probe:
+  - Output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_context_span_probe_20260628_144602`.
+  - Full Consumer: F1 `0.4000`, EM `0.4000`, TTFT `295.35 ms`, decode `116.88 ms`, total `353.24 ms`.
+  - SCD: F1 `0.1516`, EM `0.0000`, TTFT `100.69 ms`, decode `1413.45 ms`, total `1460.08 ms`.
+  - Compared with old stopfix on the same 10 qids, SCD F1 improved by `+0.05287`, decode improved by `-247.68 ms`, total improved by `-220.07 ms`.
+  - Compared with marker-boundary probe, SCD F1 improved by `+0.03971`, decode improved by `-58.82 ms`, total improved by `-37.31 ms`.
+  - SCD stop reasons: `context_span_boundary=2`, `stop_token=1`, `max_new_tokens=7`.
+- Key examples:
+  - `DEV_11_QUERY_1`: SCD answer `心律失常的现象。` became `心律失常`, decode `404.77 -> 277.39 ms`, total `443.28 -> 429.09 ms`; F1 stayed `0.0` because the gold answer is `身体原因`.
+  - `DEV_549_QUERY_3`: SCD answer `冷硬派（hard boiled）的侦探小说代表作品。` became `冷硬派（hard boiled）`, F1 `0.3529 -> 0.7500`, decode `734.10 -> 498.94 ms`, total `745.58 -> 528.88 ms`.
+- Full-dev real validation launched:
+  - Screen: `scd_ctx_span_full_20260628_151928`.
+  - Output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_context_span_full_20260628_151928`.
+  - GPUs: physical `0,1`; GPU `2` was already occupied by another process and was avoided.
+  - Command log: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_context_span_full_20260628_151928/run.log`.
+  - Launch status at `2026-06-28 15:20 +08`: process `3953728` running, GPU0/GPU1 allocated, loading Qwen2.5-32B weights.
+- Interim conclusion:
+  - Context-span stop is worth full-dev validation because the narrowed rule has low offline quality risk and improves the targeted long-tail probe.
+  - It still does not eliminate the main tail: `7/10` probe SCD samples still hit `max_new_tokens`, so a future step should add a learned/confidence-based end-of-answer criterion if full-dev confirms this trend.
+
+## 2026-06-28 - Qwen32 CMRC context-span full-dev validation completed
+
+- Purpose: validate the narrowed context-span stop rule on the full CMRC2018 dev set under the same Qwen32 route and compare against the prior stopfix full-dev run.
+- Remote run:
+  - Host: `A800mql`.
+  - Output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_context_span_full_20260628_151928`.
+  - Reference run: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_decode_stopfix_full_20260626_150554`.
+  - Status: completed successfully; `summary.json` and `per_sample_metrics.jsonl` were produced.
+- Full-dev results:
+
+  | Method | F1 | EM | TTFT ms | Decode total ms | Total ms | Stopfix total delta |
+  |---|---:|---:|---:|---:|---:|---:|
+  | Full Consumer | 0.7168 | 0.5791 | 231.12 | 652.14 | 830.06 | -20.81 ms |
+  | SCD | 0.7015 | 0.5443 | 73.35 | 708.62 | 729.57 | -11.24 ms |
+
+- Deltas versus prior stopfix full-dev:
+  - Full Consumer: F1 `-0.00087`, EM `-0.00124`, total `-20.81 ms`.
+  - SCD: F1 `+0.00101`, EM `+0.00031`, TTFT `-0.61 ms`, decode `-11.05 ms`, total `-11.24 ms`.
+- SCD versus Full Consumer under the new run:
+  - F1 gap: `-0.01530`.
+  - EM gap: `-0.03479`.
+  - TTFT speedup: `3.15x`.
+  - End-to-end speedup: `1.14x` (`12.11%` total-time reduction).
+  - Decode is still slower for SCD: `708.62 ms` versus `652.14 ms`, i.e. `+56.48 ms`.
+- Stop distribution:
+  - Full Consumer: `stop_token=2454`, `max_new_tokens=610`, `text_boundary=150`, `context_span_boundary=5`.
+  - SCD: `text_boundary=1533`, `stop_token=922`, `max_new_tokens=756`, `context_span_boundary=8`.
+  - SCD max-new hit rate remains high at `23.49%`; those rows average about `1667 ms` decode time and dominate the residual decode tail.
+- Conclusion:
+  - The narrowed context-span rule is safe enough for the current CMRC full-dev setting and slightly improves SCD quality/latency versus the prior stopfix.
+  - It is not sufficient as the final decode fix because SCD still generates longer answers on a substantial tail. The next optimization should target end-of-answer confidence/agreement or extractive/span-constrained generation, not just more marker separators.
+
+## 2026-06-28 - Qwen32 CMRC stronger stop attempts: span-boundary offline and logits soft-stop probe
+
+- Purpose: test stronger non-hardcap stopping mechanisms for the remaining SCD decode tail after context-span stopping.
+- Code changes:
+  - Added optional `runtime_eval.generation_stop` plumbing in `Experiment/core_code/runtime_repo/src/scd_repro/strict_runtime.py`.
+  - Added `soft_stop_token` based on cumulative special/stop-token probability, with configurable `enabled`, `stop_token_prob`, `min_generated_tokens`, `min_answer_chars`, and `stop_token_margin`.
+  - Propagated `generation_stop` through both `Experiment/core_code/runtime_repo/src/scd_repro/cli/eval_cmrc_strict.py` and `Experiment/core_code/runtime_repo/src/scd_repro/cli/eval_text_strict.py`.
+  - Default remains disabled, so existing baseline/context-span runs are unchanged unless the config explicitly enables `generation_stop`.
+- Verification:
+  - Local `py_compile` passed for `strict_runtime.py`, `cli/eval_cmrc_strict.py`, and `cli/eval_text_strict.py`.
+  - Remote `py_compile` passed under `/home/c101-800-mql/maqianli/SCD-ICML/qwen32_runtime_20260614/runtime_repo`.
+- Offline span-boundary simulation:
+  - Input: full-dev context-span `per_sample_metrics.jsonl`.
+  - Candidate rule: stop once the generated prefix becomes a context span followed by punctuation / description boundary.
+  - Result: rejected before GPU runtime. Even conservative variants caused material quality loss. For example, punctuation-only with minimum span length 10 changed `495` SCD rows and dropped SCD F1 by `-0.01657`; more aggressive variants dropped SCD F1 by `0.03-0.13`.
+- Remote logits soft-stop probe:
+  - Host: `A800mql`.
+  - QIDs: `DEV_11_QUERY_1`, `DEV_55_QUERY_2`, `DEV_200_QUERY_2`, `DEV_311_QUERY_0`, `DEV_311_QUERY_1`, `DEV_311_QUERY_2`, `DEV_311_QUERY_3`, `DEV_367_QUERY_0`, `DEV_549_QUERY_3`, `DEV_604_QUERY_1`.
+  - Outputs:
+    - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_softstop_0p02_probe_20260628_203643`.
+    - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_softstop_0p05_probe_20260628_203643`.
+  - Configs:
+    - `stop_token_prob=0.02`, `min_generated_tokens=2`, `min_answer_chars=2`, `stop_token_margin=0`.
+    - `stop_token_prob=0.05`, `min_generated_tokens=2`, `min_answer_chars=2`, `stop_token_margin=0`.
+  - Both probes completed successfully with `exit.status=0`; GPUs `0-3` were released after completion.
+- Probe comparison against the context-span 10-qid baseline:
+
+  | Setting | Method | F1 | EM | Gen tokens | Soft-stop rate | Max-new hit | Decode total ms | Total ms |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|
+  | context-span | Full Consumer | 0.4000 | 0.4000 | 1.5 | 0.0 | 0.0 | 116.88 | 353.24 |
+  | context-span | SCD | 0.1516 | 0.0000 | 26.6 | 0.0 | 0.7 | 1413.45 | 1460.08 |
+  | soft-stop 0.02 | Full Consumer | 0.4000 | 0.4000 | 1.5 | 0.4 | 0.0 | 117.74 | 337.47 |
+  | soft-stop 0.02 | SCD | 0.1383 | 0.0000 | 23.5 | 0.2 | 0.6 | 1241.56 | 1265.66 |
+  | soft-stop 0.05 | Full Consumer | 0.4000 | 0.4000 | 1.5 | 0.4 | 0.0 | 120.47 | 315.93 |
+  | soft-stop 0.05 | SCD | 0.1383 | 0.0000 | 23.5 | 0.2 | 0.6 | 1258.78 | 1284.73 |
+
+- Per-sample diagnosis:
+  - Full Consumer predictions were unchanged; stop reasons shifted from exact stop-token to soft-stop for `4/10` rows.
+  - SCD predictions changed on `2/10` rows and both changes reduced F1.
+  - `DEV_55_QUERY_2`: SCD stopped at token `8` instead of exact stop-token at token `28`, F1 delta `-0.1111`.
+  - `DEV_200_QUERY_2`: SCD stopped at token `21` instead of max-new at token `32`, F1 delta `-0.0212`.
+- Conclusion:
+  - Logits soft-stop reduces the decode tail but is not quality-safe on the long-tail probe. Do not promote to full-dev with the current threshold form.
+  - The remaining decode problem is not just missing EOS confidence. A better next attempt should be extractive answer selection / verifier reranking over generated prefixes, or a trained end-of-answer classifier using context/question features, instead of directly trusting stop-token probability.
+
+## 2026-06-28 - Qwen32 CMRC route-level decode-tail probes started
+
+- Purpose: test whether increasing the number of patch layers reduces SCD-specific over-generation and improves end-to-end latency, after string/soft-stop rules showed only small or unsafe gains.
+- Baseline reference:
+  - Full-dev context-span run: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_context_span_full_20260628_151928`.
+  - Current route: `k=6`, patch layers `[43, 44, 45, 46, 61, 62]`, reuse layers `58`.
+  - Current SCD full-dev: F1 `0.70154`, EM `0.54427`, TTFT `73.35 ms`, decode `708.62 ms`, total `729.57 ms`, generated tokens `13.31`, max-new hit rate `23.49%`.
+- Offline checks before route probes:
+  - Added local analysis artifacts:
+    - `tmp/analyze_decode_tail.py`
+    - `tmp/context_span_full/decode_tail_analysis.json`
+    - `tmp/probe_tail_stop_rules_fast.py`
+    - `tmp/context_span_full/tail_stop_rule_grid_fast.json`
+  - Key diagnosis:
+    - `scd_only_max_new`: `169` rows; SCD generated `32.0` tokens on average while Full generated `14.50`, with SCD total `1687.80 ms` versus Full `980.76 ms`.
+    - Best safe string/punctuation rule only estimated `0.36` token/sample saved and changed `40` SCD rows, so it is not a meaningful total-latency fix.
+- Route generation:
+  - Patch checkpoint supports all `64` layers; no retraining needed for route probes.
+  - Profile metric: `patch_kv_error`.
+  - Correct layer ranking uses `reuse_error - patch_kv_error`; profile recommended prefix is `[46, 45, 44, 43, 62, 61, 60, 63]`.
+  - Generated route files:
+    - `qwen32_route_k8_seed42_decode_tail_probe.json`: patch `[43, 44, 45, 46, 60, 61, 62, 63]`.
+    - `qwen32_route_k12_seed42_decode_tail_probe.json`: patch `[43, 44, 45, 46, 47, 48, 50, 59, 60, 61, 62, 63]`.
+    - `qwen32_route_k16_seed42_decode_tail_probe.json`: patch `[43, 44, 45, 46, 47, 48, 49, 50, 52, 56, 57, 59, 60, 61, 62, 63]`.
+  - An earlier incorrect k10/k14/k18/k24 route generation attempt sorted profile rows by the wrong field and produced front-layer routes; those route files should not be used for conclusions.
+- Remote launch:
+  - Host: `A800mql`.
+  - Launcher: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/tmp_cfg/launch_qwen32_route_tail_probes.sh`.
+  - Eval mode: CMRC2018 full dev, `3219` samples, `run_scd_full=true`, `run_full_consumer_baseline=false`, max new tokens `32`, same model/config/checkpoints as baseline.
+  - k8 output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_route_k8_scd_full_dev_20260628_212057`.
+  - k12 output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_route_k12_scd_full_dev_20260628_212057`.
+  - k16 output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_route_k16_scd_full_dev_20260628_212057`.
+- Current status at `2026-06-28 21:32 +08:00`:
+  - k8 exited with CUDA OOM during model load because GPUs `0/1` were occupied by unrelated DraftKV jobs that started around `21:17`; this is not an SCD route failure.
+  - k12 and k16 are still running in screen sessions:
+    - `scd_q32_k12_20260628_212057` on `CUDA_VISIBLE_DEVICES=2,3`.
+    - `scd_q32_k16_20260628_212057` on `CUDA_VISIBLE_DEVICES=4,6`.
+  - Both had completed loading the first 32B model and were loading the second model; no `summary.json` yet.
+- Next action:
+  - Continue monitoring k12/k16 until `summary.json` is produced or an `exit.status` appears.
+  - If either route finishes successfully, compare F1/EM, generated-token count, max-new hit rate, TTFT/decode/total against the k6 baseline.
+  - Do not use or report the incorrect front-layer k10/k14/k18/k24 route files as valid route probes.
+
+### Update at 2026-06-28 22:22 +08:00
+
+- GPUs `0/1` later became free, so k8 was relaunched successfully:
+  - Screen: `scd_q32_k8_retry_20260628_215456`.
+  - Output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_route_k8_scd_full_dev_retry_20260628_215456`.
+  - Status: entered evaluation, no OOM observed; progress around `242/3219` at `22:22`.
+- k12 and k16 continued running:
+  - k12 progress around `1326/3219`.
+  - k16 progress around `1328/3219`.
+- Interim operational note:
+  - Running multiple Qwen32 route probes concurrently is feasible after model load, but load time is dominated by NAS/model I/O and the Transformers warmup allocation. Avoid launching additional Qwen32 probes while these three are active.
+
+### Update at 2026-06-28 23:28 +08:00
+
+- k12 and k16 completed successfully with `exit.status=0`.
+- k8 retry was still running, around `2467/3219`.
+- Full-dev SCD-only route comparison against k6 baseline:
+
+  | Route | Reuse layers | Patch layers | F1 | EM | Gen tokens | Max-new hit | TTFT ms | Decode ms | Total ms |
+  |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | k6 baseline | 58 | 6 | 0.70154 | 0.54427 | 13.31 | 0.2349 | 73.35 | 708.62 | 729.57 |
+  | k12 probe | 52 | 12 | 0.70322 | 0.54334 | 13.46 | 0.2373 | 78.62 | 739.92 | 763.94 |
+  | k16 probe | 48 | 16 | 0.70285 | 0.54240 | 13.51 | 0.2408 | 81.63 | 734.59 | 762.65 |
+
+- Interim conclusion from k12/k16:
+  - More patch layers slightly improve F1 (`+0.0013` to `+0.0017`) but do not improve EM.
+  - They do not reduce over-generation: generated-token count and max-new hit rate both increase versus k6.
+  - TTFT and total latency worsen because patch inference cost rises and decode remains longer than k6.
+  - Therefore, the decode-tail issue is not fixed by simply replacing more reuse layers with patch layers in the current trained patch bank.
+
+### Final update at 2026-06-28 23:58 +08:00
+
+- k8 retry completed successfully with `exit.status=0`.
+- Output:
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_route_k8_scd_full_dev_retry_20260628_215456`.
+- Final full-dev SCD-only comparison:
+
+  | Route | Reuse layers | Patch layers | F1 | EM | Gen tokens | Max-new hit | TTFT ms | Decode ms | Total ms |
+  |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | k6 baseline | 58 | 6 | 0.70154 | 0.54427 | 13.31 | 0.2349 | 73.35 | 708.62 | 729.57 |
+  | k8 probe | 56 | 8 | 0.70168 | 0.54520 | 13.30 | 0.2330 | 70.62 | 708.51 | 726.26 |
+  | k12 probe | 52 | 12 | 0.70322 | 0.54334 | 13.46 | 0.2373 | 78.62 | 739.92 | 763.94 |
+  | k16 probe | 48 | 16 | 0.70285 | 0.54240 | 13.51 | 0.2408 | 81.63 | 734.59 | 762.65 |
+
+- Conclusion:
+  - k8 is currently the best of the tested route-level fixes. It preserves/improves quality slightly and reduces total latency by about `3.31 ms` versus k6.
+  - The improvement comes mostly from TTFT / route-cost balance, not decode. Decode stays essentially unchanged (`708.51 ms` versus `708.62 ms`).
+  - k12/k16 show that adding more patch layers past the profile-recommended prefix does not solve the decode tail and can make total latency worse.
+  - Next technical direction should not be "more patch layers". It should target generation behavior directly: e.g. a train-split learned end-of-answer verifier, answer-span/rerank postselection with a separate latency accounting path, or decoding-time distillation/stop calibration that is trained without dev leakage.
+## 2026-06-29 - Qwen32 CMRC stop-verifier trace launch
+
+- Purpose: test whether a train-split learned end-of-answer verifier can reduce the SCD decode tail for the current best Qwen32 CMRC k8 route without using dev data for training or threshold selection.
+- Method:
+  - Runtime code adds disabled-by-default generation traces and a logistic verifier stop hook.
+  - Trace collection uses CMRC2018 train split only.
+  - Patch/reuse train leakage is avoided by skipping the first 200 train samples for verifier training.
+  - Validation uses a separate train-split window; CMRC dev is reserved for final evaluation only.
+- Remote environment:
+  - Host: `A800mql`.
+  - Runtime repo: `/home/c101-800-mql/maqianli/SCD-ICML/qwen32_runtime_20260614/runtime_repo`.
+  - Python: `/home/c101-800-mql/.conda/envs/cache/bin/python`.
+  - Run root: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331`.
+- Route and checkpoints:
+  - Route: `route/qwen32_route_k8_seed42_decode_tail_probe.json`.
+  - Reuse ckpt: `ckpt_reuse/cmrc2018_seed42`.
+  - Patch ckpt: `ckpt_patch/patch_cmrc2018_seed42`.
+- Launched trace jobs:
+  - `scd_q32_sv_trainA_20260629_0958_stopverifier`, GPUs `1,2`, CMRC train offset `200`, n `300`, output `strict_eval/cmrc2018_stopverifier_trace_trainA_20260629_0958_stopverifier`.
+  - `scd_q32_sv_trainB_20260629_0958_stopverifier`, GPUs `3,4`, CMRC train offset `500`, n `300`, output `strict_eval/cmrc2018_stopverifier_trace_trainB_20260629_0958_stopverifier`.
+  - `scd_q32_sv_val_20260629_0958_stopverifier`, GPUs `5,6`, CMRC train offset `1000`, n `300`, output `strict_eval/cmrc2018_stopverifier_trace_val_20260629_0958_stopverifier`.
+- Expected next actions:
+  - Monitor the three trace jobs until each writes `exit.status=0` and `per_sample_metrics.jsonl`.
+  - Merge trainA/trainB JSONL rows, run `scd_repro.cli.train_stop_verifier`, and select the threshold on val with F1/EM gates.
+  - Only if the validation gate passes, run full CMRC dev k8 with `generation_stop.verifier.enabled=true`.
+
+### Update - verifier training and dev launch
+
+- Trace completion:
+  - `trainA`, `trainB`, and `val` all completed with `exit.status=0`.
+  - Train trace rows: `600` SCD rows, generated from CMRC train offsets `200` and `500`.
+  - Validation trace rows: `300` SCD rows, generated from CMRC train offset `1000`.
+- Trace diagnostics:
+  - trainA: F1 `0.538264`, EM `0.040000`, generated tokens `26.560`, max-new rate `0.663`.
+  - trainB: F1 `0.532483`, EM `0.043333`, generated tokens `26.837`, max-new rate `0.630`.
+  - val: F1 `0.537929`, EM `0.076667`, generated tokens `26.410`, max-new rate `0.660`.
+- Verifier artifact:
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/stop_verifier/20260629_0958_stopverifier/stop_verifier_scd_full_k8.json`.
+  - Selected validation threshold: `0.842422`.
+  - Validation metrics at selected threshold: F1 `0.537220`, EM `0.073333`, generated-token delta `-0.213`.
+- Threshold-curve diagnosis:
+  - The safe verifier is weak: at threshold `0.85`, token reduction is only `-0.143` with F1 delta `-0.001300`.
+  - More aggressive threshold `0.80` saves `-1.487` tokens but drops F1 by `-0.023046`, so it is not acceptable under the current quality gate.
+- Dev run launched:
+  - Screen: `scd_q32_sv_dev_20260629_1045`.
+  - GPUs: `1,2`.
+  - Output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_route_k8_stopverifier_dev_20260629_1045`.
+  - Config: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/tmp_cfg/eval_qwen32_route_k8_stopverifier_dev_20260629_1045.json`.
+  - Purpose: confirm whether the validation weakness transfers to full CMRC dev before discarding this verifier direction.
+
+### Update - prompt-path bug found; old verifier run invalid
+
+- Full dev result from `cmrc2018_route_k8_stopverifier_dev_20260629_1045` completed with `exit.status=0`, but is invalid for method comparison:
+  - F1 `0.430560`, EM `0.062442`, generated tokens `25.592`, max-new rate `0.595527`, TTFT `74.79ms`, decode `1372.43ms`, total `1393.75ms`.
+  - It did not match the original k8 prompt path; stop-token and text-boundary rates collapsed (`0.002` and `0.017`).
+- Root cause:
+  - `eval_cmrc_strict.py` did not apply `runtime_eval.prompt_style`.
+  - Original k8 baseline used `eval_text_strict.py` with `prompt_style=cmrc_qwen_chat_short`.
+  - Therefore the first trace/train/dev verifier cycle was trained and evaluated on the wrong CMRC prompt distribution.
+- Fix:
+  - `Experiment/core_code/runtime_repo/src/scd_repro/cli/eval_cmrc_strict.py` now imports and applies `apply_prompt_style_to_samples(...)` for non-default CMRC prompt styles.
+  - Local and remote `py_compile` passed.
+- Sanity check:
+  - Ran 8 fixed CMRC dev qids with repaired `eval_cmrc_strict.py`, k8 route, no verifier.
+  - Output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_route_k8_promptfix_qid8_20260629`.
+  - Result: F1 `0.963801`, EM `0.750000`, generated tokens `9.5`, text-boundary rate `0.875`, max-new rate `0.0`.
+  - The 8 raw decoded outputs exactly match the original k8 baseline.
+- Relaunched prompt-fixed trace collection:
+  - Stamp: `20260629_1352_promptfix`.
+  - `trainA`: CMRC train offset `200`, n `300`, GPU `0,1`, output `strict_eval/cmrc2018_stopverifier_trace_trainA_20260629_1352_promptfix`.
+  - `trainB`: CMRC train offset `500`, n `300`, GPU `2,3`, output `strict_eval/cmrc2018_stopverifier_trace_trainB_20260629_1352_promptfix`.
+  - `val`: CMRC train offset `1000`, n `300`, GPU `6,7`, output `strict_eval/cmrc2018_stopverifier_trace_val_20260629_1352_promptfix`.
+  - Explicit runtime args include `--max-length 512`, `--max-new-tokens 32`, `--bandwidth-gbps 200`, `--quant-group-size 128`, `--dtype bfloat16`, and seed `42`.
+
+### Update - prompt-fixed verifier result
+
+- Trace completion:
+  - `trainA`, `trainB`, and `val` all completed with `exit.status=0`.
+  - trainA: F1 `0.575996`, EM `0.206667`, generated tokens `14.333`, max-new rate `0.236667`.
+  - trainB: F1 `0.614883`, EM `0.283333`, generated tokens `12.887`, max-new rate `0.206667`.
+  - val: F1 `0.558915`, EM `0.233333`, generated tokens `14.347`, max-new rate `0.260000`.
+- Verifier artifact:
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/stop_verifier/20260629_1352_promptfix/stop_verifier_scd_full_k8.json`.
+  - Selected threshold: `0.89478`.
+  - Validation result at selected threshold: F1 `0.557254`, EM `0.230000`, generated tokens `14.297`.
+  - Deltas vs validation baseline: F1 `-0.001661`, EM `-0.003333`, generated tokens `-0.050`.
+  - Gate passed, but latency value is negligible because the selected verifier only saves `0.05` token/sample.
+- Threshold curve diagnosis:
+  - `0.85`: F1 delta `-0.002506`, EM delta `-0.003333`, token delta `-0.093`.
+  - `0.80`: F1 delta `-0.004877`, EM delta `-0.003333`, token delta `-0.193`.
+  - `0.75`: F1 delta `-0.013177`, EM delta `-0.010000`, token delta `-0.387`.
+  - `0.70`: F1 delta `-0.026357`, EM delta `-0.020000`, token delta `-0.870`.
+- Oracle upper bound:
+  - Using gold to choose the earliest prefix preserving best F1/EM on the held-out train validation window would reduce generated tokens only from `14.347` to `13.573` (`-0.773` token/sample).
+  - Rows with any possible savings: `138/300`; average saving among those rows: `1.681` tokens.
+  - Oracle best F1/EM would be `0.574206/0.240000`, but this is not deployable and only bounds the opportunity.
+- Soft-stop simulation:
+  - Stop-token probability rules were also weak on the same trace.
+  - Configurations keeping F1 loss near `0.005` saved only about `0.13-0.29` token/sample.
+  - Configurations saving `0.5+` token/sample dropped roughly `0.007-0.012` F1 or worse.
+- Conclusion:
+  - After fixing the prompt path, stop-verifier no longer causes quality collapse, but it does not materially reduce decode length.
+  - Full CMRC dev verifier evaluation is not launched because the train-split validation and oracle upper bound show insufficient upside for a multi-hour run.
+  - The next decode/total optimization should target generation distribution or route-induced logits, not another learned end-of-answer stop rule.
+
+## 2026-06-29 - Qwen32 CMRC stop-token logit bias diagnostic
+
+### Purpose
+
+- Diagnose whether SCD's long decode tail can be reduced by calibrating stop-token logits instead of using a learned verifier.
+- Main metric remains CMRC F1/EM; generated-token count, max-new rate, decode time, and total time are secondary latency/risk signals.
+
+### Method
+
+- Code change:
+  - Added disabled-by-default `runtime_eval.generation_stop.stop_token_logit_bias`.
+  - Added `runtime_eval.generation_stop.stop_token_bias_start_step`.
+  - Bias is applied before argmax/soft-stop/verifier trace in both full and cache-decode paths.
+- Diagnostic set:
+  - 28 qids selected from the corrected full-consumer vs SCD decode-tail comparison.
+  - Baseline trace output: `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_full_vs_scd_trace_qids_20260629_1438`.
+- Bias sweep:
+  - `b10s2`: stop-token bias `1.0`, start step `2`.
+  - `b15s2`: stop-token bias `1.5`, start step `2`.
+  - `b20s2`: stop-token bias `2.0`, start step `2`.
+  - All runs use Qwen2.5-32B, CMRC2018 dev qid subset, k8 SCD route, seed `42`, `max_new_tokens=32`, and `cmrc_qwen_chat_short`.
+
+### Results on 28 decode-tail qids
+
+| method | F1 | EM | avg gen tokens | max-new rate | decode total ms | total ms |
+|---|---:|---:|---:|---:|---:|---:|
+| Full consumer | 0.406924 | 0.321429 | 6.750 | 0.107143 | 386.443 | 594.775 |
+| SCD no bias | 0.297694 | 0.142857 | 28.286 | 0.750000 | 1479.195 | 1506.574 |
+| SCD bias 1.0 | 0.322638 | 0.142857 | 26.286 | 0.678571 | 1387.194 | 1405.694 |
+| SCD bias 1.5 | 0.322638 | 0.142857 | 26.250 | 0.678571 | 1404.217 | 1425.005 |
+| SCD bias 2.0 | 0.321881 | 0.142857 | 25.857 | 0.642857 | 1374.291 | 1395.343 |
+
+### Analysis
+
+- Stop-token logit bias helps the selected tail cases:
+  - Bias `2.0` reduces average generated tokens by `2.43` tokens vs no-bias SCD.
+  - Bias `2.0` reduces max-new rate from `75.0%` to `64.3%`.
+  - F1 does not drop on this selected tail subset; it improves slightly, likely because some over-generation is trimmed.
+- The improvement is still limited:
+  - SCD remains far longer than full consumer on these tail cases (`25.86` vs `6.75` tokens).
+  - Max-new remains high even at bias `2.0`, so stop-token bias alone is not a complete decode-tail fix.
+- ResearchKB run record:
+  - `run_342e7cbe5bd04a5a`.
+
+### Full-dev validation launched
+
+- Goal:
+  - Validate whether the tail diagnostic transfers to the full CMRC2018 dev set without harming F1/EM.
+- Launched runs:
+  - `b10s2`, GPUs `0,1`, screen `scd_q32_stopbias_b10_devfull_20260629_1534`.
+  - `b20s2`, GPUs `2,3`, screen `scd_q32_stopbias_b20_devfull_20260629_1534`.
+  - `b30s2`, GPUs `6,7`, screen `scd_q32_stopbias_b30_devfull_20260629_1534`.
+- Output directories:
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_scd_stopbias_b10s2_devfull_20260629_1534`.
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_scd_stopbias_b20s2_devfull_20260629_1534`.
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/strict_eval/cmrc2018_scd_stopbias_b30s2_devfull_20260629_1534`.
+- Status at last successful SSH monitor:
+  - All three full-dev jobs were running and loading the second Qwen32B consumer model.
+  - Last observed progress was around `95-96%` of the second model load at `2026-06-29 15:56` China time.
+  - After that, the SSH entry to A800mql began returning banner timeout / connection closed, so full-dev results are pending collection when SSH recovers.
+
+### Full-dev validation result
+
+- SSH recovered and all three full-dev runs completed with `exit.status=0`.
+- Analysis artifact:
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/analysis/stop_token_bias_devfull_20260629/summary.json`.
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/analysis/stop_token_bias_devfull_20260629/summary.md`.
+
+| method | F1 | EM | avg gen tokens | max-new rate | TTFT ms | decode total ms | total ms |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Full consumer | 0.716842 | 0.579062 | 11.702 | 0.189500 | 231.124 | 652.143 | 830.057 |
+| SCD k8 no bias | 0.701681 | 0.545200 | 13.299 | 0.232992 | 70.619 | 708.512 | 726.261 |
+| SCD k8 bias 1.0 start2 | 0.701671 | 0.544890 | 13.101 | 0.229574 | 70.088 | 706.297 | 723.941 |
+| SCD k8 bias 2.0 start2 | 0.702014 | 0.547064 | 12.856 | 0.225536 | 71.082 | 706.692 | 724.717 |
+| SCD k8 bias 3.0 start2 | 0.702013 | 0.549860 | 12.618 | 0.223361 | 70.457 | 694.754 | 712.605 |
+
+### Full-dev interpretation
+
+- Stop-token logit bias transfers from the selected tail qids to full CMRC2018 dev.
+- Best tested setting:
+  - `stop_token_logit_bias=3.0`, `stop_token_bias_start_step=2`.
+- Versus SCD k8 no-bias:
+  - F1 delta `+0.000331`.
+  - EM delta `+0.004660`.
+  - Generated-token delta `-0.681` token/sample.
+  - Max-new rate delta `-0.009630`.
+  - Decode-total delta `-13.758ms`.
+  - Total-latency delta `-13.656ms`.
+- Versus full consumer:
+  - F1 remains `-0.014830`.
+  - EM remains `-0.029202`.
+  - TTFT remains much faster: `70.457ms` vs `231.124ms`.
+  - Total is faster in the current measurement: `712.605ms` vs `830.057ms`.
+- Conclusion:
+  - Keep stop-token bias as an optional conservative runtime knob for the Qwen32 CMRC route.
+  - This improves decode/total enough to be useful, but does not solve the residual F1/EM gap to full consumer; the next quality-focused work should still target route/logit calibration or patch/reuse model quality.
+- ResearchKB run record:
+  - `run_a108be450d774271`.
+
+## 2026-06-29 - Qwen32 CMRC extended stop-token bias sweep
+
+### Purpose
+
+- Continue the CMRC2018 full-dev SCD-only sweep above `stop_token_logit_bias=3.0`.
+- Test whether higher stop-token bias values can reduce decode/total latency further while keeping F1/EM within the quality gate.
+
+### Method
+
+- Bias values:
+  - `3.5`, `4.0`, and `5.0`.
+- Shared settings:
+  - Qwen2.5-32B, CMRC2018 dev full `3219` samples.
+  - k8 SCD route.
+  - `stop_token_bias_start_step=2`.
+  - `max_new_tokens=32`, `max_length=512`, seed `42`.
+  - SCD-only strict eval; no fallback or recompute.
+- GPU placement:
+  - `3.5`: GPUs `1,2`, screen `scd_q32_stopbias_b35_devfull_20260629_1722`.
+  - `4.0`: GPUs `3,4`, screen `scd_q32_stopbias_b40_devfull_20260629_1722`.
+  - `5.0`: GPUs `6,7`, screen `scd_q32_stopbias_b50_devfull_20260629_1722`.
+  - GPU0 and GPU5 were avoided because they had existing activity at launch.
+- Analysis artifact:
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/analysis/stop_token_bias_devfull_extended_20260629/summary.json`.
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/analysis/stop_token_bias_devfull_extended_20260629/summary.md`.
+
+### Results
+
+| method | F1 | EM | avg gen tokens | max-new rate | total ms | delta F1 vs no-bias | delta EM vs no-bias | delta tokens vs no-bias | delta total ms vs no-bias |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| SCD k8 no bias | 0.701681 | 0.545200 | 13.299 | 0.232992 | 726.261 | 0.000000 | 0.000000 | 0.000 | 0.000 |
+| SCD k8 bias 3.0 start2 | 0.702013 | 0.549860 | 12.618 | 0.223361 | 712.605 | +0.000331 | +0.004660 | -0.681 | -13.656 |
+| SCD k8 bias 3.5 start2 | 0.701312 | 0.548928 | 12.514 | 0.222740 | 713.799 | -0.000369 | +0.003728 | -0.785 | -12.462 |
+| SCD k8 bias 4.0 start2 | 0.701236 | 0.549239 | 12.408 | 0.221187 | 712.136 | -0.000445 | +0.004039 | -0.891 | -14.125 |
+| SCD k8 bias 5.0 start2 | 0.700382 | 0.551103 | 12.210 | 0.219012 | 704.882 | -0.001299 | +0.005902 | -1.089 | -21.379 |
+
+### Interpretation
+
+- The quality/latency knee is between bias `4.0` and `5.0`.
+- Bias `5.0` gives the best latency and shortest generation, but its F1 delta `-0.001299` vs no-bias crosses the pre-set `-0.001` F1 gate.
+- Bias `4.0` stays within the F1 gate:
+  - F1 delta `-0.000445`.
+  - EM delta `+0.004039`.
+  - Generated-token delta `-0.891` token/sample.
+  - Total-latency delta `-14.125ms`.
+- Bias `3.0` remains the safest default because it improves F1/EM over no-bias while still reducing tokens and total latency.
+- Bias `4.0` is a reasonable latency-leaning option if the quality gate is defined relative to no-bias SCD and allows a small F1 loss below `0.001`.
+- Do not use bias `5.0` as the default unless the user explicitly prioritizes latency over the F1 gate.
+- ResearchKB run record:
+  - `run_804449ee502e4365`.
+
+## 2026-06-29 - A1 method freeze
+
+### Purpose
+
+Freeze the current Qwen32 CMRC2018 strict-runtime SCD method as `A1` before
+pushing a GitHub branch.
+
+### Method
+
+- Use the k8 mixed SCD route.
+- Use strict runtime with no fallback and no recompute.
+- Use `runtime_eval.generation_stop.stop_token_logit_bias=3.0`.
+- Use `runtime_eval.generation_stop.stop_token_bias_start_step=2`.
+
+### Result
+
+- Added `docs/A1_METHOD.md` to define A1 and its evidence boundary.
+- A1 remains a strict-runtime result; vLLM prototype code exists, but A1 has not
+  yet been validated as a vLLM serving result.

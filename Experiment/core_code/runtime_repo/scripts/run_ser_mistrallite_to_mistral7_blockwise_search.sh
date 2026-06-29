@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-VENV="/disk_n/c101-3-mql/venvs/A800"
-DATA_SOURCE_DIR="/disk_n/c101-3-mql/projects/scd_main/legacy/no4/data/cmrc2018"
+ROOT="/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323"
+VENV="/disk_n/c101-3-1/venvs/A800"
+DATA_SOURCE_DIR="/disk_n/c101-3-1/projects/scd_main/legacy/no4/data/cmrc2018"
 
 SEED="${SEED:-42}"
 TRAIN_LIMIT="${TRAIN_LIMIT:-200}"
@@ -42,8 +42,6 @@ PATCH_DIR="${RUN_ROOT}/ckpt_patch_xnorm_nativekv_shared_residual_mlp_all32_e1_h2
 PATCH_DIR_SHARDED="${PATCH_DIR}_sharded_w${LAYERS_PER_SHARD}"
 TRAIN_ONLY_ROOT="${RUN_ROOT}/tmp_cmrc_train_only_20260405"
 LOCAL_CMRC_DIR="${TRAIN_ONLY_ROOT}/cmrc2018"
-EVAL_ROOT="${RUN_ROOT}/data_eval_dev"
-EVAL_CMRC_DIR="${EVAL_ROOT}/cmrc2018"
 PROMPTS_JSON="${RUN_ROOT}/cmrc_train${TRAIN_LIMIT}_prompts_seed${SEED}.json"
 SEARCH_OUT="${RUN_ROOT}/blockwise_search_${RUN_TAG}"
 BASE_REUSE_OUT="${RUN_ROOT}/strict_baseline_reuse_only_${RUN_TAG}"
@@ -57,14 +55,12 @@ export OMP_NUM_THREADS="${OMP_NUM_THREADS:-16}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-16}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-16}"
 
-mkdir -p "${RUN_ROOT}" "${SEARCH_OUT}" "${LOCAL_CMRC_DIR}" "${EVAL_CMRC_DIR}"
+mkdir -p "${RUN_ROOT}" "${SEARCH_OUT}" "${LOCAL_CMRC_DIR}"
 
+cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${LOCAL_CMRC_DIR}/cmrc2018_dev.json"
 cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${LOCAL_CMRC_DIR}/cmrc2018_train.json"
-cp "${DATA_SOURCE_DIR}/cmrc2018_dev.json" "${EVAL_CMRC_DIR}/cmrc2018_dev.json"
-cp "${DATA_SOURCE_DIR}/cmrc2018_train.json" "${EVAL_CMRC_DIR}/cmrc2018_train.json"
 if [ -f "${DATA_SOURCE_DIR}/README.md" ]; then
   cp "${DATA_SOURCE_DIR}/README.md" "${LOCAL_CMRC_DIR}/README.md"
-  cp "${DATA_SOURCE_DIR}/README.md" "${EVAL_CMRC_DIR}/README.md"
 fi
 
 python - <<PY
@@ -72,7 +68,7 @@ import json
 from pathlib import Path
 from scd_repro.cmrc import load_cmrc2018_samples
 
-rows = load_cmrc2018_samples("${TRAIN_ONLY_ROOT}", limit=int("${TRAIN_LIMIT}"), split="train")
+rows = load_cmrc2018_samples("${TRAIN_ONLY_ROOT}", limit=int("${TRAIN_LIMIT}"))
 Path("${PROMPTS_JSON}").write_text(
     json.dumps([x.prompt for x in rows], ensure_ascii=False, indent=2) + "\n",
     encoding="utf-8",
@@ -199,7 +195,7 @@ PY
 python -m scd_repro.cli.eval_cmrc_strict \
   --models-config "${MODELS_CONFIG}" \
   --eval-config "${BASE_REUSE_CFG}" \
-  --data-root "${EVAL_ROOT}" \
+  --data-root "${TRAIN_ONLY_ROOT}" \
   --route "${ROUTE_TEMPLATE}" \
   --reuse-ckpt "${REUSE_DIR}" \
   --patch-ckpt "${PATCH_DIR_SHARDED}" \
@@ -216,7 +212,7 @@ python -m scd_repro.cli.eval_cmrc_strict \
 python -m scd_repro.cli.eval_cmrc_strict \
   --models-config "${MODELS_CONFIG}" \
   --eval-config "${SEARCH_OUT}/generated_eval_reuse_patch_only.json" \
-  --data-root "${EVAL_ROOT}" \
+  --data-root "${TRAIN_ONLY_ROOT}" \
   --route "${SEARCH_OUT}/selected_hybrid_route.json" \
   --reuse-ckpt "${REUSE_DIR}" \
   --patch-ckpt "${PATCH_DIR_SHARDED}" \

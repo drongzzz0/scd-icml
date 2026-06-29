@@ -9,6 +9,7 @@ from typing import Any
 
 from ..io_utils import load_json, save_json
 from ..pipeline import load_patch_ckpt, load_reuse_weights
+from ..prompting import apply_prompt_style_to_samples, normalize_prompt_style
 from ..reuse import move_reuse_weights
 from ..seed import set_global_seed
 from ..strict_runtime import (
@@ -110,6 +111,62 @@ def _methods_need_patch(methods: list[str]) -> bool:
     )
 
 
+def _methods_need_reuse(methods: list[str]) -> bool:
+    return any(
+        method
+        in {
+            "reuse_only",
+            "reuse_fallback",
+            "reuse_patch",
+            "reuse_patch_recompute",
+            "scd_full",
+            "oracle_xnorm_suffix",
+            "oracle_state_suffix",
+            "oracle_kv_patchonly",
+        }
+        for method in methods
+    )
+
+
+def _guard_hotpot_prompt_truncation(
+    *,
+    dataset: str,
+    samples: list[Any],
+    tokenizer_path: str,
+    max_length: int,
+) -> None:
+    dataset_key = str(dataset).strip().lower()
+    if dataset_key not in {"hotpotqa", "hotpotqa_compressed"} or int(max_length) <= 0:
+        return
+    try:
+        from transformers import AutoTokenizer
+    except Exception as exc:
+        raise RuntimeError("HotpotQA truncation guard requires transformers tokenizer support") from exc
+
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
+    bad: list[tuple[str, int, int]] = []
+    for sample in samples:
+        full_ids = tokenizer(sample.prompt, truncation=False, return_tensors=None)["input_ids"]
+        trunc_ids = tokenizer(
+            sample.prompt,
+            truncation=True,
+            max_length=int(max_length),
+            return_tensors=None,
+        )["input_ids"]
+        trunc_text = tokenizer.decode(trunc_ids, skip_special_tokens=False)
+        if "Answer:" not in trunc_text:
+            bad.append((str(sample.qid), len(full_ids), len(trunc_ids)))
+            if len(bad) >= 5:
+                break
+    if bad:
+        examples = ", ".join(f"{qid}:raw={raw},trunc={trunc}" for qid, raw, trunc in bad)
+        raise ValueError(
+            "HotpotQA prompt truncation removed the final Answer marker; this makes generation continue "
+            "inside the evidence and invalidates F1/EM. Use --dataset hotpotqa_compressed, increase "
+            f"--max-length, or disable truncation. Examples: {examples}"
+        )
+
+
 def _prefill_capture_to_cpu(capture):
     torch = __import__("torch")
 
@@ -128,6 +185,14 @@ def _prefill_capture_to_cpu(capture):
     return capture
 
 
+def _sample_slices(num_samples: int, chunk_size: int):
+    if chunk_size <= 0 or chunk_size >= num_samples:
+        yield 0, num_samples
+        return
+    for start in range(0, num_samples, chunk_size):
+        yield start, min(num_samples, start + chunk_size)
+
+
 def main() -> None:
     args = build_parser().parse_args()
     logger = resolve_logger(args.log)
@@ -137,6 +202,7 @@ def main() -> None:
     eval_cfg = load_cfg(args.eval_config) if args.eval_config else {}
     runtime_eval_cfg = _runtime_eval_cfg(eval_cfg)
     methods = _select_runtime_methods(runtime_eval_cfg)
+    prompt_style = normalize_prompt_style(runtime_eval_cfg.get("prompt_style", ""))
 
     accel = resolve_accel_options(models_cfg, args)
     configure_torch_acceleration(str(accel["accel_mode"]))
@@ -160,10 +226,15 @@ def main() -> None:
     override_route_recompute_length = None if override_route_recompute_length in {"", None} else int(override_route_recompute_length)
     measure_teacher_forced_metrics = bool(runtime_eval_cfg.get("measure_teacher_forced_metrics", True))
     align_full_consumer_first_decode = bool(runtime_eval_cfg.get("align_full_consumer_first_decode", False))
+    generation_stop_cfg = runtime_eval_cfg.get("generation_stop", {})
+    if not isinstance(generation_stop_cfg, dict):
+        generation_stop_cfg = {}
     save_per_sample_metrics = bool(runtime_eval_cfg.get("save_per_sample_metrics", True))
     save_generation_outputs = bool(runtime_eval_cfg.get("save_generation_outputs", True))
     fail_on_missing_route_fields = bool(runtime_eval_cfg.get("fail_on_missing_route_fields", True))
     fail_on_missing_patch_fields = bool(runtime_eval_cfg.get("fail_on_missing_patch_fields", True))
+    same_device_capture_chunk_size = int(runtime_eval_cfg.get("same_device_capture_chunk_size", 0) or 0)
+    producer_capture_log_every = int(runtime_eval_cfg.get("producer_capture_log_every", 25) or 0)
     qid_allowlist = _resolve_qid_allowlist(args, runtime_eval_cfg)
 
     out_root = Path(args.out)
@@ -171,15 +242,22 @@ def main() -> None:
 
     route = load_json(args.route)
     same_runtime_device = producer_device == consumer_device
-    reuse_cpu, reuse_meta = load_reuse_weights(args.reuse_ckpt, device="cpu", dtype="float32")
+    if _methods_need_reuse(methods):
+        reuse_cpu, reuse_meta = load_reuse_weights(args.reuse_ckpt, device="cpu", dtype="float32")
+    else:
+        reuse_cpu, reuse_meta = None, {}
     patch_ckpt_device = _patch_ckpt_load_device(runtime_eval_cfg, consumer_device)
     if _methods_need_patch(methods):
         patch_bundle, patch_meta = load_patch_ckpt(args.patch_ckpt, device=patch_ckpt_device, dtype="float32")
         _apply_patch_runtime_overrides(patch_meta, runtime_eval_cfg)
     else:
         patch_bundle, patch_meta = None, {}
-    reuse_prod = move_reuse_weights(reuse_cpu, "cpu" if same_runtime_device else producer_device, dtype="float32", cpu_fallback=True)
-    reuse_cons = move_reuse_weights(reuse_cpu, consumer_device, dtype="float32", cpu_fallback=True)
+    if reuse_cpu is not None:
+        reuse_prod = move_reuse_weights(reuse_cpu, "cpu" if same_runtime_device else producer_device, dtype="float32", cpu_fallback=True)
+        reuse_cons = move_reuse_weights(reuse_cpu, consumer_device, dtype="float32", cpu_fallback=True)
+    else:
+        reuse_prod = None
+        reuse_cons = None
 
     logger.info(
         "strict text runtime: dataset=%s route=%s patch_ckpt=%s reuse_ckpt=%s methods=%s fit_mode=%s semantic_source=%s",
@@ -198,15 +276,18 @@ def main() -> None:
         patch_meta.get("runtime_patch_persist_shards", False),
         patch_meta.get("runtime_patch_persist_modules", False),
     )
-    logger.info(
-        "reuse mainline: mode=%s translator.default_path=%s num_groups=%s group_size=%s rank_k=%s rank_v=%s",
-        reuse_meta.get("mode", "xkv_group"),
-        reuse_meta.get("translator", {}).get("default_path", "shared_z"),
-        reuse_meta.get("num_groups"),
-        reuse_meta.get("group_size"),
-        reuse_meta.get("rank_k", reuse_meta.get("rank")),
-        reuse_meta.get("rank_v", reuse_meta.get("rank")),
-    )
+    if reuse_cpu is not None:
+        logger.info(
+            "reuse mainline: mode=%s translator.default_path=%s num_groups=%s group_size=%s rank_k=%s rank_v=%s",
+            reuse_meta.get("mode", "xkv_group"),
+            reuse_meta.get("translator", {}).get("default_path", "shared_z"),
+            reuse_meta.get("num_groups"),
+            reuse_meta.get("group_size"),
+            reuse_meta.get("rank_k", reuse_meta.get("rank")),
+            reuse_meta.get("rank_v", reuse_meta.get("rank")),
+        )
+    else:
+        logger.info("reuse mainline: skipped for methods=%s", methods)
 
     cmrc_split = str(args.cmrc_split or runtime_eval_cfg.get("cmrc_split") or "dev").strip().lower()
     samples = load_text_benchmark_samples(args.dataset, args.data_root, limit=load_limit, cmrc_split=cmrc_split)
@@ -222,6 +303,23 @@ def main() -> None:
         logger.info("after qid filter: n=%d / requested=%d", len(samples), len(qid_allowlist))
         if not samples:
             raise ValueError("qid filter removed all samples")
+    if prompt_style not in {"", "default", "cmrc_default"}:
+        from transformers import AutoTokenizer
+
+        prompt_tokenizer = AutoTokenizer.from_pretrained(model_b_path, trust_remote_code=True)
+        samples = apply_prompt_style_to_samples(
+            samples,
+            style=prompt_style,
+            tokenizer=prompt_tokenizer,
+            dataset=args.dataset,
+        )
+        logger.info("applied prompt_style=%s to %d samples", prompt_style, len(samples))
+    _guard_hotpot_prompt_truncation(
+        dataset=args.dataset,
+        samples=samples,
+        tokenizer_path=model_b_path,
+        max_length=int(args.max_length),
+    )
     consumer_capture_xnorm, consumer_capture_residual = _consumer_capture_flags(methods)
 
     producer = None
@@ -257,6 +355,7 @@ def main() -> None:
                     fail_on_missing_patch_fields=fail_on_missing_patch_fields,
                     measure_teacher_forced_metrics=measure_teacher_forced_metrics,
                     align_full_consumer_first_decode=align_full_consumer_first_decode,
+                    generation_stop=generation_stop_cfg,
                 )
                 all_results[method].append(result)
                 row = _sample_result_to_dict(result)
@@ -266,34 +365,76 @@ def main() -> None:
             logger.info("strict text progress: %d/%d qid=%s", idx, len(samples), sample.qid)
 
         if same_runtime_device:
-            logger.info("same-device strict eval: staging producer captures on CPU before loading consumer")
-            producer = TransformersRuntimeSession(model_a_path, producer_device, dtype)
-            producer_session_proxy = SimpleNamespace(rope_spec=producer.rope_spec)
-            producer_captures = []
-            try:
-                for sample in samples:
-                    producer_capture = producer.prefill(sample.prompt, max_length=args.max_length, capture_xnorm=True, profile_layers=False)
-                    producer_captures.append(_prefill_capture_to_cpu(producer_capture))
-                    del producer_capture
-                    clear_torch_cache()
-            finally:
-                producer.close()
-                producer = None
-                clear_torch_cache()
-
-            consumer = TransformersRuntimeSession(model_b_path, consumer_device, dtype)
-            for idx, sample in enumerate(samples, start=1):
-                producer_capture = producer_captures[idx - 1]
-                consumer_capture = consumer.prefill(
-                    sample.prompt,
-                    max_length=args.max_length,
-                    capture_xnorm=consumer_capture_xnorm,
-                    capture_residual=consumer_capture_residual,
-                    profile_layers=True,
+            logger.info(
+                "same-device strict eval: staging producer captures on CPU before loading consumer "
+                "capture_chunk_size=%s producer_capture_log_every=%s",
+                same_device_capture_chunk_size,
+                producer_capture_log_every,
+            )
+            for chunk_start, chunk_end in _sample_slices(len(samples), same_device_capture_chunk_size):
+                chunk_samples = samples[chunk_start:chunk_end]
+                logger.info(
+                    "same-device capture chunk start: samples %d-%d / %d",
+                    chunk_start + 1,
+                    chunk_end,
+                    len(samples),
                 )
-                evaluate_one(idx, sample, producer_capture, consumer_capture, producer_session_proxy, consumer)
-                del producer_capture, consumer_capture
-                clear_torch_cache()
+                logger.info("same-device producer session load start: device=%s", producer_device)
+                producer = TransformersRuntimeSession(model_a_path, producer_device, dtype)
+                logger.info("same-device producer session load done: device=%s", producer_device)
+                producer_session_proxy = SimpleNamespace(rope_spec=producer.rope_spec)
+                producer_captures = []
+                try:
+                    for local_idx, sample in enumerate(chunk_samples, start=1):
+                        global_idx = chunk_start + local_idx
+                        producer_capture = producer.prefill(
+                            sample.prompt,
+                            max_length=args.max_length,
+                            capture_xnorm=True,
+                            profile_layers=False,
+                        )
+                        producer_captures.append(_prefill_capture_to_cpu(producer_capture))
+                        del producer_capture
+                        clear_torch_cache()
+                        if producer_capture_log_every > 0 and (
+                            global_idx == 1
+                            or global_idx == len(samples)
+                            or local_idx == len(chunk_samples)
+                            or local_idx % producer_capture_log_every == 0
+                        ):
+                            logger.info(
+                                "same-device producer capture progress: %d/%d qid=%s",
+                                global_idx,
+                                len(samples),
+                                sample.qid,
+                            )
+                finally:
+                    producer.close()
+                    producer = None
+                    clear_torch_cache()
+
+                logger.info("same-device consumer session load start: device=%s", consumer_device)
+                consumer = TransformersRuntimeSession(model_b_path, consumer_device, dtype)
+                logger.info("same-device consumer session load done: device=%s", consumer_device)
+                try:
+                    for local_idx, sample in enumerate(chunk_samples, start=1):
+                        global_idx = chunk_start + local_idx
+                        producer_capture = producer_captures[local_idx - 1]
+                        consumer_capture = consumer.prefill(
+                            sample.prompt,
+                            max_length=args.max_length,
+                            capture_xnorm=consumer_capture_xnorm,
+                            capture_residual=consumer_capture_residual,
+                            profile_layers=True,
+                        )
+                        evaluate_one(global_idx, sample, producer_capture, consumer_capture, producer_session_proxy, consumer)
+                        del producer_capture, consumer_capture
+                        clear_torch_cache()
+                finally:
+                    consumer.close()
+                    consumer = None
+                    del producer_captures
+                    clear_torch_cache()
         else:
             producer = TransformersRuntimeSession(model_a_path, producer_device, dtype)
             consumer = TransformersRuntimeSession(model_b_path, consumer_device, dtype)
@@ -348,7 +489,10 @@ def main() -> None:
                 "semantic_source": patch_meta.get("semantic_source"),
                 "methods": methods,
                 "strict_mode": bool(runtime_eval_cfg.get("strict_mode", True)),
+                "prompt_style": prompt_style or "default",
                 "align_full_consumer_first_decode": align_full_consumer_first_decode,
+                "generation_stop": generation_stop_cfg,
+                "same_device_capture_chunk_size": same_device_capture_chunk_size,
                 "qid_allowlist": qid_allowlist,
             },
             "modes": per_mode_summary,

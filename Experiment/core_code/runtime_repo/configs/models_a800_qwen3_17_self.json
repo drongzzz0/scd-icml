@@ -1,11 +1,11 @@
 {
   "model_a": {
     "name": "Qwen3-1.7B",
-    "path": "/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B"
+    "path": "/home/student_t/maqianli/2/models/Qwen/Qwen3-1___7B"
   },
   "model_b": {
     "name": "Qwen3-1.7B",
-    "path": "/home/c101-800-mql/maqianli/2/models/Qwen/Qwen3-1___7B"
+    "path": "/home/student_t/maqianli/2/models/Qwen/Qwen3-1___7B"
   },
   "architecture": {
     "num_layers": 28,

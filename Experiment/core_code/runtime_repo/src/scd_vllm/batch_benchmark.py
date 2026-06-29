@@ -1,3 +1,10 @@
+"""重复 prefix 场景下的 vLLM batch benchmark。
+
+该模块比较 plain vLLM、vLLM prefix cache 和 SCDPreloadedConnector 在同
+一批可信 prefix 上的加载/吞吐表现。结果只说明这个固定 benchmark 的
+系统行为，不应外推成通用在线服务速度结论。
+"""
+
 from __future__ import annotations
 
 import argparse

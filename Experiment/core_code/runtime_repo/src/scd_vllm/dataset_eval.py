@@ -1,3 +1,10 @@
+"""官方 vLLM baseline 的数据集评测入口。
+
+该模块用于跑 Full Consumer / plain vLLM 侧基线，覆盖 CMRC2018、
+HotpotQA、HotpotQA-compressed 和 WikiText-2。它不加载 SCD bundle，
+因此适合作为 vLLM 环境和完整模型质量的参照。
+"""
+
 from __future__ import annotations
 
 import argparse

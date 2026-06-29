@@ -3469,3 +3469,419 @@ Plan change: do not promote Direction B to n=40 or n=200 under the current shall
 - Release boundary:
   This run can update the Qwen32 Full Consumer reference table only. It does
   not reduce the need for a separate Qwen32 SCD reuse/patch validation run.
+
+### 2026-06-18 update - densify ICML poster layout
+
+- Change:
+  Reworked the Illustrator-native poster draft from a two-hero-plus-bottom-row
+  layout into a denser three-column structure. The left column now carries the
+  complete challenge/motivation figure plus problem, contribution, and design
+  principle panels; the middle column carries the complete SCD framework figure
+  plus reuse/patch, offline/online, and patch-policy panels; the right column
+  carries the main result table, evaluation setup, claim boundary, conclusions,
+  and release notes.
+- Design boundary:
+  Result plots remain excluded from the poster. The right column uses only the
+  main verified CMRC2018 result table and short evidence notes, matching the
+  current user preference to avoid extra result images.
+- Output:
+  The current editable/source artifact is
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`, exported via
+  local Adobe Illustrator 2025 to AI, PDF, PNG, and SVG under
+  `Promotion/slides/poster/`.
+
+### 2026-06-18 update - add low-key technical elements to poster
+
+- Change:
+  Added subtle technical diagram elements to reduce the remaining sparse feel:
+  compact transfer miniatures, reuse/patch route elements, metric tiles, setup
+  matrix blocks, and small chip motifs. The elements use muted blue, gray, and
+  pale orange so they fill empty card space without competing with the two
+  paper figures.
+- Design boundary:
+  The poster still excludes result plots. The right column keeps the verified
+  CMRC2018 main result table as the only quantitative visual evidence, with
+  metric callouts derived from the same table.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - densify poster evidence band
+
+- Change:
+  Reworked the bottom poster band to reduce empty space and repeated filler.
+  The four lower panels now show: a dense route-boundary table and quality-bar
+  view, cross-dataset route evidence plus neighboring adapted baselines, the
+  main CMRC Reuse19/Patch13 result with metric tiles and a 32-layer route strip,
+  and anchor baselines with compact TTFT bars.
+- Rationale:
+  The previous lower band still looked sparse and contained too much repeated
+  explanation. This version makes each panel carry claim-relevant evidence
+  rather than generic reading-map or pointer content.
+- Boundary:
+  The poster still uses the best verified non-Qwen release-facing evidence
+  instead of Qwen32 diagnostic results. No new experiment claims were added.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - convert bottom data band to visual charts
+
+- Change:
+  Replaced most lower-band data tables with chart-style visual evidence:
+  route-search scatter plot, cross-task retention bars with route chips,
+  full-vs-SCD dumbbell chart, baseline quality/speed map, compact route ribbon,
+  and compact TTFT sparkline.
+- Rationale:
+  The previous dense table version still looked like row-wise data listing.
+  The poster should make the trade-offs visually legible: route choice,
+  cross-task behavior, main result delta, and baseline collapse should each be
+  understandable from a figure rather than from reading rows.
+- Boundary:
+  The data source and claim boundary remain unchanged: verified non-Qwen
+  release-facing evidence, with Qwen32 diagnostic results excluded from the
+  headline.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - redraw bottom charts as cleaner infographics
+
+- Change:
+  Replaced the rough scatter/dumbbell/2D-map chart style with cleaner poster
+  infographics: a route-gate ladder, cross-task result cards, a large main
+  latency-transfer block with retention bars, and a baseline contrast strip.
+- Rationale:
+  The earlier custom charts looked visually ad hoc and too small. This version
+  favors larger blocks, fewer axes, fewer micro-labels, and clearer visual
+  hierarchy while keeping the same verified numbers.
+- Boundary:
+  No new results were introduced. The headline still uses the verified
+  non-Qwen release-facing evidence and excludes Qwen32 diagnostics.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - fuse related bottom evidence blocks
+
+- Change:
+  Replaced the four separate lower panels with two wider composite panels.
+  The left panel fuses route sweep, quality gate, 32-layer policy, and fixed
+  offline inference procedure. The right panel fuses the main result table,
+  headline metrics, experiment protocol, ablation anchors, and TTFT anchors.
+- Rationale:
+  The previous four-panel layout repeated section framing and made each
+  evidence piece feel isolated. The fused layout increases information density
+  by grouping related evidence into larger panels with fewer titles and more
+  aligned sub-blocks.
+- Boundary:
+  No new results were added. The same verified non-Qwen release-facing result
+  line remains the source of the poster numbers.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - bold two-hero poster layout
+
+- Change:
+  Replaced the previous three-column small-card poster with a bolder layout:
+  the challenge/motivation figure and the SCD framework figure now span the
+  upper poster as two large equal hero panels. The lower poster is a dense
+  four-panel band: Story, Mechanism, Main Result, and Policy / Boundary.
+- Rationale:
+  The prior layout still felt sparse because the page was split into many
+  isolated small cards. The new layout uses fewer, larger visual regions and
+  makes the two paper figures the dominant first-read elements.
+- Design boundary:
+  Result plots remain excluded. The quantitative evidence is still limited to
+  the verified CMRC2018 main result table and metric tiles derived from it.
+- Output:
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx` was updated
+  and re-exported through local Adobe Illustrator 2025 to AI, PDF, PNG, and SVG.
+
+### 2026-06-23 update - add selected content to reduce poster sparsity
+
+- Change:
+  Added self-selected, paper-grounded content to the poster's lower evidence
+  band: shared-prefill/specialized-decode use case, contribution contract,
+  offline calibration, online execution, Reuse/Patch mechanism details, a
+  quality-boundary route table, the fixed 32-layer Reuse/Patch route
+  visualization, execution constraints, and explicit claim boundary.
+- Evidence boundary:
+  Numeric claims remain bounded to the verified CMRC2018 selected-route table
+  and the paper's route boundary text. The poster still excludes extra result
+  plots and does not add Qwen-32B SCD claims.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - deduplicate poster information
+
+- Change:
+  Removed repeated motivation and method explanations from the lower poster
+  band. The upper half now carries the challenge and framework story through
+  the two paper figures; the lower band is split into complementary roles:
+  Evaluation Protocol, Artifacts / Runtime, Main Result, and Scope.
+- Rationale:
+  The previous lower panels repeated content already visible in the two hero
+  figures. The new version keeps text as supporting metadata and evidence,
+  rather than another prose summary of the same problem and method.
+- Boundary:
+  No new numeric claims were added. The poster still excludes extra result
+  plots and does not add Qwen-32B SCD claims.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - minimize repeated poster content
+
+- Change:
+  Removed the lower-band evaluation protocol matrix, runtime mini-flow, and
+  route visualization because they repeated information already visible in the
+  two upper figures. The bottom band now uses four non-overlapping roles:
+  Reading Map, Repro Pointers, Main Result, and Limitations / Scope.
+- Rationale:
+  The poster should let the two paper figures carry the motivation and method.
+  Supporting panels now provide navigation, artifact pointers, the verified
+  main result table, and claim boundaries rather than restating the same
+  mechanism.
+- Boundary:
+  No new numeric claims were added. The main quantitative evidence remains the
+  verified CMRC2018 selected-route table.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - replace low-information bottom cards
+
+- Change:
+  Replaced the lower-band Reading Map and Repro Pointers cards with two
+  paper-grounded evidence cards: Other Benchmark Boundaries and Neighboring
+  Baselines. The new cards include HotpotQA-compressed full7405, WikiText-2,
+  and adapted neighboring-baseline numbers from the current paper source.
+- Rationale:
+  Navigation and artifact-pointer cards were visually tidy but carried little
+  research information. The bottom band now adds data that is not already
+  visible in the two hero figures.
+- Boundary:
+  These additions are secondary evidence and boundary checks, not new headline
+  claims. The main quantitative claim remains the CMRC2018 selected-route
+  table.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - try anchor-boundary evidence layout
+
+- Change:
+  Reworked the bottom band into four evidence-heavy blocks: Reuse / Patch
+  Anchors, Quality Boundary, Main Result, and Layer / Bandwidth Evidence. This
+  version adds Patch-only and Reuse-only anchor metrics, the CMRC route
+  boundary table, a profile-backed layer-selection figure, and offline footprint
+  notes.
+- Rationale:
+  The prior bottom band had useful secondary results but did not explain why
+  mixed Reuse/Patch is needed or why R19/P13 is selected. The new band answers
+  those poster-session questions directly.
+- Boundary:
+  All numeric content is taken from the current paper source. The Qwen-32B SCD
+  result remains deferred and is only mentioned as excluded scope.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - switch poster result band to latest script outputs
+
+- Change:
+  Replaced the lower-band paper-source R19/P13 result content with the latest
+  completed Qwen32 script outputs. The bottom band now reports the completed
+  `qwen32_cmrc200_rank64_route05_eval_20260623_145000_summary.json` result,
+  rank64/rank128 comparison context, rank96/rank112 pending status, and
+  payload/TTFT bars derived from the current script summaries.
+- Rationale:
+  The poster should not present the original paper result table as if it were
+  the latest experiment output. Rank64 route05 is a negative diagnostic result,
+  so the poster marks the quality gate as failed and points to rank96/rank112
+  as the next candidates instead of claiming the older selected-route result.
+- Boundary:
+  No unfinished rank96/rank112 metrics were fabricated. Remote checks showed
+  rank96 minimal eval and rank112 were still missing `summary.json`, so they
+  are labeled pending.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - use best release-facing poster results
+
+- Change:
+  Replaced the Qwen32 diagnostic result band with the best release-facing
+  non-Qwen evidence from
+  `Experiment/results/paper_artifact_bundle_final_neighboring_checked_20260611_001`.
+  The headline panel now uses the CMRC2018 Reuse19/Patch13 route
+  (`F1=0.637`, `EM=0.340`, `TTFT=37.9ms`, `96.9%` F1 retention,
+  `2.65x` TTFT speedup), with HotpotQA-compressed Reuse06/Patch26,
+  WikiText-2 Reuse20/Patch12, and neighboring-baseline SCD evidence shown as
+  supporting context.
+- Rationale:
+  Qwen32 rank64/route05 is a negative diagnostic and makes the poster look like
+  the method failed. For the ICML poster, the result band should show the best
+  verified claim-facing route while keeping Qwen32 out of the headline.
+- Boundary:
+  This does not claim Qwen32 success. It restores the finalized release-line
+  evidence and keeps route selection framed as latency-quality gated rather
+  than highest-F1-only.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - redraw poster into asymmetric editorial layout
+
+- Change:
+  Reworked the Illustrator poster from a plain regular card grid into a more
+  designed academic layout. The new version uses a dark ICML title band, tinted
+  poster background, soft off-white content cards with left accent rails, a
+  black motivation-to-evidence bridge, and an asymmetric lower route/evidence
+  band.
+- Rationale:
+  The previous draft read as a set of evenly pasted white panels. The user
+  asked for a less plain and less elementary-looking poster, so this update
+  changes the visual system while preserving the same paper figures and
+  release-facing evidence boundary.
+- Boundary:
+  No new experimental numbers were introduced. The headline evidence remains
+  the finalized non-Qwen CMRC Reuse19/Patch13 result and associated anchors.
+- Output:
+  Regenerated the Illustrator-native AI/PDF/PNG/SVG exports through
+  `Promotion/slides/poster/build_poster_v8_illustrator_redraw.jsx`.
+
+### 2026-06-23 update - replace asymmetric draft with dense academic poster layout
+
+- Change:
+  Replaced the dark-header/asymmetric-card draft with a low-key three-column
+  academic layout closer to the user's reference poster. The new layout uses a
+  white background, black top/bottom rules, ICML logo in the header, thin
+  section borders, black title squares, and compact tables/plots rather than
+  decorative narrative strips.
+- Rationale:
+  The asymmetric draft looked visually forced and was rejected as too ugly. The
+  revised approach prioritizes conference-poster conventions: dense but ordered
+  content, clear figure dominance, and minimal styling.
+- Boundary:
+  No new experimental claims were introduced. The poster still uses the
+  release-facing non-Qwen evidence bundle and excludes Qwen32 diagnostics from
+  headline results.
+- Output:
+  Exported a new v9 file set:
+  `scd_icml_poster_v9_dense_academic.ai`,
+  `scd_icml_poster_v9_dense_academic.pdf`,
+  `scd_icml_poster_v9_dense_academic.png`, and
+  `scd_icml_poster_v9_dense_academic.svg`.
+## 2026-06-29 - Qwen32 CMRC decode-tail verifier trial
+
+- Scope: try a train-split learned end-of-answer verifier for the Qwen32 CMRC2018 SCD decode tail.
+- Goal: reduce generated-token count and decode/total latency while keeping F1/EM loss within a small validation-selected budget.
+- Data separation:
+  - Patch/reuse training samples remain excluded from verifier training by using CMRC train split with `sample_offset >= 200`.
+  - Verifier threshold selection uses a held-out CMRC train-split validation window.
+  - CMRC dev remains final evaluation only and must not be used for training or threshold selection.
+- Design:
+  - Add runtime generation trace and a disabled-by-default logistic verifier stop hook.
+  - Train a lightweight verifier from trace prefixes using only prefix text/logit features and context features, never gold at inference.
+  - Evaluate first with the current best k8 route; do not continue route-layer sweeps for this decode-tail issue unless the verifier result changes the diagnosis.
+- Safety:
+  - Existing strict eval behavior is unchanged unless `runtime_eval.generation_stop.trace_enabled=true` or `runtime_eval.generation_stop.verifier.enabled=true`.
+
+### 2026-06-29 update - repair prompt path before interpreting verifier results
+
+- Change:
+  - Fixed `eval_cmrc_strict.py` so it applies `runtime_eval.prompt_style`, matching `eval_text_strict.py`.
+  - Marked the first stop-verifier train/dev cycle as invalid for comparison because it used the wrong CMRC prompt distribution.
+- Why:
+  - The original Qwen32 k8 baseline used `cmrc_qwen_chat_short`; the first verifier run used default CMRC prompts, causing answer-style drift, over-generation, and a false quality collapse.
+- Current plan:
+  - Recollect train-split traces with the fixed prompt path and the same generation args as the k8 baseline.
+  - Retrain the stop verifier only from CMRC train windows.
+  - Run CMRC dev once with the repaired verifier artifact.
+- Constraints:
+  - Do not use CMRC dev for threshold selection.
+  - Do not treat the invalid `20260629_1045` dev verifier run as evidence against SCD or against the final open-source code.
+
+### 2026-06-29 update - stop-verifier direction deprioritized
+
+- Result:
+  - Prompt-fixed train/validation trace collection completed successfully.
+  - The selected verifier passed the strict train-split validation gate but only saved `0.05` generated token/sample.
+  - A gold oracle early-stop upper bound on the held-out train validation window saved only `0.77` token/sample.
+- Decision:
+  - Do not spend a multi-hour full CMRC dev run on this verifier artifact unless a later plan specifically needs a negative-control number.
+  - Treat end-of-answer verifier / stop-token thresholding as low-upside for the current Qwen32 k8 route.
+- Revised next direction:
+  - Investigate why SCD changes the generation distribution toward longer answers, rather than only trying to stop after the fact.
+  - Compare SCD vs full logits/answers on max-new and long-output cases; prioritize route/logit calibration or answer-style distillation if the difference is systematic.
+
+### 2026-06-29 update - stop-token bias diagnostic and full-dev validation
+
+- Change:
+  - Added a disabled-by-default stop-token logit bias hook to the strict runtime.
+  - The hook is controlled by `runtime_eval.generation_stop.stop_token_logit_bias` and `runtime_eval.generation_stop.stop_token_bias_start_step`.
+  - Default behavior remains unchanged when the bias is `0`.
+- Evidence:
+  - On 28 corrected CMRC2018 decode-tail qids, SCD no-bias had F1 `0.297694`, EM `0.142857`, generated tokens `28.286`, and max-new rate `0.750000`.
+  - Bias `1.0` improved the subset to F1 `0.322638`, EM `0.142857`, generated tokens `26.286`, max-new rate `0.678571`.
+  - Bias `2.0` improved the subset to F1 `0.321881`, EM `0.142857`, generated tokens `25.857`, max-new rate `0.642857`.
+- Interpretation:
+  - Stop-token logit bias is a useful diagnostic and may trim some over-generation.
+  - It is not enough by itself on hard tail cases because max-new remains high and generated-token count is still much larger than full consumer.
+- Active validation:
+  - Full CMRC2018 dev SCD-only sweeps were launched for bias `1.0`, `2.0`, and `3.0`.
+  - Screens: `scd_q32_stopbias_b10_devfull_20260629_1534`, `scd_q32_stopbias_b20_devfull_20260629_1534`, `scd_q32_stopbias_b30_devfull_20260629_1534`.
+  - GPUs: `0,1`, `2,3`, and `6,7`; GPU5 was avoided because it already had memory allocated.
+  - Full-dev result collection is pending because the A800mql SSH entry started returning banner timeouts / closed connections after the jobs had reached the second model load.
+- Next decision:
+  - If full-dev F1/EM is stable and token/max-new reductions hold, keep the best stop-token bias as a conservative optional runtime knob.
+  - If full-dev quality drops or savings stay small, treat this as a negative-control and shift to route/logit calibration or answer-style distillation.
+
+### 2026-06-29 update - full-dev stop-token bias result collected
+
+- Result:
+  - All three CMRC2018 full-dev SCD-only runs completed with `exit.status=0`.
+  - The best tested setting is `stop_token_logit_bias=3.0`, `stop_token_bias_start_step=2`.
+- Key numbers:
+  - Full consumer: F1 `0.716842`, EM `0.579062`, TTFT `231.124ms`, total `830.057ms`.
+  - SCD k8 no-bias: F1 `0.701681`, EM `0.545200`, generated tokens `13.299`, max-new `0.232992`, TTFT `70.619ms`, total `726.261ms`.
+  - SCD k8 bias `3.0`: F1 `0.702013`, EM `0.549860`, generated tokens `12.618`, max-new `0.223361`, TTFT `70.457ms`, total `712.605ms`.
+- Decision:
+  - Keep the stop-token logit bias hook as an optional Qwen32 runtime knob.
+  - Bias `3.0` is the current best candidate for CMRC2018 because it reduces decode and total latency without hurting F1/EM relative to the no-bias SCD run.
+  - This is not the main fix for the remaining quality gap vs full consumer; the next substantive direction remains route/logit calibration or patch/reuse model-quality improvement.
+- Evidence artifact:
+  - `/home/c101-800-mql/nas/SCD-ICML/runs/qwen32_cmrc_train200_devfull_rank128_chatprompt_20260625_112331/analysis/stop_token_bias_devfull_20260629/summary.json`.
+
+### 2026-06-29 update - extended stop-token bias sweep
+
+- Change:
+  - Extended the CMRC2018 full-dev sweep from bias `3.0` to `3.5`, `4.0`, and `5.0`.
+- Result:
+  - Bias `3.5`: F1 `0.701312`, EM `0.548928`, generated tokens `12.514`, total `713.799ms`.
+  - Bias `4.0`: F1 `0.701236`, EM `0.549239`, generated tokens `12.408`, total `712.136ms`.
+  - Bias `5.0`: F1 `0.700382`, EM `0.551103`, generated tokens `12.210`, total `704.882ms`.
+- Decision:
+  - Keep bias `3.0` as the safest default because it improves F1/EM over no-bias SCD while reducing generated tokens and total latency.
+  - Treat bias `4.0` as the latency-leaning candidate: it stays within the F1 gate vs no-bias SCD (`-0.000445`) and gives slightly lower total latency than `3.0`.
+  - Do not use bias `5.0` as default because it crosses the pre-set F1 gate (`-0.001299` vs no-bias), even though it has the best EM and latency.
+- Next:
+  - If this knob is exposed in the runtime/plugin, document `3.0` as the conservative default and `4.0` as an opt-in low-latency profile.
+  - For further decode-tail work, prioritize route/logit calibration rather than pushing stop-token bias higher.
+
+### 2026-06-29 update - A1 method freeze for GitHub branch
+
+- Change:
+  - Froze the current Qwen32 CMRC2018 strict-runtime SCD profile as method `A1`.
+  - Added `docs/A1_METHOD.md` as the branch-level definition.
+- A1 default:
+  - Route: k8 mixed SCD route with reuse layers `0-42, 47-59` and patch layers `43-46, 60-63`.
+  - Runtime: no fallback and no recompute for claim-facing SCD evaluation.
+  - Decode calibration: `stop_token_logit_bias=3.0`, `stop_token_bias_start_step=2`.
+- Boundary:
+  - A1 is currently a strict-runtime release candidate.
+  - The repository contains vLLM prototype modules, but A1 stop-token bias has not yet been validated as a vLLM serving result.

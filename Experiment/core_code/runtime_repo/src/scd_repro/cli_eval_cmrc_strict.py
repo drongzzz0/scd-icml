@@ -7,12 +7,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .cmrc import load_cmrc2018_samples
-from .io_utils import load_json, save_json
-from .pipeline import load_patch_ckpt, load_reuse_weights
-from .reuse import move_reuse_weights
-from .seed import set_global_seed
-from .strict_runtime import (
+from ..cmrc import load_cmrc2018_samples
+from ..io_utils import load_json, save_json
+from ..pipeline import load_patch_ckpt, load_reuse_weights
+from ..reuse import move_reuse_weights
+from ..seed import set_global_seed
+from ..strict_runtime import (
     MethodSampleResult,
     STEP_C_METHODS,
     TransformersRuntimeSession,
@@ -20,9 +20,9 @@ from .strict_runtime import (
     evaluate_cmrc_method,
     summarize_method_results,
 )
-from .torch_utils import clear_torch_cache, configure_torch_acceleration, resolve_torch_dtype
-from .tracking import command_from_argv, write_manifest
-from .cli.common import add_accel_args, load_cfg, resolve_accel_options, resolve_logger
+from ..torch_utils import clear_torch_cache, configure_torch_acceleration, resolve_torch_dtype
+from ..tracking import command_from_argv, write_manifest
+from .common import add_accel_args, load_cfg, resolve_accel_options, resolve_logger
 
 
 METHODS = list(STEP_C_METHODS)
@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--reuse-ckpt", required=True)
     p.add_argument("--patch-ckpt", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--limit", type=int, default=200, help="0 means use all loadable samples")
+    p.add_argument("--limit", type=int, default=200)
     p.add_argument("--max-length", type=int, default=0)
     p.add_argument("--max-new-tokens", type=int, default=32)
     p.add_argument("--bandwidth-gbps", type=float, default=200.0)
@@ -75,6 +75,12 @@ def _sample_result_to_dict(row: MethodSampleResult) -> dict[str, object]:
         "prompt_tokens": row.prompt_tokens,
         "prefix_tokens": row.prefix_tokens,
         "first_token_id": row.first_token_id,
+        "generated_token_count": row.generated_token_count,
+        "stop_reason": row.stop_reason,
+        "hit_max_new_tokens": row.stop_reason == "max_new_tokens",
+        "pred_output_char_len": len(row.pred_text or ""),
+        "raw_output_char_len": len(row.raw_decoded_text or ""),
+        "raw_decoded_text": row.raw_decoded_text,
         "bytes_transferred": row.timing.bytes_transferred,
         "raw_cache_bytes": row.timing.raw_cache_bytes,
         "compression_ratio": row.timing.compression_ratio,
@@ -199,6 +205,12 @@ def _write_summary_csv(path: Path, rows: list[dict[str, object]]) -> None:
         "avg_nll",
         "f1",
         "em",
+        "generated_token_count",
+        "pred_output_char_len",
+        "raw_output_char_len",
+        "stop_token_rate",
+        "text_boundary_rate",
+        "max_new_tokens_hit_rate",
         "bytes_transferred",
         "raw_cache_bytes",
         "compression_ratio",
@@ -230,21 +242,17 @@ def _write_summary_md(path: Path, rows: list[dict[str, object]]) -> None:
     lines = [
         "# Strict Runtime Comparison",
         "",
-        "| mode | avg_logp | avg_nll | f1 | em | bytes | compression | ttft_ms | delta_ttft_vs_full |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| mode | avg_logp | avg_nll | f1 | em | gen_tokens | pred_chars | max_new_hit | bytes | compression | ttft_ms | delta_ttft_vs_full |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
         compression = row.get("compression_ratio")
         delta_ttft = row.get("delta_ttft_vs_full")
         lines.append(
-            f"| {row['method_label']} | {float(row['avg_logp']):.4f} | {float(row['avg_nll']):.4f} | {float(row['f1']):.4f} | {float(row['em']):.4f} | {float(row['bytes_transferred']):.1f} | {0.0 if compression is None else float(compression):.3f} | {float(row['ttft_ms']):.2f} | {0.0 if delta_ttft is None else float(delta_ttft):.2f} |"
+            f"| {row['method_label']} | {float(row['avg_logp']):.4f} | {float(row['avg_nll']):.4f} | {float(row['f1']):.4f} | {float(row['em']):.4f} | {float(row.get('generated_token_count', 0.0)):.2f} | {float(row.get('pred_output_char_len', 0.0)):.2f} | {float(row.get('max_new_tokens_hit_rate', 0.0)):.3f} | {float(row['bytes_transferred']):.1f} | {0.0 if compression is None else float(compression):.3f} | {float(row['ttft_ms']):.2f} | {0.0 if delta_ttft is None else float(delta_ttft):.2f} |"
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def _resolve_load_limit(max_eval_samples: int) -> int | None:
-    return None if int(max_eval_samples) <= 0 else int(max_eval_samples)
 
 
 def main() -> None:
@@ -319,7 +327,7 @@ def main() -> None:
         reuse_meta.get("rank_v", reuse_meta.get("rank")),
     )
 
-    samples = load_cmrc2018_samples(args.data_root, limit=_resolve_load_limit(max_eval_samples))
+    samples = load_cmrc2018_samples(args.data_root, limit=max_eval_samples)
     logger.info("CMRC 样本已加载: %d", len(samples))
     if qid_allowlist:
         qid_set = set(qid_allowlist)

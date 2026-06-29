@@ -1,3 +1,10 @@
+"""vLLM ExampleConnector 的预加载缓存原型。
+
+该 connector 复用 vLLM ExampleConnector 的调度语义，但在 worker 内按
+文件名缓存已经加载过的 safetensors KV 张量，减少重复 prefix 批量测试
+里的磁盘读取开销。它是研究原型，不声明生产级多租户安全。
+"""
+
 from __future__ import annotations
 
 import atexit

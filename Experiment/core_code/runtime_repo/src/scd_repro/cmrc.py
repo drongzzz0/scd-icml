@@ -208,12 +208,100 @@ def score_cmrc_prediction(prediction: str, ground_truths: Iterable[str]) -> dict
     return {"f1": float(best_f1), "em": float(best_em), "best_answer": best_answer}
 
 
-def extract_answer_text(text: str) -> str:
+ANSWER_CUTOFF_SEPARATORS = [
+    "\n",
+    "\r",
+    "</s>",
+    "<|endoftext|>",
+    "<|im_start|>",
+    "<|im_end|>",
+    "#",
+    "_system",
+    "_assistant",
+    "_user",
+    "system\n",
+    "assistant\n",
+    "user\n",
+    "注意：",
+    "注意:",
+    "根据要求",
+    "不需要解释",
+    "不要解释",
+    "只需要输出",
+    "可以进一步简化",
+    "但根据",
+    "根据原文",
+    "材料：",
+    "问题：",
+]
+
+
+_CONTEXT_PHRASE_SEPARATORS: list[str] = []
+
+_CONTEXT_DESCRIPTION_MARKERS = [
+    "的侦探",
+    "的代表",
+    "的作品",
+    "的现象",
+    "的表现",
+    "的原因",
+    "的地方",
+    "的地区",
+    "的国家",
+    "的城市",
+    "的公司",
+    "的铁路",
+    "的车站",
+    "的人物",
+    "的语言",
+]
+
+
+def _compact_for_span(text: str) -> str:
+    return re.sub(r"\s+", "", str(text or "")).lower()
+
+
+def _is_context_span(text: str, context: str) -> bool:
+    candidate = _compact_for_span(text)
+    if len(candidate) < 2:
+        return False
+    return candidate in _compact_for_span(context)
+
+
+def _trim_to_context_phrase(answer: str, context: str | None = None) -> str:
+    out = str(answer or "").strip()
+    if not out or not context:
+        return out
+
+    best = out
+    best_pos = len(out)
+    for sep in _CONTEXT_PHRASE_SEPARATORS:
+        pos = out.find(sep)
+        if pos <= 0 or pos >= best_pos:
+            continue
+        prefix = out[:pos].strip()
+        if _is_context_span(prefix, context):
+            best = prefix
+            best_pos = pos
+
+    for marker in _CONTEXT_DESCRIPTION_MARKERS:
+        pos = out.find(marker)
+        if pos <= 0 or pos >= best_pos:
+            continue
+        prefix = out[:pos].strip()
+        if _is_context_span(prefix, context):
+            best = prefix
+            best_pos = pos
+
+    return best.strip()
+
+
+def extract_answer_text(text: str, context: str | None = None) -> str:
     out = str(text or "").strip()
     for prefix in ["答案：", "答案:", "answer:", "Answer:"]:
         if out.startswith(prefix):
             out = out[len(prefix) :].strip()
-    for sep in ["\n", "</s>", "<|endoftext|>"]:
+    for sep in ANSWER_CUTOFF_SEPARATORS:
         if sep in out:
             out = out.split(sep, 1)[0].strip()
-    return out.strip()
+    return _trim_to_context_phrase(out, context=context)

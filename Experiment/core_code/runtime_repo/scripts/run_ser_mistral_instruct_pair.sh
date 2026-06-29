@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-DATA_SOURCE_DIR="/disk_n/c101-3-mql/projects/scd_main/legacy/no4/data/cmrc2018"
-VENV="/disk_n/c101-3-mql/venvs/A800"
+ROOT="/disk_n/c101-3-1/projects/scd-repro-codex-mistral-instruct-20260323"
+DATA_SOURCE_DIR="/disk_n/c101-3-1/projects/scd_main/legacy/no4/data/cmrc2018"
+VENV="/disk_n/c101-3-1/venvs/A800"
 
 SEED="${SEED:-42}"
 MAX_LENGTH="${MAX_LENGTH:-256}"
