@@ -2,6 +2,10 @@
 
 Date: `2026-04-09`
 
+> Note (2026-07-02): the original per-sample strict-eval artifacts under
+> `Experiment/analysis/remote_artifacts/` referenced by this document are not
+> kept on this branch. They are preserved on the `legacy-main` branch.
+
 ## Decision
 
 For the reverse Mistral pair
