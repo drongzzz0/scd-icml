@@ -1,4 +1,0 @@
-{"prompt_id":"smoke_0001","prefix_id":"cmrc_smoke_0001","task":"cmrc2018","split":"validation","context_len":2048,"decode_len":128,"prompt_text":"Synthetic smoke prompt 1."}
-{"prompt_id":"smoke_0002","prefix_id":"cmrc_smoke_0002","task":"cmrc2018","split":"validation","context_len":2048,"decode_len":128,"prompt_text":"Synthetic smoke prompt 2."}
-{"prompt_id":"smoke_0003","prefix_id":"cmrc_smoke_0003","task":"cmrc2018","split":"validation","context_len":2048,"decode_len":128,"prompt_text":"Synthetic smoke prompt 3."}
-{"prompt_id":"smoke_0004","prefix_id":"cmrc_smoke_0004","task":"cmrc2018","split":"validation","context_len":2048,"decode_len":128,"prompt_text":"Synthetic smoke prompt 4."}

@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scd-icml"
+version = "1.0.0"
+description = "Semantic Cache Distillation (SCD-ICML): Cross-Model Reuse+Patch KV Transfer & vLLM V1 Connector Plugin"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+  {name = "SCD Authors"}
+]
+
+[project.urls]
+Homepage = "https://github.com/drongzzz0/scd-icml"
+Repository = "https://github.com/drongzzz0/scd-icml"
+dependencies = [
+  "numpy>=1.26.0",
+  "safetensors>=0.4.0",
+  "torch>=2.2.0",
+  "transformers>=4.45.0"
+]
+
+[project.optional-dependencies]
+ml = [
+  "datasets>=2.20.0"
+]
+analysis = [
+  "matplotlib>=3.8.0",
+  "scipy>=1.10.0",
+  "scikit-learn>=1.4.0"
+]
+test = [
+  "pytest>=8.0.0"
+]
+vllm = [
+  "vllm>=0.18.0"
+]
+
+[project.scripts]
+capture-pair = "scd_repro.cli.capture_pair:main"
+train-reuse = "scd_repro.cli.train_reuse:main"
+profile-layers = "scd_repro.cli.profile_layers:main"
+train-patch = "scd_repro.cli.train_patch:main"
+build-route = "scd_repro.cli.build_route:main"
+infer = "scd_repro.cli.infer:main"
+eval = "scd_repro.cli.eval_cmd:main"
+eval-text-strict = "scd_repro.cli.eval_text_strict:main"
+summarize-mistral-repro = "scd_repro.cli.summarize_mistral_repro:main"
+report = "scd_repro.cli.report_cmd:main"
+scd-vllm = "scd_vllm_plugin.cli:main"
+scd-runtime = "scd_runtime.cli:main"
+
+[project.entry-points."vllm.general_plugins"]
+scd_icml = "scd_vllm.plugin:register"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

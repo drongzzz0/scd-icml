@@ -1,9 +1,0 @@
-{
-  "stage": "eval_microsharded_cmrc2018",
-  "success": true,
-  "exit_code": 0,
-  "start_epoch_sec": 1781710375,
-  "end_epoch_sec": 1781713261,
-  "wall_clock_sec": 2886,
-  "written_at": "2026-06-18T00:21:01+0800"
-}

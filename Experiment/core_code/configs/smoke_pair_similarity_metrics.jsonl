@@ -1,3 +1,0 @@
-{"pair_id":"producer_smoke_close__to__consumer_smoke_close","median_r2_h":0.92,"median_r2_kv":0.89,"median_cos_h":0.96,"normalized_kl_token":0.08,"oracle_gap_task":0.01,"notes":"Synthetic smoke candidate only."}
-{"pair_id":"producer_smoke_medium__to__consumer_smoke_medium","median_r2_h":0.74,"median_r2_kv":0.70,"median_cos_h":0.87,"normalized_kl_token":0.22,"oracle_gap_task":0.03,"notes":"Synthetic smoke candidate only."}
-{"pair_id":"producer_smoke_far__to__consumer_smoke_far","median_r2_h":0.41,"median_r2_kv":0.38,"median_cos_h":0.71,"normalized_kl_token":0.58,"oracle_gap_task":0.09,"notes":"Synthetic smoke candidate only."}

@@ -1,28 +1,0 @@
-(Worker pid=2279687) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
-(Worker pid=2279687) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
-(Worker pid=2279688) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
-(Worker pid=2279686) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
-(Worker pid=2279688) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
-(Worker pid=2279686) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
-(Worker pid=2279689) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
-(Worker pid=2279689) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:   0% Completed | 0/17 [00:00<?, ?it/s]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:   6% Completed | 1/17 [00:45<12:13, 45.83s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  12% Completed | 2/17 [01:28<10:59, 43.98s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  18% Completed | 3/17 [02:11<10:07, 43.38s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  24% Completed | 4/17 [02:53<09:19, 43.03s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  29% Completed | 5/17 [03:36<08:35, 42.92s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  35% Completed | 6/17 [04:20<07:55, 43.23s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  41% Completed | 7/17 [05:03<07:13, 43.32s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  47% Completed | 8/17 [05:46<06:28, 43.16s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  53% Completed | 9/17 [06:29<05:45, 43.19s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  59% Completed | 10/17 [07:12<05:02, 43.15s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  65% Completed | 11/17 [07:55<04:18, 43.01s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  71% Completed | 12/17 [08:38<03:35, 43.09s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  76% Completed | 13/17 [09:21<02:52, 43.07s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  82% Completed | 14/17 [10:04<02:09, 43.08s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  88% Completed | 15/17 [10:49<01:26, 43.39s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards:  94% Completed | 16/17 [11:31<00:42, 42.97s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards: 100% Completed | 17/17 [12:04<00:00, 40.20s/it]
-(Worker_TP0 pid=2279686) Loading safetensors checkpoint shards: 100% Completed | 17/17 [12:04<00:00, 42.64s/it]
-(Worker_TP0 pid=2279686) 

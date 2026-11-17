@@ -1,0 +1,1 @@
+"""Dependency-free, versioned contracts."""

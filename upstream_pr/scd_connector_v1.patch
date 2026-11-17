@@ -1,0 +1,484 @@
+diff --git a/docs/features/disagg_prefill.md b/docs/features/disagg_prefill.md
+index 8fd67ca..c07f933 100644
+--- a/docs/features/disagg_prefill.md
++++ b/docs/features/disagg_prefill.md
+@@ -17,7 +17,7 @@ Two main reasons:
+ 
+ ## Usage example
+ 
+-Now supports 9 types of connectors:
++Now supports 10 types of connectors:
+ 
+ - **ExampleConnector**: refer to [examples/disaggregated/example_connector/run.sh](../../examples/disaggregated/example_connector/run.sh) for the example usage of ExampleConnector disaggregated prefilling.
+ - **LMCacheConnectorV1**: refer to [examples/disaggregated/lmcache/disagg_prefill_lmcache_v1/disagg_example_nixl.sh](../../examples/disaggregated/lmcache/disagg_prefill_lmcache_v1/disagg_example_nixl.sh) for the example usage of LMCacheConnectorV1 disaggregated prefilling which uses NIXL as the underlying KV transmission. LMCache also offers a multi-process (MP) mode via `LMCacheMPConnector`, where a standalone `lmcache server` holds the KV cache shared by one or more vLLM instances; see the [LMCache examples](../../examples/disaggregated/lmcache/README.md) and the [LMCache docs](https://docs.lmcache.ai) for setup.
+@@ -49,6 +49,13 @@ Now supports 9 types of connectors:
+   --kv-transfer-config '{"kv_connector":"FlexKVConnectorV1","kv_role":"kv_both"}'
+   ```
+ 
++- **SCDConnectorV1**: refer to [examples/disaggregated/scd_connector/cross_model_kv_handoff.py](../../examples/disaggregated/scd_connector/cross_model_kv_handoff.py) for cross-model Semantic Cache Distillation (SCD) KV cache transfer via `scd-icml`.
++
++  ```bash
++  --kv-transfer-config '{"kv_connector":"SCDConnectorV1","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"mode":"file","store_root":"/path/to/store","scd_profile":{}}}'
++  ```
++
++
+ ## Reusing prefill token ids on decode
+ 
+ !!! note
+diff --git a/examples/disaggregated/scd_connector/README.md b/examples/disaggregated/scd_connector/README.md
+new file mode 100644
+index 0000000..635baec
+--- /dev/null
++++ b/examples/disaggregated/scd_connector/README.md
+@@ -0,0 +1,31 @@
++# SCDConnectorV1: Cross-Model Semantic Cache Distillation KV Transfer
++
++`SCDConnectorV1` connects [Semantic Cache Distillation (`scd-icml`)](https://github.com/drongzzz0/scd-icml) to vLLM's V1 `KVConnectorBase_V1` interface.
++
++Unlike homogeneous KV cache connectors that require identical producer and consumer model architectures, `SCDConnectorV1` transfers prefix context from a lightweight producer model (e.g., `MistralLite` with full sliding-window-free context) into a stronger target model (e.g., `Mistral-7B-Instruct-v0.2`) using hybrid layerwise **Reuse** projections and **Learned Shared-Residual Patch** projections.
++
++## Installation
++
++```bash
++pip install "git+https://github.com/drongzzz0/scd-icml.git"
++```
++
++## Supported Transport Modes
++
++`SCDConnectorV1` delegates to `scd_vllm.vllm_v1_adapter.SCDConnectorV1Impl` and supports three transport modes via `kv_connector_extra_config`:
++
++1. **`resident` (`mode: "resident"`)**: Zero-copy same-worker GPU conversion + stream-ordered paged KV scatter (`enforce_eager=False` CUDA graphs supported).
++2. **`file` (`mode: "file"`)**: Lease-verified `safetensors` artifact store for disaggregated producer/consumer processes.
++3. **`preloaded` (`mode: "preloaded"`)**: Bounded LRU GPU-memoized static prefix serving compatible with `ExampleConnector` storage.
++
++## Quick Example
++
++```bash
++python examples/disaggregated/scd_connector/cross_model_kv_handoff.py \
++  --profile /path/to/profile.json \
++  --assets /path/to/imported_assets \
++  --target-model /path/to/Mistral-7B-Instruct-v0.2 \
++  --target-manifest /path/to/model_manifest.json \
++  --prefix-ids /path/to/prefix_ids.json \
++  --prompt-ids /path/to/prompt_ids.json
++```
+diff --git a/examples/disaggregated/scd_connector/cross_model_kv_handoff.py b/examples/disaggregated/scd_connector/cross_model_kv_handoff.py
+new file mode 100644
+index 0000000..c305707
+--- /dev/null
++++ b/examples/disaggregated/scd_connector/cross_model_kv_handoff.py
+@@ -0,0 +1,82 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""Minimal example of cross-model KV cache handoff with SCDConnectorV1."""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser(
++        description="Run cross-model SCD KV cache handoff into vLLM V1."
++    )
++    parser.add_argument("--profile", required=True, help="Path to SCD profile JSON")
++    parser.add_argument("--assets", required=True, help="Path to imported SCD assets")
++    parser.add_argument("--target-model", required=True, help="Target model path")
++    parser.add_argument("--target-manifest", required=True, help="Target model manifest JSON")
++    parser.add_argument("--prefix-ids", required=True, help="JSON list of prefix token IDs")
++    parser.add_argument("--prompt-ids", required=True, help="JSON list of full prompt token IDs")
++    parser.add_argument("--max-new-tokens", type=int, default=32)
++    parser.add_argument(
++        "--enforce-eager",
++        action="store_true",
++        help="Disable CUDA graphs (default: CUDA graphs enabled for minimum latency).",
++    )
++    return parser.parse_args()
++
++
++def main() -> None:
++    from scd_runtime.contracts.types import PrefixContract, profile_from_dict
++    from scd_runtime.resident_runner import GPUResidentConsumer
++
++    args = parse_args()
++    profile = profile_from_dict(json.loads(Path(args.profile).read_text(encoding="utf-8")))
++    prefix_ids = tuple(json.loads(Path(args.prefix_ids).read_text(encoding="utf-8")))
++    prompt_ids = tuple(json.loads(Path(args.prompt_ids).read_text(encoding="utf-8")))
++
++    prefix = PrefixContract(
++        prefix_ids,
++        0,
++        profile.source.tokenizer_sha256,
++        profile.source.chat_template_sha256,
++    )
++    engine_config = {
++        "model": args.target_model,
++        "model_manifest": args.target_manifest,
++        "block_size": 16,
++        "max_model_len": 4096,
++        "gpu_memory_utilization": 0.45,
++        "enforce_eager": bool(args.enforce_eager),
++        "attention_config": {"backend": "FLASH_ATTN"},
++    }
++
++    consumer = GPUResidentConsumer(profile, args.assets, engine_config)
++    try:
++        receipt = consumer.run(
++            prefix,
++            prompt_ids,
++            {"max_new_tokens": args.max_new_tokens, "temperature": 0.0},
++            mode="E",
++            import_policy="fullprefix",
++            full_prompt_ids=prompt_ids if len(prompt_ids) == len(prefix_ids) + 1 else None,
++        )
++        print(
++            json.dumps(
++                {
++                    "token_ids": list(receipt.generation.token_ids),
++                    "ttft_ms": receipt.metrics["pipeline_first_token_ms"],
++                    "generation_ms": receipt.metrics["pipeline_generation_ms"],
++                    "imported_tokens": receipt.generation.metadata["imported_tokens"],
++                },
++                indent=2,
++            )
++        )
++    finally:
++        consumer.close()
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/tests/v1/kv_connector/unit/test_scd_connector_v1.py b/tests/v1/kv_connector/unit/test_scd_connector_v1.py
+new file mode 100644
+index 0000000..bc9b3fc
+--- /dev/null
++++ b/tests/v1/kv_connector/unit/test_scd_connector_v1.py
+@@ -0,0 +1,141 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""Unit tests for the thin SCDConnectorV1 wrapper (runs without scd-icml installed)."""
++
++from types import ModuleType, SimpleNamespace
++import sys
++
++import pytest
++import torch
++
++from vllm.config import KVTransferConfig, VllmConfig
++from vllm.distributed.kv_transfer.kv_connector.factory import KVConnectorFactory
++from vllm.distributed.kv_transfer.kv_connector.v1.base import (
++    KVConnectorMetadata,
++    KVConnectorRole,
++)
++from vllm.distributed.kv_transfer.kv_connector.v1.scd_connector import (
++    SCDConnectorV1,
++)
++
++
++def _make_vllm_config(extra: dict | None = None) -> VllmConfig:
++    ktc = KVTransferConfig(
++        kv_connector="SCDConnectorV1",
++        kv_role="kv_consumer",
++        kv_load_failure_policy="fail",
++        kv_connector_extra_config=extra or {"mode": "file"},
++    )
++    return SimpleNamespace(kv_transfer_config=ktc)  # type: ignore[return-value]
++
++
++def test_scd_connector_v1_is_registered_in_factory() -> None:
++    cls = KVConnectorFactory.get_connector_class_by_name("SCDConnectorV1")
++    assert cls is SCDConnectorV1
++
++
++def test_scd_connector_v1_raises_helpful_import_error_when_missing(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    monkeypatch.setitem(sys.modules, "scd_vllm", None)
++    monkeypatch.setitem(sys.modules, "scd_vllm.vllm_v1_adapter", None)
++    cfg = _make_vllm_config()
++    with pytest.raises(ImportError, match="scd-icml"):
++        SCDConnectorV1(cfg, KVConnectorRole.WORKER, kv_cache_config=None)
++
++
++def test_scd_connector_v1_delegates_scheduler_and_worker_hooks(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    calls: list[tuple] = []
++
++    class FakeImpl:
++        def __init__(self, vllm_config, role, kv_cache_config=None, parent=None):
++            calls.append(("init", role, kv_cache_config, parent is not None))
++
++        def register_kv_caches(self, kv_caches):
++            calls.append(("register_kv_caches", list(kv_caches)))
++
++        def bind_connector_metadata(self, meta):
++            calls.append(("bind_connector_metadata", type(meta).__name__))
++
++        def clear_connector_metadata(self):
++            calls.append(("clear_connector_metadata",))
++
++        def start_load_kv(self, forward_context, **kwargs):
++            calls.append(("start_load_kv", forward_context))
++
++        def wait_for_layer_load(self, layer_name: str):
++            calls.append(("wait_for_layer_load", layer_name))
++
++        def save_kv_layer(self, layer_name, kv_layer, attn_metadata, **kwargs):
++            calls.append(("save_kv_layer", layer_name))
++
++        def wait_for_save(self):
++            calls.append(("wait_for_save",))
++
++        def get_finished(self, finished_req_ids):
++            calls.append(("get_finished", set(finished_req_ids)))
++            return None, {"req-1"}
++
++        def get_num_new_matched_tokens(self, request, num_computed_tokens):
++            calls.append(("get_num_new_matched_tokens", num_computed_tokens))
++            return 32, False
++
++        def update_state_after_alloc(self, request, blocks, num_external_tokens):
++            calls.append(("update_state_after_alloc", num_external_tokens))
++
++        def build_connector_meta(self, scheduler_output):
++            calls.append(("build_connector_meta",))
++            return KVConnectorMetadata()
++
++        def request_finished(self, request, block_ids):
++            calls.append(("request_finished", list(block_ids)))
++            return False, None
++
++        def shutdown(self):
++            calls.append(("shutdown",))
++
++    pkg = ModuleType("scd_vllm")
++    pkg.__path__ = []  # type: ignore[attr-defined]
++    adapter_mod = ModuleType("scd_vllm.vllm_v1_adapter")
++    adapter_mod.SCDConnectorV1Impl = FakeImpl  # type: ignore[attr-defined]
++    monkeypatch.setitem(sys.modules, "scd_vllm", pkg)
++    monkeypatch.setitem(sys.modules, "scd_vllm.vllm_v1_adapter", adapter_mod)
++
++    cfg = _make_vllm_config({"mode": "resident"})
++    conn = SCDConnectorV1(cfg, KVConnectorRole.WORKER, kv_cache_config=None)
++
++    assert conn.get_num_new_matched_tokens(SimpleNamespace(), 0) == (32, False)
++    conn.update_state_after_alloc(SimpleNamespace(), SimpleNamespace(), 32)
++    meta = conn.build_connector_meta(SimpleNamespace())
++    assert isinstance(meta, KVConnectorMetadata)
++
++    conn.register_kv_caches({"layer.0": torch.empty(1)})
++    conn.bind_connector_metadata(meta)
++    conn.start_load_kv("ctx")
++    conn.wait_for_layer_load("layer.0")
++    conn.save_kv_layer("layer.0", torch.empty(1), SimpleNamespace())
++    conn.wait_for_save()
++    assert conn.get_finished({"req-1"}) == (None, {"req-1"})
++    assert conn.request_finished(SimpleNamespace(), [1, 2]) == (False, None)
++    conn.clear_connector_metadata()
++    conn.shutdown()
++
++    recorded_names = [entry[0] for entry in calls]
++    assert recorded_names == [
++        "init",
++        "get_num_new_matched_tokens",
++        "update_state_after_alloc",
++        "build_connector_meta",
++        "register_kv_caches",
++        "bind_connector_metadata",
++        "start_load_kv",
++        "wait_for_layer_load",
++        "save_kv_layer",
++        "wait_for_save",
++        "get_finished",
++        "request_finished",
++        "clear_connector_metadata",
++        "shutdown",
++    ]
+diff --git a/vllm/distributed/kv_transfer/kv_connector/factory.py b/vllm/distributed/kv_transfer/kv_connector/factory.py
+index c0f0a4e..69946d1 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/factory.py
++++ b/vllm/distributed/kv_transfer/kv_connector/factory.py
+@@ -257,3 +257,9 @@ KVConnectorFactory.register_connector(
+     "vllm.distributed.kv_transfer.kv_connector.v1.hf3fs.hf3fs_connector",
+     "HF3FSKVConnector",
+ )
++
++KVConnectorFactory.register_connector(
++    "SCDConnectorV1",
++    "vllm.distributed.kv_transfer.kv_connector.v1.scd_connector",
++    "SCDConnectorV1",
++)
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/scd_connector.py b/vllm/distributed/kv_transfer/kv_connector/v1/scd_connector.py
+new file mode 100644
+index 0000000..1a5ce6a
+--- /dev/null
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/scd_connector.py
+@@ -0,0 +1,165 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++from collections.abc import Iterable
++from typing import TYPE_CHECKING, Any
++
++import torch
++
++from vllm.config import VllmConfig
++from vllm.distributed.kv_transfer.kv_connector.v1.base import (
++    KVConnectorBase_V1,
++    KVConnectorMetadata,
++    KVConnectorRole,
++)
++from vllm.logger import init_logger
++from vllm.v1.core.sched.output import SchedulerOutput
++from vllm.v1.outputs import KVConnectorOutput
++
++if TYPE_CHECKING:
++    from vllm.distributed.kv_events import KVCacheEvent
++    from vllm.forward_context import ForwardContext
++    from vllm.v1.attention.backend import AttentionMetadata
++    from vllm.v1.core.kv_cache_manager import KVCacheBlocks
++    from vllm.v1.kv_cache_interface import KVCacheConfig
++    from vllm.v1.request import Request
++
++logger = init_logger(__name__)
++
++
++class SCDConnectorV1(KVConnectorBase_V1):
++    """V1 KV Connector for Semantic Cache Distillation (SCD) cross-model KV transfer.
++
++    SCD converts prefix activations/KV from a lightweight producer model into
++    target-model paged KV cache blocks via hybrid layerwise Reuse + learned
++    residual Patch projections, supporting file-store, preloaded, and
++    same-worker GPU-resident transport modes without modifying target model
++    weights or disabling CUDA graphs.
++
++    Installation:
++        Install the external ``scd-icml`` runtime package::
++
++            pip install scd-icml
++
++    Configuration:
++        Pass ``kv_connector="SCDConnectorV1"`` via ``--kv-transfer-config``::
++
++            --kv-transfer-config \\
++            '{"kv_connector":"SCDConnectorV1","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"mode":"file","store_root":"/path/to/store","scd_profile":{...}}}'
++    """
++
++    def __init__(
++        self,
++        vllm_config: "VllmConfig",
++        role: KVConnectorRole,
++        kv_cache_config: "KVCacheConfig | None" = None,
++    ) -> None:
++        super().__init__(
++            vllm_config=vllm_config,
++            role=role,
++            kv_cache_config=kv_cache_config,
++        )
++        try:
++            from scd_vllm.vllm_v1_adapter import SCDConnectorV1Impl
++        except ImportError as e:
++            raise ImportError(
++                "scd-icml (`scd_vllm`) is not installed. Please install "
++                "`scd-icml` to use SCDConnectorV1."
++            ) from e
++
++        self._scd_connector = SCDConnectorV1Impl(
++            vllm_config,
++            role,
++            kv_cache_config,
++            parent=self,
++        )
++
++    def shutdown(self) -> None:
++        shutdown_fn = getattr(self._scd_connector, "shutdown", None)
++        if callable(shutdown_fn):
++            shutdown_fn()
++
++    # ==============================
++    # Worker-side methods
++    # ==============================
++    def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]) -> None:
++        self._scd_connector.register_kv_caches(kv_caches)
++
++    def bind_connector_metadata(self, connector_metadata: KVConnectorMetadata) -> None:
++        super().bind_connector_metadata(connector_metadata)
++        self._scd_connector.bind_connector_metadata(connector_metadata)
++
++    def clear_connector_metadata(self) -> None:
++        self._scd_connector.clear_connector_metadata()
++        super().clear_connector_metadata()
++
++    def start_load_kv(self, forward_context: "ForwardContext", **kwargs: Any) -> None:
++        self._scd_connector.start_load_kv(forward_context, **kwargs)
++
++    def wait_for_layer_load(self, layer_name: str) -> None:
++        self._scd_connector.wait_for_layer_load(layer_name)
++
++    def save_kv_layer(
++        self,
++        layer_name: str,
++        kv_layer: torch.Tensor,
++        attn_metadata: "AttentionMetadata",
++        **kwargs: Any,
++    ) -> None:
++        self._scd_connector.save_kv_layer(
++            layer_name, kv_layer, attn_metadata, **kwargs
++        )
++
++    def wait_for_save(self) -> None:
++        self._scd_connector.wait_for_save()
++
++    def get_finished(
++        self, finished_req_ids: set[str]
++    ) -> tuple[set[str] | None, set[str] | None]:
++        return self._scd_connector.get_finished(finished_req_ids)
++
++    def get_block_ids_with_load_errors(self) -> set[int]:
++        method = getattr(self._scd_connector, "get_block_ids_with_load_errors", None)
++        if callable(method):
++            return method()
++        return set()
++
++    # ==============================
++    # Scheduler-side methods
++    # ==============================
++    def get_num_new_matched_tokens(
++        self,
++        request: "Request",
++        num_computed_tokens: int,
++    ) -> tuple[int | None, bool]:
++        return self._scd_connector.get_num_new_matched_tokens(
++            request, num_computed_tokens
++        )
++
++    def update_state_after_alloc(
++        self, request: "Request", blocks: "KVCacheBlocks", num_external_tokens: int
++    ) -> None:
++        self._scd_connector.update_state_after_alloc(
++            request, blocks, num_external_tokens
++        )
++
++    def build_connector_meta(
++        self, scheduler_output: SchedulerOutput
++    ) -> KVConnectorMetadata:
++        return self._scd_connector.build_connector_meta(scheduler_output)
++
++    def update_connector_output(self, connector_output: KVConnectorOutput) -> None:
++        method = getattr(self._scd_connector, "update_connector_output", None)
++        if callable(method):
++            method(connector_output)
++
++    def request_finished(
++        self,
++        request: "Request",
++        block_ids: list[int],
++    ) -> tuple[bool, dict[str, Any] | None]:
++        return self._scd_connector.request_finished(request, block_ids)
++
++    def take_events(self) -> Iterable["KVCacheEvent"]:
++        method = getattr(self._scd_connector, "take_events", None)
++        if callable(method):
++            yield from method()

@@ -1,2 +1,0 @@
-run_id,method,producer_prefill_ms,producer_encode_ms,transfer_ms,consumer_rebuild_ms,consumer_patch_ms,consumer_recompute_ms,first_token_decode_ms,ttft_ms,end_to_end_ms
-producer_smoke_close__to__consumer_smoke_close__scd_original__cmrc2018__seed1,scd_original,134.07500000000002,18.35,3.8499999999999996,11.6,6.425,0.0,83.175,257.375,488.925

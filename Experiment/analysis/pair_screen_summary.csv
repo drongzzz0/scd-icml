@@ -1,4 +1,0 @@
-pair_id,producer_model,consumer_model,tokenizer_shared,architecture_compatible,median_r2_h,median_r2_kv,median_cos_h,normalized_kl_token,oracle_gap_task,similarity_score,pair_bucket,selected_for_baseline,notes
-qwen35_close_smoke,producer_smoke_close,consumer_smoke_close,True,True,0.92,0.89,0.96,0.08,0.01,0.9190000000000002,close,True,Synthetic smoke candidate only.
-qwen35_medium_smoke,producer_smoke_medium,consumer_smoke_medium,True,True,0.74,0.7,0.87,0.22,0.03,0.762,medium,False,Synthetic smoke candidate only.
-qwen35_far_smoke,producer_smoke_far,consumer_smoke_far,True,True,0.41,0.38,0.71,0.58,0.09,0.463,far,False,Synthetic smoke candidate only.

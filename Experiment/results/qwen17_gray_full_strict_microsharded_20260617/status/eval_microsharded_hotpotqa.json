@@ -1,9 +1,0 @@
-{
-  "stage": "eval_microsharded_hotpotqa",
-  "success": true,
-  "exit_code": 0,
-  "start_epoch_sec": 1781713591,
-  "end_epoch_sec": 1781718747,
-  "wall_clock_sec": 5156,
-  "written_at": "2026-06-18T01:52:27+0800"
-}
