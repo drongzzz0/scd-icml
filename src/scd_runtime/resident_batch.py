@@ -175,6 +175,8 @@ def consume_prepared_batch(
                     'completed_requests': complete,
                     'cancelled_requests': len(items) - complete,
                     'generated_tokens': sum(len(item.token_ids) for item in generations),
+                    # Process-local clock for callers sharing an outer request timer.
+                    'consumer_started_at': started,
                     'admission_ms': admission_ms,
                     'generation_ms': observation['wall_ms'],
                     'max_outputs_per_step': observation['max_outputs_per_step'],

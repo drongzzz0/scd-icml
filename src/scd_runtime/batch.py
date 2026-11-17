@@ -57,7 +57,8 @@ def observe_batch(engine, requests, *, started, timeout=120, cancel_after_first=
         identities[internal_id] = external_id
         identities[external_id] = external_id
         results[external_id] = {'internal_id': internal_id, 'token_ids': (),
-            'first_token_ms': None, 'completion_ms': None, 'cancelled': False, 'finished': False}
+            'first_token_ms': None, 'num_cached_tokens': None, 'completion_ms': None,
+            'cancelled': False, 'finished': False}
     # Each operation gets its own remaining deadline: POSIX alarm contexts must
     # not nest. Validate every returned ID before admitting execution of any.
     with deadline_factory(remaining()):
@@ -82,6 +83,7 @@ def observe_batch(engine, requests, *, started, timeout=120, cancel_after_first=
             if output.outputs and output.outputs[0].token_ids:
                 if item['first_token_ms'] is None:
                     item['first_token_ms'] = (time.perf_counter() - started) * 1000
+                    item['num_cached_tokens'] = getattr(output, 'num_cached_tokens', None)
                 item['token_ids'] = tuple(output.outputs[0].token_ids)
             if output.finished:
                 if not output.outputs or output.outputs[0].finish_reason in ('abort', 'error'):

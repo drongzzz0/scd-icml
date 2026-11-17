@@ -34,27 +34,35 @@ Official open-source repository for **Semantic Cache Distillation (SCD-ICML)** â
 
 ## Verified Performance (`NVIDIA A800-SXM4-80GB`, vLLM V1 + FlashAttention-2)
 
-Measured on `MistralLite -> Mistral-7B-v0.1` (`mistral_patch20_reuse12`, BF16, `block_size=16`, `enforce_eager=False` with CUDA Graphs):
+Measured on `MistralLite -> Mistral-7B-v0.1` (`mistral_patch20_reuse12`, BF16, `block_size=16`, CUDA Graphs) with vLLM `2b1f75c80`.
 
-- **Bitwise Parity**: **64/64** converted BF16 K/V tensors match the uncompiled ICML reference implementation bitwise (`max_abs_diff = 0.0`) across all CMRC validation cases, with up to **`1.64x`** faster standalone conversion (`4.28 ms -> 2.61 ms`).
+- **Conversion parity.** In the earlier microbenchmark, all 64 converted BF16 K/V tensors per case matched the uncompiled ICML reference on four CMRC inputs. The largest standalone conversion speedup was **1.64x** (`4.28 ms -> 2.61 ms`).
 
 ### Single-Request Prefix Scaling (`import_policy="fullprefix"`, 16-token greedy generation)
 
-| Prefix Tokens | Native TTFT (ms) | SCD H-Mode TTFT (ms) | TTFT Speedup | Native 16-tok (ms) | SCD H-Mode 16-tok (ms) | Completion Speedup |
+H-mode starts with source KV already available. E-mode includes source prefill. The native single-request baseline has automatic prefix caching (APC) disabled.
+
+| Prefix Tokens | Native TTFT (ms) | SCD H-mode TTFT (ms) | SCD E-mode TTFT (ms) | H-mode TTFT Speedup | Native 16-tok (ms) | SCD H-mode 16-tok (ms) |
 |---:|---:|---:|---:|---:|---:|---:|
-| 512 | 53.96 | **29.01** | **1.86x** | 251.99 | **207.57** | **1.21x** |
-| 1024 | 81.93 | **29.91** | **2.74x** | 288.75 | **229.84** | **1.26x** |
-| 2048 | 148.40 | **32.82** | **4.52x** | 363.10 | **241.99** | **1.50x** |
-| 3584 | 260.80 | **49.57** | **5.26x** | 490.29 | **267.08** | **1.84x** |
+| 512 | 52.99 | 29.35 | 89.58 | 1.81x | 249.57 | 225.31 |
+| 1024 | 80.79 | 30.27 | 116.53 | 2.67x | 283.92 | 228.28 |
+| 2048 | 149.24 | 34.74 | 202.82 | 4.30x | 363.74 | 242.50 |
+| 3584 | 253.79 | 49.45 | 347.40 | 5.13x | 488.57 | 271.85 |
 
 ### Shared-Prefix Continuous Batch Throughput (`2048` prefix tokens, `32` new tokens/req)
 
-| Batch Size | Native Wall (ms) | SCD Cold E2E Wall (ms) | Cold Speedup | SCD Memoized Wall (ms) | Warm Speedup | Native Out (tok/s) | SCD Out (tok/s) | Mean TTFT Reduction |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | 602.2 | 641.3 | 0.94x | **502.6** | **1.20x** | 53.1 | **63.7** | `149.4 -> 44.2 ms` (**3.38x**) |
-| 4 | 1014.7 | **689.0** | **1.47x** | **587.7** | **1.73x** | 126.1 | **217.8** | `550.5 -> 86.6 ms` (**6.36x**) |
-| 8 | 1593.5 | **778.3** | **2.05x** | **709.1** | **2.25x** | 160.6 | **361.0** | `1084.8 -> 140.9 ms` (**7.70x**) |
-| 16 | 2725.9 | **913.1** | **2.99x** | **899.6** | **3.03x** | 187.8 | **569.1** | `2096.5 -> 243.2 ms` (**8.62x**) |
+Each cell reports mean request TTFT and total batch wall time in milliseconds, using the median of three trials. Both measurements start at the outer batch call, so SCD TTFT includes prefix preparation and admission. Before each cold trial, native APC and SCD memoization are cleared for the respective arm. The same prefix is reused in the following warm trial.
+
+| Batch Size | Native APC Off | Native APC Cold | Native APC Warm | SCD Cold | SCD Warm |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 149.7 / 588.4 | 153.6 / 595.1 | 38.9 / 485.2 | 200.9 / 637.0 | 50.2 / 486.0 |
+| 4 | 531.4 / 956.4 | 178.6 / 629.7 | 62.6 / 515.5 | 225.4 / 689.3 | 109.4 / 578.4 |
+| 8 | 1074.4 / 1511.5 | 213.3 / 706.8 | 95.3 / 587.7 | 289.2 / 778.4 | 201.5 / 703.7 |
+| 16 | 2117.0 / 2669.3 | 280.6 / 834.4 | 154.2 / 712.4 | 387.3 / 945.6 | 326.1 / 884.4 |
+
+At batch size 16, target APC reused all 2,048 prefix tokens for 15 of 16 requests in each cold trial and for every request in each warm trial. Reproduce the comparison with `scripts/benchmark_a800_vllm_open.py --cudagraph-and-batch --batch-reps 3` and the local profile, assets, target model and case inputs.
+
+The paired CMRC experiments report official F1 and exact match alongside the per-request latency breakdown. [A800 experiment records](docs/experiment-log.md)
 
 ---
 

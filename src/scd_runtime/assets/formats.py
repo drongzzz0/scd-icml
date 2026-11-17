@@ -30,8 +30,14 @@ def normalize_icml(raw, profile, metadata):
     except KeyError as exc:
         raise MissingAsset('ICML requires reuse/patch TensorBundle files') from exc
 
-    if rmeta.get('group_size') != 1 or not rmeta.get('k_de_rope') or not rmeta.get('k_re_rope'):
-        raise UnsupportedProfile('released importer requires layerwise raw-derope Reuse')
+    key_space = profile.route.get('reuse_key_space')
+    flags = (rmeta.get('k_de_rope'), rmeta.get('k_re_rope'))
+    if rmeta.get('group_size') != 1:
+        raise UnsupportedProfile('released importer requires layerwise Reuse')
+    if ((key_space == 'pre_rope' and flags != (True, True))
+            or (key_space == 'post_rope' and (flags != (False, False) or profile.source.rope != profile.target.rope))
+            or key_space not in ('pre_rope', 'post_rope')):
+        raise UnsupportedProfile('Reuse archive and model RoPE contracts differ')
     if profile.numeric_version in ('icml-pinned-v2-batched', 'icml-pinned-v3-hf-native-rope'):
         groups = rmeta['group_layers']
         if len(groups) != profile.source.num_layers or any(len(value) != 1 for value in groups.values()):

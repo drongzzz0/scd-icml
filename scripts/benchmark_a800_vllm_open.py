@@ -22,6 +22,7 @@ from pathlib import Path
 import statistics
 import time
 from typing import Any
+import uuid
 
 import torch
 
@@ -434,6 +435,142 @@ def run_engine_suite(
         torch.cuda.empty_cache()
 
 
+def _time_batch(run):
+    started = time.perf_counter()
+    result = run(started)
+    return started, (time.perf_counter() - started) * 1000, result
+
+
+def _batch_trial(wall_ms, first_token_ms, output_lengths, max_new_tokens, **evidence):
+    if any(length != max_new_tokens for length in output_lengths):
+        raise RuntimeError(f'fixed-length batch returned unexpected output counts: {output_lengths}')
+    if not first_token_ms or any(not 0 <= value <= wall_ms for value in first_token_ms):
+        raise RuntimeError('first-token timestamps are outside the timed request')
+    return {
+        'wall_ms': wall_ms,
+        'mean_first_token_ms': _mean(first_token_ms),
+        'first_token_ms': first_token_ms,
+        'output_tokens_per_request': output_lengths,
+        'output_tok_per_s': sum(output_lengths) / (wall_ms / 1000),
+        **evidence,
+    }
+
+
+def _native_batch_trial(engine, prompts, max_new_tokens):
+    from vllm import SamplingParams
+    from vllm.sampling_params import RequestOutputKind
+
+    from scd_runtime.batch import observe_batch
+    from scd_runtime.resident_runner import _signal_deadline
+
+    def submit(started):
+        requests = [
+            (uuid.uuid4().hex, {'prompt_token_ids': list(prompt)}, SamplingParams(
+                max_tokens=max_new_tokens,
+                temperature=0.0,
+                ignore_eos=True,
+                output_kind=RequestOutputKind.CUMULATIVE,
+            ))
+            for prompt in prompts
+        ]
+        return observe_batch(engine, requests, started=started, deadline_factory=_signal_deadline)
+
+    _, wall_ms, observation = _time_batch(submit)
+    outputs = list(observation['requests'].values())
+    cached_tokens = [output['num_cached_tokens'] for output in outputs]
+    if any(type(count) is not int or not 0 <= count <= len(prompt)
+           for count, prompt in zip(cached_tokens, prompts)):
+        raise RuntimeError(f'vLLM did not report valid prefix-cache hits: {cached_tokens}')
+    return _batch_trial(
+        wall_ms,
+        [output['first_token_ms'] for output in outputs],
+        [len(output['token_ids']) for output in outputs],
+        max_new_tokens,
+        num_cached_tokens=cached_tokens,
+        max_outputs_per_step=observation['max_outputs_per_step'],
+    )
+
+
+def _resident_batch_trial(consumer, requests, generation):
+    started, wall_ms, batch = _time_batch(lambda _: consumer.run_batch(requests, generation))
+    # first_token_ms is consumer-local, so this also accounts for all work
+    # before consumer validation, including source prefill, conversion and admission.
+    offset_ms = (batch.metrics['consumer_started_at'] - started) * 1000
+    return _batch_trial(
+        wall_ms,
+        [offset_ms + item.metadata['first_token_ms'] for item in batch.generations],
+        [len(item.token_ids) for item in batch.generations],
+        generation['max_new_tokens'],
+        consumer_start_offset_ms=offset_ms,
+        imported_tokens=[item.metadata['imported_tokens'] for item in batch.generations],
+        memo_hits=batch.metrics['memo_hits'],
+        batch_dedup_hits=batch.metrics['batch_dedup_hits'],
+        max_outputs_per_step=batch.metrics['max_outputs_per_step'],
+    )
+
+
+def _run_native_batch_trials(engine_cfg, prompts_by_size, prefix_len, max_new_tokens, reps, *, apc):
+    from vllm import LLM
+
+    native_config = {
+        key: value for key, value in engine_cfg.items()
+        if key not in {'model_manifest', 'async_loading', 'memoize_prefix_entries'}
+    }
+    native_config.update(
+        dtype='bfloat16',
+        tensor_parallel_size=1,
+        pipeline_parallel_size=1,
+        enable_prefix_caching=apc,
+        enable_chunked_prefill=False,
+        disable_hybrid_kv_cache_manager=True,
+        trust_remote_code=False,
+        disable_log_stats=False,
+    )
+    llm = LLM(**native_config)
+    engine = llm.llm_engine
+    cold_by_size, warm_by_size = {}, {}
+    try:
+        if engine.vllm_config.cache_config.enable_prefix_caching is not apc:
+            raise RuntimeError('vLLM did not apply the benchmark APC setting')
+        for prompts in prompts_by_size.values():
+            _native_batch_trial(engine, prompts, 4)
+
+        for size, prompts in prompts_by_size.items():
+            print(f'  Native APC={apc}, batch size {size}, {reps} trials', flush=True)
+            cold_trials, warm_trials = [], []
+            for _ in range(reps):
+                if apc and engine.reset_prefix_cache() is not True:
+                    raise RuntimeError('unable to reset the native prefix cache between trials')
+                cold = _native_batch_trial(engine, prompts, max_new_tokens)
+                cold_trials.append(cold)
+                if apc:
+                    # The first request must miss after reset. Later requests
+                    # may reuse blocks allocated by other requests in the cold batch.
+                    if cold['num_cached_tokens'][0] != 0:
+                        raise RuntimeError('first native APC request hit after cache reset')
+                    warm = _native_batch_trial(engine, prompts, max_new_tokens)
+                    if any(count < prefix_len for count in warm['num_cached_tokens']):
+                        raise RuntimeError(f'native APC hot trial missed shared prefix: {warm["num_cached_tokens"]}')
+                    warm_trials.append(warm)
+                elif any(cold['num_cached_tokens']):
+                    raise RuntimeError('native APC-off trial reported a prefix-cache hit')
+            cold_by_size[size] = cold_trials
+            warm_by_size[size] = warm_trials
+    finally:
+        engine.engine_core.shutdown(timeout=5)
+        torch.cuda.empty_cache()
+    return cold_by_size, warm_by_size
+
+
+def _summarize_trials(trials):
+    return {
+        'median_wall_ms': _median([trial['wall_ms'] for trial in trials]),
+        'median_mean_first_token_ms': _median([trial['mean_first_token_ms'] for trial in trials]),
+        'median_output_tok_per_s': _median([trial['output_tok_per_s'] for trial in trials]),
+        'trials': trials,
+    }
+
+
 def run_batch_throughput_suite(
     *,
     profile,
@@ -444,6 +581,7 @@ def run_batch_throughput_suite(
     prefix_len: int = 2048,
     batch_sizes: tuple[int, ...] = (1, 4, 8, 16),
     max_new_tokens: int = 32,
+    reps: int = 3,
 ) -> list[dict[str, Any]]:
     from scd_runtime.contracts.types import PrefixContract
     from scd_runtime.resident_runner import GPUResidentConsumer
@@ -466,8 +604,10 @@ def run_batch_throughput_suite(
         'async_scheduling': False,
         'memoize_prefix_entries': 32,
     }
+    if reps < 1 or prefix_len <= 0 or prefix_len % engine_cfg['block_size']:
+        raise ValueError('batch benchmark needs at least one repetition and a whole-block prefix')
     generation = {'max_new_tokens': max_new_tokens, 'temperature': 0.0, 'ignore_eos': True, 'eos_token_id': None}
-    warm_gen = {'max_new_tokens': 4, 'temperature': 0.0, 'ignore_eos': True, 'eos_token_id': None}
+    warm_gen = {**generation, 'max_new_tokens': 4}
 
     base_tokens = list(base_case['prefix_ids'])
     repeats = (prefix_len // len(base_tokens)) + 2
@@ -478,7 +618,17 @@ def run_batch_throughput_suite(
         profile.source.tokenizer_sha256,
         profile.source.chat_template_sha256,
     )
+    prompts_by_size = {
+        size: [shared_prefix_ids + (100 + i, 200 + i) for i in range(size)]
+        for size in batch_sizes
+    }
 
+    native, _ = _run_native_batch_trials(
+        engine_cfg, prompts_by_size, prefix_len, max_new_tokens, reps, apc=False,
+    )
+    apc_cold, apc_warm = _run_native_batch_trials(
+        engine_cfg, prompts_by_size, prefix_len, max_new_tokens, reps, apc=True,
+    )
     consumer = GPUResidentConsumer(
         profile,
         assets_root,
@@ -488,66 +638,68 @@ def run_batch_throughput_suite(
     )
     rows = []
     try:
-        # Warmup CUDA graph batch sizes + fused batch path
-        for warm_b in batch_sizes:
-            warm_prompts = [shared_prefix_ids + (100 + i, 200 + i) for i in range(warm_b)]
-            consumer.native_batch(warm_prompts, warm_gen)
-            consumer.run_batch([(shared_prefix, p) for p in warm_prompts], warm_gen)
+        for prompts in prompts_by_size.values():
+            consumer.run_batch([(shared_prefix, prompt) for prompt in prompts], warm_gen)
         consumer.synchronize()
 
-        for bsz in batch_sizes:
-            prompts = [shared_prefix_ids + (100 + i, 200 + i) for i in range(bsz)]
+        for size, prompts in prompts_by_size.items():
+            print(f'  SCD, batch size {size}, {reps} cold/warm trials', flush=True)
+            requests = [(shared_prefix, prompt) for prompt in prompts]
+            cold_trials, warm_trials = [], []
+            for _ in range(reps):
+                consumer.clear_memo()
+                consumer.synchronize()
+                cold = _resident_batch_trial(consumer, requests, generation)
+                warm = _resident_batch_trial(consumer, requests, generation)
+                if cold['memo_hits'] or cold['batch_dedup_hits'] != size - 1 or not warm['memo_hits']:
+                    raise RuntimeError('observed SCD memoization/dedup does not match cold/warm trial')
+                if any(count != prefix_len for trial in (cold, warm) for count in trial['imported_tokens']):
+                    raise RuntimeError('SCD did not import the full shared prefix')
+                cold_trials.append(cold)
+                warm_trials.append(warm)
 
-            consumer.synchronize()
-            t0 = time.perf_counter()
-            nat_batch = consumer.native_batch(prompts, generation)
-            consumer.synchronize()
-            nat_wall_ms = (time.perf_counter() - t0) * 1000
-
-            # Cold shared-prefix batch (includes 1x MistralLite prefill + 1x ICML convert + within-batch GPU dedup)
-            consumer.clear_memo()
-            consumer.synchronize()
-            t_cold = time.perf_counter()
-            scd_cold_batch = consumer.run_batch([(shared_prefix, p) for p in prompts], generation)
-            consumer.synchronize()
-            scd_cold_wall_ms = (time.perf_counter() - t_cold) * 1000
-
-            # Warm memoized prefix batch (LRU GPU snapshot hit across requests)
-            consumer.synchronize()
-            t1 = time.perf_counter()
-            scd_batch = consumer.run_batch([(shared_prefix, p) for p in prompts], generation)
-            consumer.synchronize()
-            scd_wall_ms = (time.perf_counter() - t1) * 1000
-
-            total_gen_tokens = bsz * max_new_tokens
-            total_processed_tokens = bsz * (len(prompts[0]) + max_new_tokens)
+            arms = {
+                'native_no_apc': _summarize_trials(native[size]),
+                'native_apc_cold': _summarize_trials(apc_cold[size]),
+                'native_apc_warm': _summarize_trials(apc_warm[size]),
+                'scd_cold': _summarize_trials(cold_trials),
+                'scd_warm': _summarize_trials(warm_trials),
+            }
+            native_summary = arms['native_no_apc']
+            cold_summary = arms['scd_cold']
+            warm_summary = arms['scd_warm']
+            nat_wall = native_summary['median_wall_ms']
+            cold_wall = cold_summary['median_wall_ms']
+            warm_wall = warm_summary['median_wall_ms']
             rows.append({
-                'batch_size': bsz,
+                'batch_size': size,
                 'prefix_tokens': prefix_len,
                 'max_new_tokens': max_new_tokens,
-                'native_batch_wall_ms': nat_wall_ms,
-                'scd_cold_shared_batch_wall_ms': scd_cold_wall_ms,
-                'scd_memoized_batch_wall_ms': scd_wall_ms,
-                'cold_batch_speedup_x': nat_wall_ms / scd_cold_wall_ms,
-                'batch_speedup_x': nat_wall_ms / scd_wall_ms,
-                'native_req_per_s': bsz / (nat_wall_ms / 1000.0),
-                'scd_cold_req_per_s': bsz / (scd_cold_wall_ms / 1000.0),
-                'scd_req_per_s': bsz / (scd_wall_ms / 1000.0),
-                'native_output_tok_per_s': total_gen_tokens / (nat_wall_ms / 1000.0),
-                'scd_cold_output_tok_per_s': total_gen_tokens / (scd_cold_wall_ms / 1000.0),
-                'scd_output_tok_per_s': total_gen_tokens / (scd_wall_ms / 1000.0),
-                'scd_effective_total_tok_per_s': total_processed_tokens / (scd_wall_ms / 1000.0),
-                'native_mean_first_token_ms': _mean([g.metadata['first_token_ms'] for g in nat_batch.generations]),
-                'scd_cold_mean_first_token_ms': _mean([g.metadata['first_token_ms'] for g in scd_cold_batch.generations]),
-                'scd_mean_first_token_ms': _mean([g.metadata['first_token_ms'] for g in scd_batch.generations]),
-                'cold_batch_dedup_hits': scd_cold_batch.metrics.get('batch_dedup_hits', 0),
-                'warm_memo_hits': scd_batch.metrics.get('memo_hits', 0),
+                'ttft_scope': 'outer_batch_call_to_first_observed_output_per_request',
+                'trial_count_per_arm': reps,
+                'arms': arms,
+                'native_batch_wall_ms': nat_wall,
+                'scd_cold_shared_batch_wall_ms': cold_wall,
+                'scd_memoized_batch_wall_ms': warm_wall,
+                'cold_batch_speedup_x': nat_wall / cold_wall,
+                'batch_speedup_x': nat_wall / warm_wall,
+                'native_req_per_s': size / (nat_wall / 1000),
+                'scd_cold_req_per_s': size / (cold_wall / 1000),
+                'scd_req_per_s': size / (warm_wall / 1000),
+                'native_output_tok_per_s': native_summary['median_output_tok_per_s'],
+                'scd_cold_output_tok_per_s': cold_summary['median_output_tok_per_s'],
+                'scd_output_tok_per_s': warm_summary['median_output_tok_per_s'],
+                'scd_effective_total_tok_per_s': size * (len(prompts[0]) + max_new_tokens) / (warm_wall / 1000),
+                'native_mean_first_token_ms': native_summary['median_mean_first_token_ms'],
+                'scd_cold_mean_first_token_ms': cold_summary['median_mean_first_token_ms'],
+                'scd_mean_first_token_ms': warm_summary['median_mean_first_token_ms'],
+                'cold_batch_dedup_hits': cold_trials[0]['batch_dedup_hits'],
+                'warm_memo_hits': warm_trials[0]['memo_hits'],
             })
         return rows
     finally:
         consumer.close()
         torch.cuda.empty_cache()
-
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -557,8 +709,17 @@ def main() -> None:
     parser.add_argument('--target-manifest', required=True)
     parser.add_argument('--cases-json', required=True, type=Path)
     parser.add_argument('--out', required=True, type=Path)
-    parser.add_argument('--resume', action='store_true', help='Reuse completed stages in --out if already verified.')
+    stages = parser.add_mutually_exclusive_group()
+    stages.add_argument('--resume', action='store_true', help='Reuse completed stages in --out if already verified.')
+    stages.add_argument('--batch-only', action='store_true', help='Run only the fresh shared-prefix batch comparison.')
+    stages.add_argument('--cudagraph-and-batch', action='store_true', help='Run fresh CUDA-Graph single and batch comparisons.')
+    parser.add_argument('--batch-reps', type=int, default=3, help='Measured trials per batch size and arm.')
+    parser.add_argument('--batch-sizes', type=int, nargs='+', default=(1, 4, 8, 16))
     args = parser.parse_args()
+    if args.batch_reps < 1:
+        parser.error('--batch-reps must be positive')
+    if len(set(args.batch_sizes)) != len(args.batch_sizes) or any(not 1 <= size <= 16 for size in args.batch_sizes):
+        parser.error('--batch-sizes must be distinct integers between 1 and 16')
 
     from scd_vllm.capability import ensure_sampler_jit_safe
     ensure_sampler_jit_safe()
@@ -597,56 +758,58 @@ def main() -> None:
         tmp.write_text(json.dumps(report, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
         tmp.replace(args.out)
 
-    if prior.get('convert_parity_and_microbench', {}).get('all_cases_bitwise_equal') is True:
-        print('[1/4] Reusing verified Stage 1 bitwise parity & convert microbenchmark from --out...', flush=True)
-        report['convert_parity_and_microbench'] = prior['convert_parity_and_microbench']
-    else:
-        print('[1/4] Running A800 CUDA bitwise parity & standalone convert microbenchmark...', flush=True)
-        report['convert_parity_and_microbench'] = run_convert_microbench_and_parity(
-            profile,
-            args.assets_root,
-            cases,
-            device,
-        )
-        save_progress()
+    if not (args.batch_only or args.cudagraph_and_batch):
+        if prior.get('convert_parity_and_microbench', {}).get('all_cases_bitwise_equal') is True:
+            print('[1/4] Reusing verified Stage 1 bitwise parity & convert microbenchmark from --out...', flush=True)
+            report['convert_parity_and_microbench'] = prior['convert_parity_and_microbench']
+        else:
+            print('[1/4] Running A800 CUDA bitwise parity & standalone convert microbenchmark...', flush=True)
+            report['convert_parity_and_microbench'] = run_convert_microbench_and_parity(
+                profile,
+                args.assets_root,
+                cases,
+                device,
+            )
+            save_progress()
 
-    if len(prior.get('vllm_eager', {}).get('cmrc_cases', ())) == len(cases):
-        print('[2/4] Reusing verified Stage 2 vLLM V1 eager benchmark from --out...', flush=True)
-        report['vllm_eager'] = prior['vllm_eager']
-    else:
-        print('[2/4] Running paired vLLM V1 suite (enforce_eager=True, apples-to-apples vs dev26)...', flush=True)
-        report['vllm_eager'] = run_engine_suite(
-            label='vllm_eager_optimized',
-            profile=profile,
-            assets_root=args.assets_root,
-            target_root=args.target_root,
-            target_manifest=args.target_manifest,
-            cases=cases,
-            scaling_lengths=[512, 1024, 2048, 3584],
-            enforce_eager=True,
-            memoize_entries=0,
-        )
-        save_progress()
+        if len(prior.get('vllm_eager', {}).get('cmrc_cases', ())) == len(cases):
+            print('[2/4] Reusing verified Stage 2 vLLM V1 eager benchmark from --out...', flush=True)
+            report['vllm_eager'] = prior['vllm_eager']
+        else:
+            print('[2/4] Running paired vLLM V1 suite (enforce_eager=True, apples-to-apples vs dev26)...', flush=True)
+            report['vllm_eager'] = run_engine_suite(
+                label='vllm_eager_optimized',
+                profile=profile,
+                assets_root=args.assets_root,
+                target_root=args.target_root,
+                target_manifest=args.target_manifest,
+                cases=cases,
+                scaling_lengths=[512, 1024, 2048, 3584],
+                enforce_eager=True,
+                memoize_entries=0,
+            )
+            save_progress()
 
-    if len(prior.get('vllm_cudagraph', {}).get('cmrc_cases', ())) == len(cases):
-        print('[3/4] Reusing verified Stage 3 vLLM V1 CUDA-Graph benchmark from --out...', flush=True)
-        report['vllm_cudagraph'] = prior['vllm_cudagraph']
-    else:
-        print('[3/4] Running paired vLLM V1 suite (enforce_eager=False, CUDA Graphs enabled)...', flush=True)
-        report['vllm_cudagraph'] = run_engine_suite(
-            label='vllm_cudagraph_optimized',
-            profile=profile,
-            assets_root=args.assets_root,
-            target_root=args.target_root,
-            target_manifest=args.target_manifest,
-            cases=cases,
-            scaling_lengths=[512, 1024, 2048, 3584],
-            enforce_eager=False,
-            memoize_entries=0,
-        )
-        save_progress()
+    if not args.batch_only:
+        if len(prior.get('vllm_cudagraph', {}).get('cmrc_cases', ())) == len(cases):
+            print('[3/4] Reusing verified Stage 3 vLLM V1 CUDA-Graph benchmark from --out...', flush=True)
+            report['vllm_cudagraph'] = prior['vllm_cudagraph']
+        else:
+            print('[3/4] Running paired vLLM V1 suite (enforce_eager=False, CUDA Graphs enabled)...', flush=True)
+            report['vllm_cudagraph'] = run_engine_suite(
+                label='vllm_cudagraph_optimized',
+                profile=profile,
+                assets_root=args.assets_root,
+                target_root=args.target_root,
+                target_manifest=args.target_manifest,
+                cases=cases,
+                scaling_lengths=[512, 1024, 2048, 3584],
+                enforce_eager=False,
+                memoize_entries=0,
+            )
+            save_progress()
 
-    print('[4/4] Running shared-prefix batch throughput benchmark (CUDA Graphs + Cold Dedup & Warm Memo)...', flush=True)
+    print('Running shared-prefix batch throughput benchmark with native APC controls...', flush=True)
     report['vllm_batch_throughput'] = run_batch_throughput_suite(
         profile=profile,
         assets_root=args.assets_root,
@@ -654,8 +817,9 @@ def main() -> None:
         target_manifest=args.target_manifest,
         base_case=cases[0],
         prefix_len=2048,
-        batch_sizes=(1, 4, 8, 16),
+        batch_sizes=tuple(args.batch_sizes),
         max_new_tokens=32,
+        reps=args.batch_reps,
     )
     save_progress()
     print('Benchmark completed ->', args.out, flush=True)

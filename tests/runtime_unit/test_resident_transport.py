@@ -220,11 +220,13 @@ def test_ensure_sampler_jit_safe_disables_flashinfer_without_ninja(monkeypatch):
     assert capability.ensure_sampler_jit_safe() is False
 
 
-def test_fused_run_batch_uses_two_rpcs_and_tracks_dedup(profile, prefix):
+def test_fused_run_batch_uses_two_rpcs_and_tracks_dedup(profile, prefix, monkeypatch):
     from scd_runtime.contracts.identity import profile_fingerprint, sha256
     from scd_runtime.resident_runner import GPUResidentConsumer
 
     rpc_calls = []
+    clock = 20.0
+    monkeypatch.setattr(time, 'perf_counter', lambda: clock)
 
     class BatchEngine:
         def __init__(self):
@@ -246,11 +248,14 @@ def test_fused_run_batch_uses_two_rpcs_and_tracks_dedup(profile, prefix):
             return request_id + '-deadbeef'
 
         def step(self):
+            nonlocal clock
+            clock += 0.01
             self.done = True
             return [
                 SimpleNamespace(
                     request_id=rid,
                     finished=True,
+                    num_cached_tokens=0,
                     outputs=[SimpleNamespace(token_ids=[11, 12], finish_reason='length')],
                 )
                 for rid in self.reqs
@@ -273,8 +278,10 @@ def test_fused_run_batch_uses_two_rpcs_and_tracks_dedup(profile, prefix):
     client._generation = lambda *args: object()
 
     def rpc(method, **kwargs):
+        nonlocal clock
         rpc_calls.append(method)
         if method == 'scd_gpu_prepare_and_admit_batch':
+            clock += 0.05
             items = []
             for idx, item in enumerate(kwargs['batch_items']):
                 art_id = f'{idx:064x}'
@@ -341,11 +348,16 @@ def test_fused_run_batch_uses_two_rpcs_and_tracks_dedup(profile, prefix):
 
     client._rpc = rpc
     requests = [(prefix, tuple(range(16)) + (16, 17 + i)) for i in range(3)]
+    entry_at = time.perf_counter()
     out = client.run_batch(requests, {'max_new_tokens': 2})
     assert rpc_calls == ['scd_gpu_prepare_and_admit_batch', 'scd_gpu_finalize_batch']
     assert len(out.generations) == 3
     assert out.metrics['batch_dedup_hits'] == 2
     assert out.metrics['memo_hits'] == 0
+    setup_ms = (out.metrics['consumer_started_at'] - entry_at) * 1000
+    for generation in out.generations:
+        assert generation.metadata['first_token_ms'] == pytest.approx(10.0)
+        assert setup_ms + generation.metadata['first_token_ms'] == pytest.approx(60.0)
 
 
 def test_multi_entry_registry_requires_publish_all_before_admit_all(profile, prefix):

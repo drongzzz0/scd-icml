@@ -140,7 +140,7 @@ class ICMLBackend:
         route = p.route
         if p.numeric_version not in (BATCHED_NUMERIC_VERSION, NATIVE_ROPE_NUMERIC_VERSION):
             return None
-        if route.get('reuse_key_space') != 'pre_rope':
+        if route.get('reuse_key_space') not in ('pre_rope', 'post_rope'):
             return None
         if route.get('fit_mode') != 'xnorm_nativekv_shared_residual_mlp_v1':
             return None
@@ -203,6 +203,8 @@ class ICMLBackend:
             raise UnsupportedProfile('unsupported Patch fit mode')
         if route.get('reuse_key_space') not in ('pre_rope', 'post_rope'):
             raise AssetMismatch('declare reuse key space')
+        if route['reuse_key_space'] == 'post_rope' and p.source.rope != p.target.rope:
+            raise UnsupportedProfile('post-RoPE Reuse requires matching rotary parameters')
         if projections is not None and projections.identity != p.target:
             raise IdentityMismatch('projection target differs')
         return p, device, route, reuse, patch
@@ -216,7 +218,6 @@ class ICMLBackend:
         if (
             (self._compiled_plan is not None or device.type == 'cuda')
             and p.numeric_version in (BATCHED_NUMERIC_VERSION, NATIVE_ROPE_NUMERIC_VERSION)
-            and route['reuse_key_space'] == 'pre_rope'
             and route['fit_mode'] == 'xnorm_nativekv_shared_residual_mlp_v1'
             and projections is not None
         ):
@@ -225,8 +226,6 @@ class ICMLBackend:
             if plan is not None:
                 return self._convert_compiled(state, p, projections, plan, n, return_packed=return_packed)
 
-        if p.numeric_version in (BATCHED_NUMERIC_VERSION, NATIVE_ROPE_NUMERIC_VERSION) and route['reuse_key_space'] != 'pre_rope':
-            raise UnsupportedProfile('batched release Reuse requires pre-RoPE space')
         if route['fit_mode'] == 'xnorm_nativekv_shared_residual_mlp_v1' and projections is None:
             raise MissingAsset('shared native Patch requires frozen target projections')
 
@@ -265,8 +264,6 @@ class ICMLBackend:
                     v = reconstruct(v, assets, i, 'v')
                     if route['reuse_key_space'] == 'pre_rope':
                         k = paired_rope(k, p.target)
-                    elif p.source.rope != p.target.rope:
-                        raise UnsupportedProfile('post-RoPE mapping requires equal rotary config')
             else:
                 hidden = state.hidden.get((s, 'attention_input'))
                 if hidden is None:

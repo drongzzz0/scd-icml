@@ -25,10 +25,10 @@ class CompiledReusePlan:
     dec_v: torch.Tensor
     mean_a_v: torch.Tensor | None
     mean_b_v: torch.Tensor | None
-    src_cos: torch.Tensor
-    src_sin: torch.Tensor
-    tgt_cos: torch.Tensor
-    tgt_sin: torch.Tensor
+    src_cos: torch.Tensor | None
+    src_sin: torch.Tensor | None
+    tgt_cos: torch.Tensor | None
+    tgt_sin: torch.Tensor | None
 
 
 def compile_reuse_plan(assets, layers, device: torch.device, max_len: int) -> CompiledReusePlan | None:
@@ -53,8 +53,13 @@ def compile_reuse_plan(assets, layers, device: torch.device, max_len: int) -> Co
             return None
         return torch.stack([tensor(assets, key, device, torch.float32) for key in keys]).contiguous().unsqueeze(1)
 
-    src_cos, src_sin = build_paired_rope_tables(p.source, max_len, device, torch.float32)
-    tgt_cos, tgt_sin = build_paired_rope_tables(p.target, max_len, device, torch.float32)
+    src_cos = src_sin = tgt_cos = tgt_sin = None
+    if p.route.get('reuse_key_space') == 'post_rope':
+        if p.source.rope != p.target.rope:
+            raise UnsupportedProfile('post-RoPE Reuse requires matching rotary parameters')
+    else:
+        src_cos, src_sin = build_paired_rope_tables(p.source, max_len, device, torch.float32)
+        tgt_cos, tgt_sin = build_paired_rope_tables(p.target, max_len, device, torch.float32)
 
     return CompiledReusePlan(
         indices=indices,
@@ -86,14 +91,16 @@ def reconstruct_layerwise_compiled(state, plan: CompiledReusePlan) -> tuple[torc
     count = len(plan.indices)
 
     vals_k = torch.stack([state.kv[s][0].float() for s in plan.source_layers]).contiguous()
-    vals_k = apply_paired_rope(vals_k.reshape(count * b, h, n, d), plan.src_cos, plan.src_sin, inverse=True).reshape(count, b, h, n, d).contiguous()
+    if plan.src_cos is not None:
+        vals_k = apply_paired_rope(vals_k.reshape(count * b, h, n, d), plan.src_cos, plan.src_sin, inverse=True).reshape(count, b, h, n, d).contiguous()
     xk = vals_k.reshape(count, b * h * n, d)
     zk = torch.bmm(xk if plan.mean_a_k is None else xk - plan.mean_a_k, plan.enc_k).to(torch.bfloat16).float()
     yk = torch.bmm(zk, plan.dec_k)
     if plan.mean_b_k is not None:
         yk = yk + plan.mean_b_k
     vals_k = yk.reshape(count, b, h, n, d).contiguous()
-    vals_k = apply_paired_rope(vals_k.reshape(count * b, h, n, d), plan.tgt_cos, plan.tgt_sin, inverse=False).reshape(count, b, h, n, d)
+    if plan.tgt_cos is not None:
+        vals_k = apply_paired_rope(vals_k.reshape(count * b, h, n, d), plan.tgt_cos, plan.tgt_sin, inverse=False).reshape(count, b, h, n, d)
 
     vals_v = torch.stack([state.kv[s][1].float() for s in plan.source_layers]).contiguous()
     xv = vals_v.reshape(count, b * h * n, d)
@@ -118,10 +125,13 @@ def reconstruct_layerwise(state, assets, layers):
     device = state.kv[0][0].device
     b, h, n, d = state.kv[0][0].shape
     count = len(indices)
+    rotate_keys = p.route.get('reuse_key_space') != 'post_rope'
+    if not rotate_keys and p.source.rope != p.target.rope:
+        raise UnsupportedProfile('post-RoPE Reuse requires matching rotary parameters')
     outputs = {}
     for kind, index in (('k', 0), ('v', 1)):
         values = torch.stack([state.kv[p.layer_map[i]][index].float() for i in indices]).contiguous()
-        if kind == 'k':
+        if kind == 'k' and rotate_keys:
             values = paired_rope(values.reshape(count * b, h, n, d), p.source, True).reshape(count, b, h, n, d).contiguous()
         x = values.reshape(count, b * h * n, d)
 
@@ -144,7 +154,7 @@ def reconstruct_layerwise(state, assets, layers):
         if center is not None:
             y = y + center
         values = y.reshape(count, b, h, n, d).contiguous()
-        if kind == 'k':
+        if kind == 'k' and rotate_keys:
             values = paired_rope(values.reshape(count * b, h, n, d), p.target).reshape(count, b, h, n, d).contiguous()
         outputs[kind] = values
     return {layer: (outputs['k'][j], outputs['v'][j]) for j, layer in enumerate(indices)}

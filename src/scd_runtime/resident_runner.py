@@ -50,6 +50,7 @@ def _signal_deadline(seconds: float):
 
 class GPUResidentConsumer:
     _deadline_factory = staticmethod(_signal_deadline)
+    _worker_extension_cls = 'scd_vllm.resident_worker.GPUResidentWorkerExtension'
 
     def __init__(
         self,
@@ -202,7 +203,7 @@ class GPUResidentConsumer:
         if enable_output_completion:
             extra_cfg['request_output_completion'] = True
 
-        config['worker_extension_cls'] = 'scd_vllm.resident_worker.GPUResidentWorkerExtension'
+        config['worker_extension_cls'] = self._worker_extension_cls
         config['kv_transfer_config'] = {
             'kv_connector': 'SCDGPUConnectorV1',
             'kv_connector_module_path': 'scd_vllm.resident_connector',
